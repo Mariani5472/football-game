@@ -27,5 +27,5 @@ await application.start({
   savePath,
   packagePath,
   competitionSlug: "brasileirao-serie-a",
-  seasonYear: 2027,
+  seasonYear: 2026,
 });

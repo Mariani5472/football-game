@@ -26,7 +26,7 @@ export class SaveService {
       .run(
         input.name,
         new Date().toISOString(),
-        "2027-01-01",
+        "2026-01-01",
       );
 
     return database;
