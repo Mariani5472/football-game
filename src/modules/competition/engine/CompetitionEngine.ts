@@ -128,6 +128,49 @@ export class CompetitionEngine {
     return this.playFixture(fixture.id);
   }
 
+  playFixturesOnDate(
+    stageId: number,
+    date: string,
+  ): Fixture[] {
+    const fixtures = this.repository.findScheduledFixturesOnDate(
+      stageId,
+      date,
+    );
+
+    if (!fixtures.length) {
+      return [];
+    }
+
+    const transaction = this.db.transaction(() => {
+      const played: Fixture[] = [];
+
+      for (const fixture of fixtures) {
+        const result = this.matchEngine.simulate({
+          homeTeamId: fixture.homeTeamId,
+          awayTeamId: fixture.awayTeamId,
+        });
+
+        this.updateFixtureResult(fixture.id, result);
+
+        this.standingEngine.applyResult(
+          fixture.stageId,
+          result,
+        );
+
+        played.push({
+          ...fixture,
+          status: "PLAYED",
+          homeScore: result.homeGoals,
+          awayScore: result.awayGoals,
+        });
+      }
+
+      return played;
+    });
+
+    return transaction();
+  }
+
 
   private updateFixtureResult(
     fixtureId: number,
