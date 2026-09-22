@@ -24,6 +24,7 @@ export class GameApplication {
     const save = this.saveService.create({
       name: options.saveName,
       filePath: options.savePath,
+      startDate: `{options.seasonYear}-01-27`,
     });
 
     try {
