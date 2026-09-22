@@ -1,4 +1,4 @@
-import { FixtureStatus, type CompetitionSeason, type Fixture, type MatchSimulator, type StandingEntry } from "../data/types.js";
+import { FixtureStatus, type CompetitionSeason, type Fixture, type MatchSimulator, type StandingEntry } from "../database/types.js";
 import type { CompetitionRepository, FixtureRepository, ParticipantRepository, SeasonRepository, StageRepository, StandingRepository } from "../repositories/contracts.js";
 import { ParticipantEngine, ScheduleEngine, StandingEngine } from "./engines.js";
 

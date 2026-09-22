@@ -1,4 +1,4 @@
-import { FixtureStatus, StandingMetric, type CompetitionStage, type Fixture, type StandingEntry } from "../../data/types.js";
+import { FixtureStatus, StandingMetric, type CompetitionStage, type Fixture, type StandingEntry } from "../../database/types.js";
 
 export class StandingEngine {
   calculate(stage: CompetitionStage, fixtures: Fixture[], teamIds: string[]): StandingEntry[] {

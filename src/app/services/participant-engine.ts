@@ -1,4 +1,4 @@
-import { ParticipantSourceType, type CompetitionStage, type Participant, type Team } from "../../data/types.js";
+import { ParticipantSourceType, type CompetitionStage, type Participant, type Team } from "../../database/types.js";
 
 export class ParticipantEngine {
   async resolve(stage: CompetitionStage, seasonTeams: Team[]): Promise<Participant[]> {

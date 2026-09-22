@@ -1,4 +1,4 @@
-import { FixtureStatus, type CompetitionRound, type CompetitionStage, type Fixture, type Participant } from "../../data/types.js";
+import { FixtureStatus, type CompetitionRound, type CompetitionStage, type Fixture, type Participant } from "../../database/types.js";
 
 export class ScheduleEngine {
   generateLeague(stage: CompetitionStage, participants: Participant[]): { rounds: CompetitionRound[]; fixtures: Fixture[] } {
