@@ -14,6 +14,18 @@ export interface StartGameOptions {
 export class GameApplication {
   private readonly saveService = new SaveService();
 
+  getCurrentDate(
+    save: Parameters<SaveService["getCurrentDate"]>[0],
+  ): string {
+    return this.saveService.getCurrentDate(save);
+  }
+
+  advanceDay(
+    save: Parameters<SaveService["advanceDay"]>[0],
+  ): string {
+    return this.saveService.advanceDay(save);
+  }
+
   async start(options: StartGameOptions): Promise<void> {
     console.log("Starting Football Game...");
 
@@ -24,7 +36,7 @@ export class GameApplication {
     const save = this.saveService.create({
       name: options.saveName,
       filePath: options.savePath,
-      startDate: `{options.seasonYear}-01-27`,
+      startDate: `${options.seasonYear}-01-27`,
     });
 
     try {
