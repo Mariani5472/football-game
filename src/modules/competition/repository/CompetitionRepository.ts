@@ -103,6 +103,27 @@ export class CompetitionRepository {
     return row ?? null;
   }
 
+  findNextScheduledDate(
+    stageId: number,
+    currentDate: string,
+  ): string | null {
+    const row = this.db
+      .prepare(`
+        SELECT substr(f.scheduled_at, 1, 10) AS date
+        FROM fixture f
+        INNER JOIN competition_round r
+          ON r.id = f.round_id
+        WHERE r.stage_id = ?
+          AND f.status = 'SCHEDULED'
+          AND substr(f.scheduled_at, 1, 10) > ?
+        ORDER BY f.scheduled_at ASC, f.id ASC
+        LIMIT 1
+      `)
+      .get(stageId, currentDate) as { date: string } | undefined;
+
+    return row?.date ?? null;
+  }
+
   findScheduledFixturesOnDate(
     stageId: number,
     date: string,
