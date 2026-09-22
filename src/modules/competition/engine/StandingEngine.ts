@@ -1,11 +1,17 @@
 import type Database from "better-sqlite3";
+import type { MatchResult } from "../../match/domain/MatchResult.js";
 
-export interface MatchResult {
-  homeTeamId: number;
-  awayTeamId: number;
-
-  homeGoals: number;
-  awayGoals: number;
+export interface Standing {
+  teamId: number;
+  teamName: string;
+  played: number;
+  wins: number;
+  draws: number;
+  losses: number;
+  goalsFor: number;
+  goalsAgainst: number;
+  goalDifference: number;
+  points: number;
 }
 
 export class StandingEngine {
@@ -29,7 +35,32 @@ export class StandingEngine {
     transaction(teamIds);
   }
 
-  applyResult(stageId: number, result: MatchResult,): void {
+  getStandings(stageId: number): Standing[] {
+    return this.db.prepare(`
+      SELECT
+        s.team_id AS teamId,
+        t.name AS teamName,
+        s.played,
+        s.wins,
+        s.draws,
+        s.losses,
+        s.goals_for AS goalsFor,
+        s.goals_against AS goalsAgainst,
+        (s.goals_for - s.goals_against) AS goalDifference,
+        s.points
+      FROM standing s
+      INNER JOIN team t
+        ON t.id = s.team_id
+      WHERE s.stage_id = ?
+      ORDER BY
+        s.points DESC,
+        goalDifference DESC,
+        s.goals_for DESC,
+        t.name ASC
+    `).all(stageId) as Standing[];
+  }
+
+  applyResult(stageId: number, result: MatchResult): void {
     const home = this.getStanding(stageId, result.homeTeamId,);
     const away = this.getStanding(stageId, result.awayTeamId,);
 
