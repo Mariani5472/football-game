@@ -26,6 +26,23 @@ export class GameApplication {
     return this.saveService.advanceDay(save);
   }
 
+  advanceDayAndPlay(
+    save: Parameters<SaveService["advanceDay"]>[0],
+    competitionEngine: CompetitionEngine,
+    stageId: number,
+  ): {
+    date: string;
+    fixtures: ReturnType<CompetitionEngine["playFixturesOnDate"]>;
+  } {
+    const date = this.advanceDay(save);
+    const fixtures = competitionEngine.playFixturesOnDate(stageId, date);
+
+    return {
+      date,
+      fixtures,
+    };
+  }
+
   async start(options: StartGameOptions): Promise<void> {
     console.log("Starting Football Game...");
 
