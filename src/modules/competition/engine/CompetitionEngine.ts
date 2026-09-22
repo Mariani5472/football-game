@@ -128,6 +128,16 @@ export class CompetitionEngine {
     return this.playFixture(fixture.id);
   }
 
+  getNextCompetitionDate(
+    stageId: number,
+    currentDate: string,
+  ): string | null {
+    return this.repository.findNextScheduledDate(
+      stageId,
+      currentDate,
+    );
+  }
+
   playFixturesOnDate(
     stageId: number,
     date: string,
