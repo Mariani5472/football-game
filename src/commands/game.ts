@@ -28,4 +28,5 @@ await application.start({
   packagePath,
   competitionSlug: "brasileirao-serie-a",
   seasonYear: 2026,
+  simulateFirstFixture: true,
 });
