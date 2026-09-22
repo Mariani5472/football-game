@@ -103,6 +103,33 @@ export class CompetitionRepository {
     return row ?? null;
   }
 
+  findScheduledFixturesOnDate(
+    stageId: number,
+    date: string,
+  ): FixtureContext[] {
+    return this.db
+      .prepare(`
+        SELECT
+          f.id,
+          f.round_id AS roundId,
+          f.home_team_id AS homeTeamId,
+          f.away_team_id AS awayTeamId,
+          f.scheduled_at AS scheduledAt,
+          f.status,
+          f.home_score AS homeScore,
+          f.away_score AS awayScore,
+          r.stage_id AS stageId
+        FROM fixture f
+        INNER JOIN competition_round r
+          ON r.id = f.round_id
+        WHERE r.stage_id = ?
+          AND f.status = 'SCHEDULED'
+          AND substr(f.scheduled_at, 1, 10) = ?
+        ORDER BY f.scheduled_at ASC, f.id ASC
+      `)
+      .all(stageId, date) as FixtureContext[];
+  }
+
   findNextScheduledFixture(
     stageId: number,
   ): FixtureContext | null {
