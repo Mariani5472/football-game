@@ -4,7 +4,6 @@ import type { Competition } from "../domain/Competition.ts";
 import type { CompetitionSeason } from "../domain/CompetitionSeason.ts";
 import type { CompetitionParticipant } from "../domain/Participant.ts";
 import type { FixtureContext } from "../domain/FixtureContext.js";
-import { Fixture } from "../domain/Fixture.js";
 
 export class CompetitionRepository {
   constructor(
@@ -149,30 +148,4 @@ export class CompetitionRepository {
       `)
       .all(seasonId) as CompetitionParticipant[];
   }
-
-  findNextFixture(stageId: number): Fixture | null {
-    const row = this.db.prepare(`
-      SELECT
-        f.id,
-        f.round_id AS roundId,
-        f.home_team_id AS homeTeamId,
-        f.away_team_id AS awayTeamId,
-        f.scheduled_at AS scheduledAt,
-        f.status,
-        f.home_score AS homeScore,
-        f.away_score AS awayScore
-      FROM fixture f
-      INNER JOIN competition_round r
-        ON r.id = f.round_id
-      WHERE r.stage_id = ?
-        AND f.status = 'SCHEDULED'
-      ORDER BY
-        f.scheduled_at ASC,
-        f.id ASC
-      LIMIT 1
-    `)
-      .get(stageId) as Fixture | undefined;
-
-    return row ?? null;
-  }
-}
+\n}
