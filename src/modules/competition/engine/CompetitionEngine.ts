@@ -116,6 +116,17 @@ export class CompetitionEngine {
     return this.standingEngine.getStandings(stageId);
   }
 
+  playNextFixture(stageId: number): Fixture {
+    const fixture = this.repository.findNextScheduledFixture(stageId);
+
+    if (!fixture) {
+      throw new Error(`Nenhum fixture agendado para o stage ${stageId}`);
+    }
+
+    return this.playFixture(fixture.id);
+  }
+
+
   private updateFixtureResult(
     fixtureId: number,
     result: MatchResult,
