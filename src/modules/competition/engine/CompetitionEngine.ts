@@ -121,7 +121,7 @@ export class CompetitionEngine {
   playNextFixture(stageId: number): Fixture {
     const fixture = this.repository.findNextScheduledFixture(stageId);
 
-    if (!fixture || !fixture.id) {
+    if (!fixture) {
       throw new Error(`Nenhum fixture agendado para o stage ${stageId}`);
     }
 
