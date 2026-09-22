@@ -36,33 +36,32 @@ export class GameApplication {
   } {
     const currentDate = this.getCurrentDate(save);
 
-    const transaction = save.connection.transaction(() => {
-      const date = competitionEngine.getNextCompetitionDate(
-        stageId,
-        currentDate,
-      );
+    const nextDate = competitionEngine.getNextCompetitionDate(
+      stageId,
+      currentDate,
+    );
 
-      if (date === null) {
-        return {
-          date: currentDate,
-          fixtures: [],
-        };
-      }
-
-      this.saveService.setCurrentDate(save, date);
-
-      const fixtures = competitionEngine.playFixturesOnDate(
-        stageId,
-        date,
-      );
-
+    if (nextDate === null) {
       return {
-        date,
-        fixtures,
+        date: currentDate,
+        fixtures: [],
       };
-    });
+    }
 
-    return transaction();
+    const fixtures = competitionEngine.playFixturesOnDate(
+      stageId,
+      nextDate,
+    );
+
+    this.saveService.setCurrentDate(
+      save,
+      nextDate,
+    );
+
+    return {
+      date: nextDate,
+      fixtures,
+    };
   }
 
   async start(options: StartGameOptions): Promise<void> {
