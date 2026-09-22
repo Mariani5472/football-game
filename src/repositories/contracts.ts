@@ -1,4 +1,4 @@
-import type { Competition, CompetitionRound, CompetitionSeason, CompetitionStage, Fixture, Id, Participant, StandingEntry, Team } from "../domain/types.js";
+import type { Competition, CompetitionRound, CompetitionSeason, CompetitionStage, Fixture, Id, Participant, StandingEntry, Team } from "../data/types.js";
 export interface CompetitionRepository { findById(id: Id): Promise<Competition | null>; }
 export interface SeasonRepository { findById(id: Id): Promise<CompetitionSeason | null>; }
 export interface StageRepository { findById(id: Id): Promise<CompetitionStage | null>; findBySeasonId(seasonId: Id): Promise<CompetitionStage[]>; }

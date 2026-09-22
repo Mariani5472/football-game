@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { CompetitionEngine } from "../application/competition-engine.js";
 import { ParticipantEngine, ScheduleEngine, SeededMatchSimulator, StandingEngine } from "../application/engines.js";
-import { FixtureStatus, ParticipantSourceType, StageType, StandingMetric, type CompetitionStage } from "../domain/types.js";
+import { FixtureStatus, ParticipantSourceType, StageType, StandingMetric, type CompetitionStage } from "../data/types.js";
 import { MemoryCompetitionRepository, MemoryFixtureRepository, MemoryParticipantRepository, MemorySeasonRepository, MemoryStageRepository, MemoryStandingRepository } from "../infrastructure/memory-repositories.js";
 
 const stage: CompetitionStage = { id: "stage", seasonId: "122", name: "Liga", order: 1, type: StageType.LEAGUE, participantRule: { source: ParticipantSourceType.ALL_TEAMS }, leagueFormat: { legs: 2, points: { win: 3, draw: 1, loss: 0 }, tieBreakers: [StandingMetric.POINTS, StandingMetric.WINS, StandingMetric.GOAL_DIFFERENCE, StandingMetric.GOALS_FOR] } };

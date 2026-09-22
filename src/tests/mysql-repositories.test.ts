@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { MySqlCompetitionRepository, MySqlFixtureRepository, type SqlExecutor } from "../infrastructure/mysql/mysql-repositories.js";
-import { FixtureStatus } from "../domain/types.js";
+import { FixtureStatus } from "../data/types.js";
 
 describe("MySQL adapters", () => {
   it("maps competition rows without exposing SQL to the engine", async () => {

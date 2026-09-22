@@ -1,4 +1,4 @@
-import type { Competition, CompetitionRound, CompetitionSeason, CompetitionStage, Fixture, Id, Participant, StandingEntry, Team } from "../domain/types.js";
+import type { Competition, CompetitionRound, CompetitionSeason, CompetitionStage, Fixture, Id, Participant, StandingEntry, Team } from "../data/types.js";
 import type { CompetitionRepository, FixtureRepository, ParticipantRepository, SeasonRepository, StageRepository, StandingRepository } from "../repositories/contracts.js";
 export class MemoryCompetitionRepository implements CompetitionRepository { constructor(private items: Competition[]) {} async findById(id: Id) { return this.items.find((item) => item.id === id) ?? null; } }
 export class MemorySeasonRepository implements SeasonRepository { constructor(private items: CompetitionSeason[]) {} async findById(id: Id) { return this.items.find((item) => item.id === id) ?? null; } }

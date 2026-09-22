@@ -1,4 +1,4 @@
-export * from "./domain/types.js";
+export * from "./data/types.js";
 export * from "./repositories/contracts.js";
 export * from "./application/engines.js";
 export * from "./application/competition-engine.js";
