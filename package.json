@@ -1,0 +1,21 @@
+{
+  "name": "football-competition-engine",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "game:start": "tsx src/commands/game.ts",
+    "game:test-season": "tsx src/commands/game.ts --test-season",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^9.6.0",
+    "@types/node": "^24.0.0",
+    "tsx": "^4.23.15",
+    "typescript": "^5.9.0",
+    "vitest": "^3.2.0"
+  },
+  "dependencies": {
+    "better-sqlite3": "^13.0.3"
+  }
+}
