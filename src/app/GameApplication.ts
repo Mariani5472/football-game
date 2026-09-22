@@ -34,13 +34,35 @@ export class GameApplication {
     date: string;
     fixtures: ReturnType<CompetitionEngine["playFixturesOnDate"]>;
   } {
-    const date = this.advanceDay(save);
-    const fixtures = competitionEngine.playFixturesOnDate(stageId, date);
+    const currentDate = this.getCurrentDate(save);
 
-    return {
-      date,
-      fixtures,
-    };
+    const transaction = save.connection.transaction(() => {
+      const date = competitionEngine.getNextCompetitionDate(
+        stageId,
+        currentDate,
+      );
+
+      if (date === null) {
+        return {
+          date: currentDate,
+          fixtures: [],
+        };
+      }
+
+      this.saveService.setCurrentDate(save, date);
+
+      const fixtures = competitionEngine.playFixturesOnDate(
+        stageId,
+        date,
+      );
+
+      return {
+        date,
+        fixtures,
+      };
+    });
+
+    return transaction();
   }
 
   async start(options: StartGameOptions): Promise<void> {
