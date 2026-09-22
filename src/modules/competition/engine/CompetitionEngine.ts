@@ -32,6 +32,8 @@ export class CompetitionEngine {
     this.repository = new CompetitionRepository(db);
     this.scheduleEngine = new ScheduleEngine();
     this.standingEngine = new StandingEngine(db);
+    this.calendarEngine = new CalendarEngine();
+    this.matchEngine = new MatchEngine();
   }
 
   generateSeason(setup: CompetitionSeasonSetup): GeneratedSeason {
