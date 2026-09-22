@@ -8,6 +8,7 @@ export interface StartGameOptions {
   packagePath: string;
   competitionSlug: string;
   seasonYear: number;
+  simulateFirstFixture?: boolean;
 }
 
 export class GameApplication {
@@ -52,6 +53,27 @@ export class GameApplication {
       console.log(`Stage ID: ${season.stageId}`);
       console.log(`Rounds: ${season.rounds}`);
       console.log(`Fixtures: ${season.fixtures}`);
+
+      if (options.simulateFirstFixture) {
+        const fixture = competitionEngine.playNextFixture(season.stageId);
+
+        console.log("");
+        console.log("First fixture played.");
+        console.log(
+          `Fixture ${fixture.id}: ${fixture.homeTeamId} ${fixture.homeScore} x ${fixture.awayScore} ${fixture.awayTeamId}`,
+        );
+
+        console.log("");
+        console.log("Standings:");
+
+        for (const [index, standing] of competitionEngine
+          .getStandings(season.stageId)
+          .entries()) {
+          console.log(
+            `${index + 1}. ${standing.teamName} - ${standing.points} pts | ${standing.played}J ${standing.wins}V ${standing.draws}E ${standing.losses}D | SG ${standing.goalDifference}`,
+          );
+        }
+      }
     } finally {
       save.close();
     }

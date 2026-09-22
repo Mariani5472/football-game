@@ -3,8 +3,10 @@ import { CompetitionRepository } from "../repository/CompetitionRepository.js";
 import { ScheduleEngine } from "./ScheduleEngine.js";
 import { StandingEngine } from "./StandingEngine.js";
 import { CalendarEngine } from "./CalendarEngine.js";
-import { Fixture } from "../domain/Fixture.js";
-import { MatchEngine, MatchResult } from "./MatchEngine.js";
+import { MatchEngine } from "../../match/engine/MatchEngine.js";
+import type { MatchResult } from "../../match/domain/MatchResult.js";
+import type { Fixture } from "../domain/Fixture.js";
+import type { Standing } from "./StandingEngine.js";
 
 export interface CompetitionSeasonSetup {
   competitionSlug: string;
@@ -23,8 +25,8 @@ export class CompetitionEngine {
   private readonly repository: CompetitionRepository;
   private readonly scheduleEngine: ScheduleEngine;
   private readonly standingEngine: StandingEngine;
-  private readonly calendarEngine: CalendarEngine;
-  private readonly matchEngine: MatchEngine;
+  private readonly calendarEngine = new CalendarEngine();
+  private readonly matchEngine = new MatchEngine();
 
   constructor(private readonly db: Database.Database) {
     this.repository = new CompetitionRepository(db);
@@ -82,11 +84,11 @@ export class CompetitionEngine {
       const fixture = this.repository.findFixture(fixtureId);
 
       if (!fixture) {
-        throw new Error(`Fixture não encontrada: ${fixtureId}`,);
+        throw new Error(`Fixture não encontrada: ${fixtureId}`);
       }
 
       if (fixture.status !== "SCHEDULED") {
-        throw new Error(`Fixture ${fixtureId} já foi processada.`,);
+        throw new Error(`Fixture ${fixtureId} já foi processada.`);
       }
 
       const result = this.matchEngine.simulate({
@@ -94,10 +96,7 @@ export class CompetitionEngine {
         awayTeamId: fixture.awayTeamId,
       });
 
-      this.updateFixtureResult(
-        fixtureId,
-        result,
-      );
+      this.updateFixtureResult(fixtureId, result);
 
       this.standingEngine.applyResult(
         fixture.stageId,
@@ -112,8 +111,41 @@ export class CompetitionEngine {
       };
     });
 
-
     return transaction();
+  }
+
+  getStandings(stageId: number): Standing[] {
+    return this.standingEngine.getStandings(stageId);
+  }
+
+  playNextFixture(stageId: number): Fixture {
+    const fixture = this.repository.findNextScheduledFixture(stageId);
+
+    if (!fixture || !fixture.id) {
+      throw new Error(`Nenhum fixture agendado para o stage ${stageId}`);
+    }
+
+    return this.playFixture(fixture.id);
+  }
+
+
+  private updateFixtureResult(
+    fixtureId: number,
+    result: MatchResult,
+  ): void {
+    this.db.prepare(`
+      UPDATE fixture
+      SET
+        status = ?,
+        home_score = ?,
+        away_score = ?
+      WHERE id = ?
+    `).run(
+      "PLAYED",
+      result.homeGoals,
+      result.awayGoals,
+      fixtureId,
+    );
   }
 
   private createLeagueStage(seasonId: number,): { id: number; } {
@@ -198,26 +230,4 @@ export class CompetitionEngine {
 
     transaction();
   }
-
-  private updateFixtureResult(
-    fixtureId: number,
-    result: MatchResult,
-  ): void {
-    this.db
-      .prepare(`
-      UPDATE fixture
-      SET
-        status = 'PLAYED',
-        home_score = ?,
-        away_score = ?
-      WHERE id = ?
-    `)
-      .run(
-        result.homeGoals,
-        result.awayGoals,
-        fixtureId,
-      );
-  }
-
-
 }
