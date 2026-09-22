@@ -53,14 +53,21 @@ export class SaveService {
     const currentDate = this.getCurrentDate(database);
     const nextDate = this.addDays(currentDate, 1);
 
+    return this.setCurrentDate(database, nextDate);
+  }
+
+  setCurrentDate(
+    database: SaveDatabase,
+    date: string,
+  ): string {
     database.connection
       .prepare(`
         UPDATE save
         SET current_date = ?
       `)
-      .run(nextDate);
+      .run(date);
 
-    return nextDate;
+    return date;
   }
 
   private addDays(date: string, days: number): string {
