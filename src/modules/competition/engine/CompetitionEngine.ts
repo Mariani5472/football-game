@@ -3,6 +3,8 @@ import { CompetitionRepository } from "../repository/CompetitionRepository.js";
 import { ScheduleEngine } from "./ScheduleEngine.js";
 import { StandingEngine } from "./StandingEngine.js";
 import { CalendarEngine } from "./CalendarEngine.js";
+import { Fixture } from "../domain/Fixture.js";
+import { MatchEngine, MatchResult } from "./MatchEngine.js";
 
 export interface CompetitionSeasonSetup {
   competitionSlug: string;
@@ -21,12 +23,15 @@ export class CompetitionEngine {
   private readonly repository: CompetitionRepository;
   private readonly scheduleEngine: ScheduleEngine;
   private readonly standingEngine: StandingEngine;
-  private readonly calendarEngine = new CalendarEngine();
+  private readonly calendarEngine: CalendarEngine;
+  private readonly matchEngine: MatchEngine;
 
   constructor(private readonly db: Database.Database) {
     this.repository = new CompetitionRepository(db);
     this.scheduleEngine = new ScheduleEngine();
     this.standingEngine = new StandingEngine(db);
+    this.calendarEngine = new CalendarEngine();
+    this.matchEngine = new MatchEngine();
   }
 
   generateSeason(setup: CompetitionSeasonSetup): GeneratedSeason {
@@ -70,6 +75,45 @@ export class CompetitionEngine {
       rounds: rounds.length,
       fixtures: fixtureCount,
     };
+  }
+
+  playFixture(fixtureId: number): Fixture {
+    const transaction = this.db.transaction(() => {
+      const fixture = this.repository.findFixture(fixtureId);
+
+      if (!fixture) {
+        throw new Error(`Fixture não encontrada: ${fixtureId}`,);
+      }
+
+      if (fixture.status !== "SCHEDULED") {
+        throw new Error(`Fixture ${fixtureId} já foi processada.`,);
+      }
+
+      const result = this.matchEngine.simulate({
+        homeTeamId: fixture.homeTeamId,
+        awayTeamId: fixture.awayTeamId,
+      });
+
+      this.updateFixtureResult(
+        fixtureId,
+        result,
+      );
+
+      this.standingEngine.applyResult(
+        fixture.stageId,
+        result,
+      );
+
+      return {
+        ...fixture,
+        status: "PLAYED" as const,
+        homeScore: result.homeGoals,
+        awayScore: result.awayGoals,
+      };
+    });
+
+
+    return transaction();
   }
 
   private createLeagueStage(seasonId: number,): { id: number; } {
@@ -154,4 +198,26 @@ export class CompetitionEngine {
 
     transaction();
   }
+
+  private updateFixtureResult(
+    fixtureId: number,
+    result: MatchResult,
+  ): void {
+    this.db
+      .prepare(`
+      UPDATE fixture
+      SET
+        status = 'PLAYED',
+        home_score = ?,
+        away_score = ?
+      WHERE id = ?
+    `)
+      .run(
+        result.homeGoals,
+        result.awayGoals,
+        fixtureId,
+      );
+  }
+
+
 }

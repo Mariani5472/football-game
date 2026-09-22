@@ -1,12 +1,5 @@
 import type Database from "better-sqlite3";
-
-export interface MatchResult {
-  homeTeamId: number;
-  awayTeamId: number;
-
-  homeGoals: number;
-  awayGoals: number;
-}
+import { MatchResult } from "./MatchEngine.js";
 
 export class StandingEngine {
   constructor(private readonly db: Database.Database) {}
