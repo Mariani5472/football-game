@@ -7,6 +7,9 @@ import { MatchEngine } from "../../match/engine/MatchEngine.js";
 import type { MatchResult } from "../../match/domain/MatchResult.js";
 import type { Fixture } from "../domain/Fixture.js";
 import type { Standing } from "./StandingEngine.js";
+import { StandingRuleType } from "../domain/StandingRule.js";
+import { StandingRuleRepository } from "../repository/StandingRuleRepository.js";
+import { QualificationEngine } from "./QualificationEngine.js";
 
 export interface CompetitionSeasonSetup {
   competitionSlug: string;
@@ -25,8 +28,10 @@ export class CompetitionEngine {
   private readonly repository: CompetitionRepository;
   private readonly scheduleEngine: ScheduleEngine;
   private readonly standingEngine: StandingEngine;
-  private readonly calendarEngine = new CalendarEngine();
-  private readonly matchEngine = new MatchEngine();
+  private readonly calendarEngine: CalendarEngine;
+  private readonly matchEngine: MatchEngine;
+  private readonly standingRuleRepository: StandingRuleRepository;
+  private readonly qualificationEngine: QualificationEngine;
 
   constructor(private readonly db: Database.Database) {
     this.repository = new CompetitionRepository(db);
@@ -34,6 +39,8 @@ export class CompetitionEngine {
     this.standingEngine = new StandingEngine(db);
     this.calendarEngine = new CalendarEngine();
     this.matchEngine = new MatchEngine();
+    this.standingRuleRepository = new StandingRuleRepository(db);
+    this.qualificationEngine = new QualificationEngine(db);
   }
 
   generateSeason(setup: CompetitionSeasonSetup): GeneratedSeason {
@@ -114,38 +121,56 @@ export class CompetitionEngine {
     return transaction();
   }
 
-  getStandings(stageId: number): Standing[] {
+  playFixturesOnDate(stageId: number, date: string,): Fixture[] {
+    const fixtures = this.repository.findScheduledFixturesOnDate(stageId, date,);
+    if (!fixtures.length) {
+      return [];
+    }
+
+    const transaction = this.db.transaction(() => {
+      const played: Fixture[] = [];
+
+      for (const fixture of fixtures) {
+        const result = this.matchEngine.simulate({ homeTeamId: fixture.homeTeamId, awayTeamId: fixture.awayTeamId, });
+        this.updateFixtureResult(fixture.id, result,);
+        this.standingEngine.applyResult(fixture.stageId, result,);
+
+        played.push({
+          ...fixture,
+          status: "PLAYED",
+          homeScore: result.homeGoals,
+          awayScore: result.awayGoals,
+        });
+      }
+
+      return played;
+    }); return transaction();
+  }
+
+  getNextCompetitionDate(stageId: number, currentDate: string,): string | null {
+    return this.repository.findNextScheduledDate(stageId, currentDate,);
+  }
+
+  getStandings(stageId: number,): Standing[] {
     return this.standingEngine.getStandings(stageId);
   }
 
-  playNextFixture(stageId: number): Fixture {
-    const fixture = this.repository.findNextScheduledFixture(stageId);
 
-    if (!fixture) {
-      throw new Error(`Nenhum fixture agendado para o stage ${stageId}`);
-    }
-
-    return this.playFixture(fixture.id);
-  }
-
-
-  private updateFixtureResult(
-    fixtureId: number,
-    result: MatchResult,
-  ): void {
-    this.db.prepare(`
-      UPDATE fixture
-      SET
-        status = ?,
+  private updateFixtureResult(fixtureId: number, result: MatchResult,): void {
+    this.db
+      .prepare(` 
+        UPDATE fixture 
+        SET status = ?, 
         home_score = ?,
-        away_score = ?
-      WHERE id = ?
-    `).run(
-      "PLAYED",
-      result.homeGoals,
-      result.awayGoals,
-      fixtureId,
-    );
+        away_score = ? 
+        WHERE id = ? `
+      )
+      .run(
+        "PLAYED",
+        result.homeGoals,
+        result.awayGoals,
+        fixtureId,
+      );
   }
 
   private createLeagueStage(seasonId: number,): { id: number; } {
@@ -165,9 +190,37 @@ export class CompetitionEngine {
         1,
       );
 
+    const stageId = Number(
+      result.lastInsertRowid,
+    );
+
+    this.createStandingRules(stageId);
+
+
     return {
       id: Number(result.lastInsertRowid),
     };
+  }
+
+  getQualifications(stageId: number) {
+    const standings = this.standingEngine.getStandings(stageId);
+
+    return this.qualificationEngine.resolve(
+      stageId,
+      standings,
+    );
+  }
+
+  private createStandingRules(stageId: number,): void {
+    this.standingRuleRepository.create(
+      stageId,
+      [
+        "POINTS",
+        "WINS",
+        "GOAL_DIFFERENCE",
+        "GOALS_FOR",
+      ],
+    );
   }
 
   private createRounds(

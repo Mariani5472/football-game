@@ -1,9 +1,11 @@
 import fs from "node:fs";
+
 import { SaveDatabase } from "../../database/save/SaveDatabase.js";
 
 export interface CreateSaveInput {
   name: string;
   filePath: string;
+  startDate: string;
 }
 
 export class SaveService {
@@ -19,16 +21,73 @@ export class SaveService {
         INSERT INTO save (
           name,
           created_at,
-          current_date
+          "current_date"
         )
         VALUES (?, ?, ?)
       `)
       .run(
         input.name,
         new Date().toISOString(),
-        "2026-01-01",
+        input.startDate,
       );
 
     return database;
+  }
+
+  getCurrentDate(database: SaveDatabase): string {
+    const row = database.connection
+      .prepare(`
+        SELECT "current_date" AS currentDate
+        FROM save
+        LIMIT 1
+      `)
+      .get() as { currentDate: string } | undefined;
+
+    if (!row) {
+      throw new Error("Save não encontrada.");
+    }
+
+    return row.currentDate;
+  }
+
+  setCurrentDate(
+    database: SaveDatabase,
+    date: string,
+  ): void {
+    database.connection
+      .prepare(`
+        UPDATE save
+        SET "current_date" = ?
+      `)
+      .run(date);
+  }
+
+  advanceDay(database: SaveDatabase): string {
+    const currentDate = this.getCurrentDate(database);
+    const nextDate = this.addDays(currentDate, 1);
+
+    this.setCurrentDate(
+      database,
+      nextDate,
+    );
+
+    return nextDate;
+  }
+
+  private addDays(
+    date: string,
+    days: number,
+  ): string {
+    const value = new Date(
+      `${date}T00:00:00`,
+    );
+
+    value.setDate(
+      value.getDate() + days,
+    );
+
+    return value
+      .toISOString()
+      .slice(0, 10);
   }
 }

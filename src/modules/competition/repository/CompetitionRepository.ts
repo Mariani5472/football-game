@@ -4,7 +4,6 @@ import type { Competition } from "../domain/Competition.ts";
 import type { CompetitionSeason } from "../domain/CompetitionSeason.ts";
 import type { CompetitionParticipant } from "../domain/Participant.ts";
 import type { FixtureContext } from "../domain/FixtureContext.js";
-import { Fixture } from "../domain/Fixture.js";
 
 export class CompetitionRepository {
   constructor(
@@ -24,11 +23,11 @@ export class CompetitionRepository {
           gender,
           image,
 
-          primary_color as primaryColor,
-          secondary_color as secondaryColor,
+          primary_color AS primaryColor,
+          secondary_color AS secondaryColor,
 
-          usual_start_date as usualStartDate,
-          usual_end_date as usualEndDate,
+          usual_start_date AS usualStartDate,
+          usual_end_date AS usualEndDate,
 
           frequency,
           tier
@@ -52,19 +51,19 @@ export class CompetitionRepository {
           year,
           number_of_competitors AS numberOfCompetitors,
 
-          start_date as startDate,
-          end_date as endDate,
+          start_date AS startDate,
+          end_date AS endDate,
 
-          is_group as isGroup,
-          has_rounds as hasRounds,
-          has_groups as hasGroups,
-          has_playoff as hasPlayoff,
+          is_group AS isGroup,
+          has_rounds AS hasRounds,
+          has_groups AS hasGroups,
+          has_playoff AS hasPlayoff,
 
-          competition_type as CompetitionType,
-          rounds_count as roundsCount,
+          competition_type AS competitionType,
+          rounds_count AS roundsCount,
 
-          promoting_teams_count as promotingTeamsCount,
-          relegating_teams_count as relegatingTeamsCount
+          promoting_teams_count AS promotingTeamsCount,
+          relegating_teams_count AS relegatingTeamsCount
         FROM competition_season
         WHERE competition_id = ?
           AND year = ?
@@ -78,9 +77,7 @@ export class CompetitionRepository {
     return row ?? null;
   }
 
-  findFixture(
-    fixtureId: number,
-  ): FixtureContext | null {
+  findFixture(fixtureId: number,): FixtureContext | null {
     const row = this.db
       .prepare(`
         SELECT
@@ -92,11 +89,15 @@ export class CompetitionRepository {
           f.status,
           f.home_score AS homeScore,
           f.away_score AS awayScore,
+
           r.stage_id AS stageId
         FROM fixture f
+
         INNER JOIN competition_round r
           ON r.id = f.round_id
+
         WHERE f.id = ?
+
         LIMIT 1
       `)
       .get(fixtureId) as FixtureContext | undefined;
@@ -104,9 +105,82 @@ export class CompetitionRepository {
     return row ?? null;
   }
 
-  findNextScheduledFixture(
-    stageId: number,
-  ): FixtureContext | null {
+  findNextScheduledDate(stageId: number, currentDate: string,): string | null {
+    const row = this.db
+      .prepare(`
+        SELECT
+          substr(
+            f.scheduled_at,
+            1,
+            10
+          ) AS date
+
+        FROM fixture f
+
+        INNER JOIN competition_round r
+          ON r.id = f.round_id
+
+        WHERE r.stage_id = ?
+          AND f.status = 'SCHEDULED'
+          AND substr(
+            f.scheduled_at,
+            1,
+            10
+          ) > ?
+
+        ORDER BY
+          f.scheduled_at ASC,
+          f.id ASC
+
+        LIMIT 1
+      `)
+      .get(
+        stageId,
+        currentDate,
+      ) as { date: string } | undefined;
+
+    return row?.date ?? null;
+  }
+
+  findScheduledFixturesOnDate(stageId: number, date: string,): FixtureContext[] {
+    return this.db
+      .prepare(`
+        SELECT
+          f.id,
+          f.round_id AS roundId,
+          f.home_team_id AS homeTeamId,
+          f.away_team_id AS awayTeamId,
+          f.scheduled_at AS scheduledAt,
+          f.status,
+          f.home_score AS homeScore,
+          f.away_score AS awayScore,
+
+          r.stage_id AS stageId
+
+        FROM fixture f
+
+        INNER JOIN competition_round r
+          ON r.id = f.round_id
+
+        WHERE r.stage_id = ?
+          AND f.status = 'SCHEDULED'
+          AND substr(
+            f.scheduled_at,
+            1,
+            10
+          ) = ?
+
+        ORDER BY
+          f.scheduled_at ASC,
+          f.id ASC
+      `)
+      .all(
+        stageId,
+        date,
+      ) as FixtureContext[];
+  }
+
+  findNextScheduledFixture(stageId: number,): FixtureContext | null {
     const row = this.db
       .prepare(`
         SELECT
@@ -118,13 +192,21 @@ export class CompetitionRepository {
           f.status,
           f.home_score AS homeScore,
           f.away_score AS awayScore,
+
           r.stage_id AS stageId
+
         FROM fixture f
+
         INNER JOIN competition_round r
           ON r.id = f.round_id
+
         WHERE r.stage_id = ?
           AND f.status = 'SCHEDULED'
-        ORDER BY f.scheduled_at ASC, f.id ASC
+
+        ORDER BY
+          f.scheduled_at ASC,
+          f.id ASC
+
         LIMIT 1
       `)
       .get(stageId) as FixtureContext | undefined;
@@ -132,47 +214,23 @@ export class CompetitionRepository {
     return row ?? null;
   }
 
-  findParticipants(
-    seasonId: number,
-  ): CompetitionParticipant[] {
+  findParticipants(seasonId: number,): CompetitionParticipant[] {
     return this.db
       .prepare(`
         SELECT
           t.id AS teamId,
           t.name,
           t.short_name AS shortName
+
         FROM competition_team ct
+
         INNER JOIN team t
           ON t.id = ct.team_id
+
         WHERE ct.competition_season_id = ?
+
         ORDER BY t.name
       `)
       .all(seasonId) as CompetitionParticipant[];
-  }
-
-  findNextFixture(stageId: number): Fixture | null {
-    const row = this.db.prepare(`
-      SELECT
-        f.id,
-        f.round_id AS roundId,
-        f.home_team_id AS homeTeamId,
-        f.away_team_id AS awayTeamId,
-        f.scheduled_at AS scheduledAt,
-        f.status,
-        f.home_score AS homeScore,
-        f.away_score AS awayScore
-      FROM fixture f
-      INNER JOIN competition_round r
-        ON r.id = f.round_id
-      WHERE r.stage_id = ?
-        AND f.status = 'SCHEDULED'
-      ORDER BY
-        f.scheduled_at ASC,
-        f.id ASC
-      LIMIT 1
-    `)
-      .get(stageId) as Fixture | undefined;
-
-    return row ?? null;
   }
 }

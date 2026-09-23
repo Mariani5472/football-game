@@ -12,7 +12,7 @@ export function loadWorld(db: Database.Database): World {
       SELECT
         id,
         name,
-        current_date AS currentDate
+        "current_date" AS currentDate
       FROM save
       LIMIT 1
     `)
