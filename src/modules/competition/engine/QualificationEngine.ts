@@ -22,9 +22,6 @@ export class QualificationEngine {
     standings: Standing[],
   ): Qualification[] {
     const rules = this.repository.findByStage(stageId);
-
-    console.log(rules)
-
     const qualifications: Qualification[] = [];
 
     standings.forEach((standing, index) => {

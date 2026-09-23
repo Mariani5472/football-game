@@ -64,7 +64,6 @@ export class CompetitionEngine {
     if (!participants.length) {
       throw new Error(`Nenhum participante encontrado para ${competition.name} ${setup.year}`);
     }
-
     const stage = this.createLeagueStage(season.id);
 
     const rounds = this.scheduleEngine.generateDoubleRoundRobin(participants);
@@ -175,30 +174,18 @@ export class CompetitionEngine {
 
   private createLeagueStage(seasonId: number,): { id: number; } {
     const result = this.db.prepare(`
-        INSERT INTO competition_stage (
-          competition_season_id,
-          name,
-          type,
-          stage_order
-        )
-        VALUES (?, ?, ?, ?)
+        SELECT id FROM competition_stage 
+        where competition_season_id = ?
       `)
-      .run(
-        seasonId,
-        "League",
-        "LEAGUE",
-        1,
-      );
+      .get(seasonId,) as { id: number }
 
     const stageId = Number(
-      result.lastInsertRowid,
+      result.id,
     );
-
-    this.createStandingRules(stageId);
 
 
     return {
-      id: Number(result.lastInsertRowid),
+      id: stageId,
     };
   }
 
@@ -208,18 +195,6 @@ export class CompetitionEngine {
     return this.qualificationEngine.resolve(
       stageId,
       standings,
-    );
-  }
-
-  private createStandingRules(stageId: number,): void {
-    this.standingRuleRepository.create(
-      stageId,
-      [
-        "POINTS",
-        "WINS",
-        "GOAL_DIFFERENCE",
-        "GOALS_FOR",
-      ],
     );
   }
 
