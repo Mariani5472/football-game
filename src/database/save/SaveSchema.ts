@@ -649,7 +649,45 @@ CREATE TABLE IF NOT EXISTS competition_season_promotion (
     UNIQUE (competition_season_id, destination_competition_id)
 );
 
--- Índices que estavam inline no MySQL adaptados para a sintaxe do SQLite
+CREATE TABLE IF NOT EXISTS standing_rule (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+    stage_id INTEGER NOT NULL,
+
+    rule_order INTEGER NOT NULL,
+    rule_type TEXT NOT NULL,
+
+    FOREIGN KEY (stage_id) REFERENCES competition_stage(id),
+
+    UNIQUE (stage_id, rule_order)
+);
+
+CREATE TABLE IF NOT EXISTS stage_transition (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+    from_stage_id INTEGER NOT NULL,
+    to_stage_id INTEGER NOT NULL,
+
+    source_type TEXT NOT NULL,
+    source_position INTEGER NULL,
+
+    FOREIGN KEY (from_stage_id)
+        REFERENCES competition_stage(id),
+
+    FOREIGN KEY (to_stage_id)
+        REFERENCES competition_stage(id)
+);
+
+CREATE TABLE IF NOT EXISTS qualification_rule (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    stage_id INTEGER NOT NULL,
+    position_from INTEGER NOT NULL,
+    position_to INTEGER NOT NULL,
+    qualification_type TEXT NOT NULL,
+    destination TEXT NOT NULL,
+    FOREIGN KEY (stage_id) REFERENCES competition_stage(id)
+);
+
 CREATE INDEX IF NOT EXISTS idx_mtp_manager ON manager_team_period (manager_id);
 CREATE INDEX IF NOT EXISTS idx_mtp_team ON manager_team_period (team_id);
 CREATE INDEX IF NOT EXISTS idx_pss_player ON player_statistics_snapshot (player_id);

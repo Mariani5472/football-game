@@ -1,4 +1,5 @@
 import fs from "node:fs";
+
 import { SaveDatabase } from "../../database/save/SaveDatabase.js";
 
 export interface CreateSaveInput {
@@ -20,7 +21,7 @@ export class SaveService {
         INSERT INTO save (
           name,
           created_at,
-          current_date
+          "current_date"
         )
         VALUES (?, ?, ?)
       `)
@@ -36,7 +37,7 @@ export class SaveService {
   getCurrentDate(database: SaveDatabase): string {
     const row = database.connection
       .prepare(`
-        SELECT current_date AS currentDate
+        SELECT "current_date" AS currentDate
         FROM save
         LIMIT 1
       `)
@@ -49,31 +50,44 @@ export class SaveService {
     return row.currentDate;
   }
 
+  setCurrentDate(
+    database: SaveDatabase,
+    date: string,
+  ): void {
+    database.connection
+      .prepare(`
+        UPDATE save
+        SET "current_date" = ?
+      `)
+      .run(date);
+  }
+
   advanceDay(database: SaveDatabase): string {
     const currentDate = this.getCurrentDate(database);
     const nextDate = this.addDays(currentDate, 1);
 
-    return this.setCurrentDate(database, nextDate);
+    this.setCurrentDate(
+      database,
+      nextDate,
+    );
+
+    return nextDate;
   }
 
-  setCurrentDate(
-    database: SaveDatabase,
+  private addDays(
     date: string,
+    days: number,
   ): string {
-    database.connection
-      .prepare(`
-        UPDATE save
-        SET current_date = ?
-      `)
-      .run(date);
+    const value = new Date(
+      `${date}T00:00:00`,
+    );
 
-    return date;
-  }
+    value.setDate(
+      value.getDate() + days,
+    );
 
-  private addDays(date: string, days: number): string {
-    const value = new Date(`${date}T00:00:00`);
-    value.setDate(value.getDate() + days);
-
-    return value.toISOString().slice(0, 10);
+    return value
+      .toISOString()
+      .slice(0, 10);
   }
 }

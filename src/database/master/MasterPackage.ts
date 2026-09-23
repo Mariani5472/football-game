@@ -2,81 +2,41 @@ import fs from "node:fs";
 
 import type Database from "better-sqlite3";
 
-interface MysqlInsert {
-  table: string;
-  columns: string[];
-  rows: unknown[][];
-}
-
 export class MasterPackage {
   constructor(private readonly db: Database.Database) {}
 
   importFile(filePath: string): void {
-    const sql = fs.readFileSync(
-      filePath,
-      "utf8",
-    );
+    const sql = fs.readFileSync(filePath, "utf8");
 
-    const inserts = this.parseInserts(sql);
-    this.importInserts(inserts);
+    const statements = this.splitStatements(sql);
+
+    this.executeStatements(statements);
   }
 
-  private importInserts(inserts: MysqlInsert[]): void {
-    for (const insert of inserts) {
-      this.importInsert(insert);
-    }
-  }
-
-  private importInsert(insert: MysqlInsert): void {
-    // const supported = new Set([
-    //   "competition",
-    //   "competition_season",
-    //   "team",
-    //   "competition_team",
-    // ]);
-
-    // if (!supported.has(insert.table)) {
-    //   return;
-    // }
-
-    const table = insert.table;
-    const columns = insert.columns;
-    const placeholders = columns.map(() => "?").join(", ");
-    const statement = this.db.prepare(`
-        INSERT OR IGNORE INTO ${table} (
-          ${columns.join(", ")}
-        )
-        VALUES (
-          ${placeholders}
-        )
-      `);
-
+  private executeStatements(statements: string[]): void {
     const transaction = this.db.transaction(() => {
-      for (let rowIndex = 0; rowIndex < insert.rows.length; rowIndex++) {
-        const row = insert.rows[rowIndex];
-
+      for (let index = 0; index < statements.length; index++) {
+        const originalSql = statements[index];
+        if (this.shouldSkipStatement(originalSql)) {
+          continue;
+        }
+        const sql = this.normalizeSql(originalSql);
         try {
-          statement.run(...row);
+          this.db.exec(sql);
         } catch (error) {
           throw new Error(
             [
-              `[MasterPackage] Failed to import row`,
+              `[MasterPackage] Failed to execute SQL statement`,
               ``,
-              `Table: ${table}`,
-              `Row: ${rowIndex + 1}`,
-              ``,
-              `Columns:`,
-              `  ${columns.join(", ")}`,
-              ``,
-              `Values:`,
-              `  ${JSON.stringify(row)}`,
+              `Statement: ${index + 1}/${statements.length}`,
               ``,
               `SQL:`,
-              `  INSERT INTO ${table} (${columns.join(", ")})`,
-              `  VALUES (${row.map((value) => JSON.stringify(value)).join(", ")})`,
+              sql,
               ``,
               `Original error:`,
-              `  ${error instanceof Error ? error.message : String(error)}`,
+              error instanceof Error
+                ? error.message
+                : String(error),
             ].join("\n"),
             {
               cause: error,
@@ -89,134 +49,121 @@ export class MasterPackage {
     transaction();
   }
 
-  private parseInserts(sql: string): MysqlInsert[] {
-    const results: MysqlInsert[] = [];
-    const regex = /INSERT INTO [`"]?(\w+)[`"]?\s*\(([^)]+)\)\s*VALUES\s*([\s\S]*?);/gi;
-    let match: RegExpExecArray | null;
-
-    while ((match = regex.exec(sql))) {
-      const table = match[1];
-      const columns = match[2]
-        .split(",")
-        .map((column) => column.trim().replace(/[`"]/g, ""));
-
-      const values = this.parseValues(match[3]);
-
-      results.push({
-        table,
-        columns,
-        rows: values,
-      });
-    }
-
-    return results;
-  }
-
-  private parseValues(
-    valueBlock: string,
-  ): unknown[][] {
-    const rows: unknown[][] = [];
-
-    let current: unknown[] = [];
-    let value = "";
-
+  private normalizeSql(sql: string): string {
+    let result = "";
     let inString = false;
-    let escaped = false;
-    let depth = 0;
 
-    const flushValue = () => {
-      const raw = value.trim();
+    for (let i = 0; i < sql.length; i++) {
+      const char = sql[i];
 
-      if (!raw) {
-        value = "";
-        return;
+      if (char === "\\" && inString) {
+        const next = sql[i + 1];
+
+        if (next === "'") {
+          result += "''";
+          i++;
+
+          continue;
+        }
+
+        result += next;
+        i++;
+
+        continue;
       }
 
-      current.push(this.parseValue(raw),);
-      value = "";
-    };
+      if (char === "'") {
+        if (inString && sql[i + 1] === "'") {
+          result += "''";
+          i++;
 
-    for (let i = 0; i < valueBlock.length; i++) {
-      const char = valueBlock[i];
+          continue;
+        }
 
-      if (char === "'" && !escaped) {
         inString = !inString;
-        value += char;
+        result += char;
 
         continue;
       }
 
-      if (inString) {
-        if (char === "\\" && valueBlock[i + 1] === "'") {
-          value += char;
-          value += valueBlock[++i];
-
-          continue;
-        }
-
-        value += char;
-
-        continue;
-      }
-
-      if (char === "(") {
-        depth++;
-
-        if (depth === 1) {
-          current = [];
-          value = "";
-          continue;
-        }
-
-        value += char;
-        continue;
-      }
-
-      if (char === ")") {
-        depth--;
-
-        if (depth === 0) {
-          flushValue();
-
-          rows.push(current);
-          current = [];
-
-          continue;
-        }
-
-        value += char;
-        continue;
-      }
-
-      if (char === "," && depth === 1) {
-        flushValue();
-        continue;
-      }
-
-      if (depth === 0) {
-        continue;
-      }
-
-      value += char;
+      result += char;
     }
 
-    return rows;
+    return result;
   }
 
-  private parseValue(raw: string,): unknown {
-    const value = raw.trim();
+  private splitStatements(sql: string): string[] {
+    const statements: string[] = [];
 
-    if (value.toUpperCase() === "NULL") return null;
-    if (value.toUpperCase() === "TRUE") return true;
-    if (value.toUpperCase() === "FALSE") return false;
-    if (value.startsWith("'") && value.endsWith("'")) {
-      return value
-        .slice(1, -1)
-        .replace(/''/g, "'");
+    let current = "";
+    let inString = false;
+
+    for (let i = 0; i < sql.length; i++) {
+      const char = sql[i];
+
+      if (char === "\\" && inString) {
+        current += char;
+
+        if (i + 1 < sql.length) {
+          current += sql[i + 1];
+          i++;
+        }
+
+        continue;
+      }
+
+      if (char === "'") {
+        if (inString && sql[i + 1] === "'") {
+          current += "''";
+          i++;
+
+          continue;
+        }
+
+        inString = !inString;
+        current += char;
+
+        continue;
+      }
+
+      if (char === ";" && !inString) {
+        const statement = current.trim();
+
+        if (statement) {
+          statements.push(statement);
+        }
+
+        current = "";
+
+        continue;
+      }
+
+      current += char;
     }
-    const number = Number(value);
-    if (!Number.isNaN(number)) return number;
 
-    return value;
+    const lastStatement = current.trim();
+
+    if (lastStatement) {
+      statements.push(lastStatement);
+    }
+
+    return statements;
+  }
+
+  private shouldSkipStatement(sql: string): boolean {
+    const normalized = sql
+      .trim()
+      .replace(/\s+/g, " ")
+      .toUpperCase();
+
+    return (
+      normalized.startsWith("SET FOREIGN_KEY_CHECKS") ||
+      normalized.startsWith("SET SQL_MODE") ||
+      normalized.startsWith("SET NAMES") ||
+      normalized.startsWith("SET CHARACTER_SET") ||
+      normalized.startsWith("SET COLLATION") ||
+      normalized.startsWith("LOCK TABLES") ||
+      normalized.startsWith("UNLOCK TABLES")
+    );
   }
 }
