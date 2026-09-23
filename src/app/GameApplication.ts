@@ -16,6 +16,56 @@ export interface StartGameOptions {
 export class GameApplication {
   private readonly saveService = new SaveService();
 
+  getCurrentDate(
+    save: Parameters<SaveService["getCurrentDate"]>[0],
+  ): string {
+    return this.saveService.getCurrentDate(save);
+  }
+
+  advanceDay(
+    save: Parameters<SaveService["advanceDay"]>[0],
+  ): string {
+    return this.saveService.advanceDay(save);
+  }
+
+  advanceDayAndPlay(
+    save: Parameters<SaveService["advanceDay"]>[0],
+    competitionEngine: CompetitionEngine,
+    stageId: number,
+  ): {
+    date: string;
+    fixtures: ReturnType<CompetitionEngine["playFixturesOnDate"]>;
+  } {
+    const currentDate = this.getCurrentDate(save);
+
+    const nextDate = competitionEngine.getNextCompetitionDate(
+      stageId,
+      currentDate,
+    );
+
+    if (nextDate === null) {
+      return {
+        date: currentDate,
+        fixtures: [],
+      };
+    }
+
+    const fixtures = competitionEngine.playFixturesOnDate(
+      stageId,
+      nextDate,
+    );
+
+    this.saveService.setCurrentDate(
+      save,
+      nextDate,
+    );
+
+    return {
+      date: nextDate,
+      fixtures,
+    };
+  }
+
   async start(options: StartGameOptions): Promise<void> {
     console.log("Starting Football Game...");
     console.log(`Save: ${options.saveName}`);
@@ -24,7 +74,7 @@ export class GameApplication {
     const save = this.saveService.create({
       name: options.saveName,
       filePath: options.savePath,
-      startDate: `${options.seasonYear}-01-01`,
+      startDate: `${options.seasonYear}-01-27`,
     });
 
     try {
