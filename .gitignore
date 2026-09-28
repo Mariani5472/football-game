@@ -1,5 +1,5 @@
 node_modules/
 dist/
 saves/
-database/packages/
-database/assets/
+game-editor/packages/
+game-editor/assets/
