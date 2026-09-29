@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { ArrowLeft, Save } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 
 import { EntityForm, Tabs } from "../../../shared/components";
-import { duties, getDuty, getPosition, getRole, roles } from "../data/formations.data";
+import { getDuty, getPosition, getRole, roles } from "../data/formations.data";
 import { useFormationEditor } from "../hooks/useFormationEditor";
 import type { Formation } from "../types";
 
@@ -55,7 +55,7 @@ export function FormationEditor({ formation, onBack }: FormationEditorProps) {
           }
         }}
         onSubmit={() => undefined}
-        submitLabel={<><Save size={14} /> Save Formation</>}
+        submitLabel="Save Formation"
       />
 
       <Tabs
