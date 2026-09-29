@@ -309,6 +309,15 @@ export class WorldValidator {
       `,
     );
 
+    const scheduleProfileCount =
+      this.database.connection.prepare(
+        `
+          SELECT COUNT(*) AS count
+          FROM schedule_profile
+          WHERE stage_id = ?
+        `,
+      );
+
     for (const competition of competitions) {
       const seasonRows = seasons.all(
         competition.id,
@@ -376,11 +385,20 @@ export class WorldValidator {
             stage.id,
           ) as { count: number };
 
-          if (rounds.count === 0) {
+          const scheduleProfile =
+            scheduleProfileCount.get(
+              stage.id,
+            ) as { count: number };
+
+          if (
+            rounds.count === 0 &&
+            scheduleProfile.count === 0
+          ) {
             issues.push({
               severity: "ERROR",
               rule: "STAGE_WITHOUT_SCHEDULE",
-              message: `Competition "${competition.name}" has no rounds.`,
+              message:
+                `Competition "${competition.name}" has no schedule profile or rounds.`,
               entityType: "COMPETITION_STAGE",
               entityId: stage.id,
             });
