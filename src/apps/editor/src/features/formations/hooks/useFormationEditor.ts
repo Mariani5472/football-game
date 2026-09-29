@@ -1,5 +1,6 @@
 import { useState } from "react";
 
+import { attributeDefinitions } from "../../attributes";
 import { duties, getDuty, getRole, roles } from "../data/formations.data";
 import type { Formation, FormationPosition } from "../types";
 
@@ -35,6 +36,23 @@ export function useFormationEditor(formation?: Formation) {
     return duties.filter((duty) => role?.dutyIds.includes(duty.id));
   }
 
+  function getKeyAttributes(roleId: number) {
+    const role = getRole(roleId);
+
+    return (role?.keyAttributes ?? [])
+      .map((entry) => ({
+        ...entry,
+        attribute: attributeDefinitions.find(
+          (attribute) => attribute.id === entry.attributeId,
+        ),
+      }))
+      .filter((entry) => entry.attribute);
+  }
+
+  function setDuty(positionId: number, dutyId: number) {
+    updatePosition(positionId, { dutyId });
+  }
+
   function setRole(positionId: number, roleId: number) {
     const availableDuties = getAvailableDuties(roleId);
     const current = draft.positions.find((position) => position.id === positionId);
@@ -54,6 +72,8 @@ export function useFormationEditor(formation?: Formation) {
     setRole,
     getAvailableRoles,
     getAvailableDuties,
+    getKeyAttributes,
+    setDuty,
     getRole,
     getDuty,
   };
