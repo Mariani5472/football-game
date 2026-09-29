@@ -17,6 +17,13 @@ const SANDBOX_COMPETITIONS: CompetitionDefinition[] = [
   },
 ];
 
+const BRAZIL_COMPETITIONS: CompetitionDefinition[] = [
+  {
+    name: "Brasileirão",
+    level: 1,
+  },
+];
+
 export class CompetitionGenerator {
   constructor(
     private readonly database: WorldDatabase,
@@ -26,11 +33,42 @@ export class CompetitionGenerator {
     context: GenerationContext,
     seasonYear: number,
   ): void {
-    for (const definition of SANDBOX_COMPETITIONS) {
+    this.generate(
+      context,
+      seasonYear,
+      SANDBOX_COMPETITIONS,
+    );
+  }
+
+  generateBrazilSandbox(
+    context: GenerationContext,
+    seasonYear: number,
+  ): void {
+    if (context.teamIds.length !== 20) {
+      throw new Error(
+        "Brazil Sandbox precisa de exatamente 20 times.",
+      );
+    }
+
+    this.generate(
+      context,
+      seasonYear,
+      BRAZIL_COMPETITIONS,
+    );
+  }
+
+  private generate(
+    context: GenerationContext,
+    seasonYear: number,
+    definitions: CompetitionDefinition[],
+  ): void {
+    for (const definition of definitions) {
       const competitionId =
         this.createCompetition(definition);
 
-      context.competitionIds.push(competitionId);
+      context.competitionIds.push(
+        competitionId,
+      );
 
       this.createSeasons(
         context,
@@ -83,15 +121,13 @@ export class CompetitionGenerator {
       );
 
       const stageId =
-        this.createStage(seasonId);
+        this.createStage(
+          seasonId,
+          year,
+        );
 
       context.competitionStageIds.push(
         stageId,
-      );
-
-      this.createRounds(
-        stageId,
-        year,
       );
 
       this.addTeamsToSeason(
@@ -125,7 +161,7 @@ export class CompetitionGenerator {
       .run(
         competitionId,
         year,
-        `${year}-01-01`,
+        `${year}-04-01`,
         `${year}-12-31`,
         "PLANNED",
       );
@@ -135,6 +171,7 @@ export class CompetitionGenerator {
 
   private createStage(
     seasonId: number,
+    year: number,
   ): number {
     const result = this.database.connection
       .prepare(
@@ -153,33 +190,88 @@ export class CompetitionGenerator {
         1,
       );
 
-    return Number(result.lastInsertRowid);
-  }
+    const stageId =
+      Number(result.lastInsertRowid);
 
-  private createRounds(
-    stageId: number,
-    year: number,
-  ): void {
     this.database.connection
       .prepare(
         `
-          INSERT INTO competition_round (
+          INSERT INTO stage_format (
             stage_id,
-            round_number,
-            name,
-            start_date,
-            end_date
+            format_type,
+            participant_count,
+            group_count,
+            participants_per_group,
+            legs,
+            home_away,
+            aggregate_score,
+            extra_time,
+            penalties,
+            away_goals_rule
           )
-          VALUES (?, ?, ?, ?, ?)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `,
       )
       .run(
         stageId,
+        "LEAGUE",
+        20,
         1,
-        "Round 1",
-        `${year}-01-01`,
-        `${year}-01-07`,
+        20,
+        2,
+        1,
+        0,
+        0,
+        0,
+        0,
       );
+
+    this.database.connection
+      .prepare(
+        `
+          INSERT INTO stage_points_rule (
+            stage_id,
+            win_points,
+            draw_points,
+            loss_points
+          )
+          VALUES (?, ?, ?, ?)
+        `,
+      )
+      .run(
+        stageId,
+        3,
+        1,
+        0,
+      );
+
+    const scheduleResult =
+      this.database.connection
+        .prepare(
+          `
+            INSERT INTO schedule_profile (
+              stage_id,
+              scheduling_type,
+              start_date,
+              end_date,
+              interval_days,
+              home_away_balanced
+            )
+            VALUES (?, ?, ?, ?, ?, ?)
+          `,
+        )
+        .run(
+          stageId,
+          "ROUND_ROBIN",
+          `${year}-04-04`,
+          `${year}-12-19`,
+          7,
+          1,
+        );
+
+    void scheduleResult;
+
+    return stageId;
   }
 
   private addTeamsToSeason(
@@ -222,9 +314,9 @@ export class CompetitionGenerator {
 
     const rules = [
       "POINTS",
-      "WINS",
       "GOAL_DIFFERENCE",
       "GOALS_FOR",
+      "WINS",
     ];
 
     rules.forEach((ruleType, index) => {
