@@ -1,12 +1,14 @@
+import fs from "node:fs";
+import path from "node:path";
 import DatabaseConnection from "better-sqlite3";
 
 import {
+  Database,
   type ListOptions,
   type ListResult,
   type SqlRow,
   type SqlValue,
 } from "../Database.js";
-import { Database } from "../Database.js";
 import { SchemaRunner } from "../SchemaRunner.js";
 
 export interface WorldListOptions extends ListOptions {
@@ -22,11 +24,8 @@ export class WorldDatabase extends Database {
     const directory = path.dirname(filePath);
     fs.mkdirSync(directory, { recursive: true });
 
-    const db = new DatabaseConnection(filePath);
-    const database = new WorldDatabase(db);
-
+    const database = new WorldDatabase(new DatabaseConnection(filePath));
     database.initialize();
-
     return database;
   }
 
@@ -78,8 +77,5 @@ export class WorldDatabase extends Database {
     });
   }
 }
-
-import fs from "node:fs";
-import path from "node:path";
 
 export type { ListOptions, ListResult, SqlRow, SqlValue } from "../Database.js";
