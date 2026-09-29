@@ -74,6 +74,18 @@ try {
     }`,
   );
 
+  for (const issue of validation.warnings) {
+    console.warn(
+      `[WARNING] [${issue.rule}] ${issue.message}`,
+    );
+  }
+
+  for (const issue of validation.infos) {
+    console.info(
+      `[INFO] [${issue.rule}] ${issue.message}`,
+    );
+  }
+
   const statistics =
     new WorldStatisticsService(database).get();
 
