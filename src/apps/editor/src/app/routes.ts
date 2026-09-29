@@ -1,6 +1,9 @@
 export type EditorRoute =
   | "dashboard"
+  | "geography"
+  | "continents"
   | "countries"
+  | "regions"
   | "cities"
   | "languages"
   | "climates"
@@ -9,6 +12,4 @@ export type EditorRoute =
   | "competitions"
   | "fast-start"
   | "validation"
-  | "continents"
-  | "regions"
   | "export";
