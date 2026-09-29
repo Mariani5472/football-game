@@ -36,7 +36,3 @@ export function TeamsTab({
     </section>
   );
 }
-
-function Empty({ message }: { message: string }) {
-  return <div className="rounded-2xl border border-dashed border-white/10 p-8 text-sm text-slate-600">{message}</div>;
-}
