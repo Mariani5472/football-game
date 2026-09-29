@@ -33,7 +33,12 @@ try {
         ORDER BY p.person_id
         LIMIT 1
       `)
-      .get();
+      .get() as
+      | {
+          personId: number;
+          clubId: number;
+        }
+      | undefined;
 
   if (!manager) {
     throw new Error(
