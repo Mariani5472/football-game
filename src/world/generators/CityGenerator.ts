@@ -22,15 +22,34 @@ export class CityGenerator {
     }
 
     const insert = this.database.connection
-      .prepare(`
-        INSERT INTO city (
-          nation_id,
-          name,
-          population,
-          climate_id
+      .prepare(
+        `
+          INSERT INTO city (
+            nation_id,
+            name,
+            population,
+            climate_id
+          )
+          VALUES (?, ?, ?, ?)
+        `,
+      );
+
+    const insertLanguage = this.database.connection.prepare(
+      `
+        INSERT INTO city_language (
+          city_id,
+          language_id,
+          percentage
         )
-        VALUES (?, ?, ?, ?)
-      `);
+        VALUES (?, ?, ?)
+      `,
+    );
+
+    if (context.languageId === undefined) {
+      throw new Error(
+        "Sandbox precisa de um idioma.",
+      );
+    }
 
     for (let i = 0; i < 8; i++) {
       const nationId =
@@ -46,9 +65,17 @@ export class CityGenerator {
         climateId,
       );
 
-      context.cityIds.push(
-        Number(result.lastInsertRowid),
+      const cityId = Number(
+        result.lastInsertRowid,
       );
+
+      insertLanguage.run(
+        cityId,
+        context.languageId,
+        100,
+      );
+
+      context.cityIds.push(cityId);
     }
   }
 }
