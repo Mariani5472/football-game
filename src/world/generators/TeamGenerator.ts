@@ -10,25 +10,29 @@ export class TeamGenerator {
     context: GenerationContext,
   ): void {
     const insertTeam = this.database.connection
-      .prepare(`
-        INSERT INTO team (
-          name,
-          short_name,
-          nation_id,
-          reputation
-        )
-        VALUES (?, ?, ?, ?)
-      `);
+      .prepare(
+        `
+          INSERT INTO team (
+            name,
+            short_name,
+            nation_id,
+            reputation
+          )
+          VALUES (?, ?, ?, ?)
+        `,
+      );
 
     const insertClub = this.database.connection
-      .prepare(`
-        INSERT INTO club (
-          team_id,
-          city_id,
-          base_nation_id
-        )
-        VALUES (?, ?, ?)
-      `);
+      .prepare(
+        `
+          INSERT INTO club (
+            team_id,
+            city_id,
+            base_nation_id
+          )
+          VALUES (?, ?, ?)
+        `,
+      );
 
     for (let i = 0; i < 8; i++) {
       const nationId =
