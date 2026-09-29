@@ -34,9 +34,10 @@ export class FastStartService {
           return;
 
         case "BRAZIL":
-          throw new Error(
-            "Template BRAZIL ainda não implementado.",
+          scenarioGenerator.generateBrazilSandbox(
+            options.seasonYear,
           );
+          return;
       }
     });
   }
