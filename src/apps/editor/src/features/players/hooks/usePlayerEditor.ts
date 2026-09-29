@@ -3,7 +3,14 @@ import { useState } from "react";
 import type { Player, PlayerDraft } from "../types";
 
 const emptyDraft: PlayerDraft = {
+  personId: "",
   positionIds: [],
+  attributes: {
+    technical: {},
+    physical: {},
+    psychological: {},
+    goalkeeper: {},
+  },
   potential: "",
   estimatedValue: "",
   leftFoot: "",
@@ -12,11 +19,26 @@ const emptyDraft: PlayerDraft = {
   contractId: "",
 };
 
+function toAttributeDraft(
+  attributes: Record<string, number>,
+): Record<string, string> {
+  return Object.fromEntries(
+    Object.entries(attributes).map(([key, value]) => [key, value.toString()]),
+  );
+}
+
 export function usePlayerEditor(player?: Player) {
   const [draft, setDraft] = useState<PlayerDraft>(
     player
       ? {
+          personId: player.personId.toString(),
           positionIds: player.positionIds,
+          attributes: {
+            technical: toAttributeDraft(player.attributes.technical),
+            physical: toAttributeDraft(player.attributes.physical),
+            psychological: toAttributeDraft(player.attributes.psychological),
+            goalkeeper: toAttributeDraft(player.attributes.goalkeeper),
+          },
           potential: player.potential?.toString() ?? "",
           estimatedValue: player.estimatedValue?.toString() ?? "",
           leftFoot: player.leftFoot?.toString() ?? "",
@@ -28,10 +50,27 @@ export function usePlayerEditor(player?: Player) {
   );
 
   function setValue(
-    name: Exclude<keyof PlayerDraft, "positionIds">,
+    name: Exclude<keyof PlayerDraft, "positionIds" | "attributes">,
     value: string,
   ) {
     setDraft((current) => ({ ...current, [name]: value }));
+  }
+
+  function setAttribute(
+    category: keyof PlayerDraft["attributes"],
+    name: string,
+    value: string,
+  ) {
+    setDraft((current) => ({
+      ...current,
+      attributes: {
+        ...current.attributes,
+        [category]: {
+          ...current.attributes[category],
+          [name]: value,
+        },
+      },
+    }));
   }
 
   function togglePosition(positionId: number) {
@@ -43,5 +82,5 @@ export function usePlayerEditor(player?: Player) {
     }));
   }
 
-  return { draft, setValue, togglePosition };
+  return { draft, setValue, setAttribute, togglePosition };
 }
