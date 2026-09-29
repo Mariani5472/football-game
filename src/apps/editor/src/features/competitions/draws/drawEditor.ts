@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { conditionalDraw, randomDraw } from "./index";
 import type {
   DrawRestriction,
@@ -39,14 +39,9 @@ export function useDrawEditor(
     setState((current) => ({ ...current, ...patch }));
   };
 
-  const allRestrictions = useMemo(
-    () => [] as DrawRestriction[],
-    [],
-  );
-
   const draw = (
     teams: DrawTeam[],
-    restrictions: DrawRestriction[] = allRestrictions,
+    restrictions: DrawRestriction[] = [],
   ) => {
     if (state.drawType === "RANDOM") {
       return randomDraw(
