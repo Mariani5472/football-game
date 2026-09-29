@@ -4,8 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "game:start": "tsx src/commands/game.ts",
-    "game:test-season": "tsx src/commands/game.ts --test-season",
+    "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
