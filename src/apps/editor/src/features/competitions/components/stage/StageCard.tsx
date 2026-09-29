@@ -8,9 +8,10 @@ import { ParticipantsPanel } from "./panels/ParticipantsPanel";
 import { RulesPanel } from "./panels/RulesPanel";
 import { StandingPanel } from "./panels/StandingPanel";
 import { SchedulePanel } from "./panels/SchedulePanel";
+import { DrawPanel } from "./panels/DrawPanel";
 import { Field, NumberInput } from "../editor/shared";
 
-type StageTab = "participants" | "format" | "points" | "standing" | "schedule" | "rules";
+type StageTab = "participants" | "format" | "points" | "standing" | "schedule" | "draw" | "rules";
 
 interface StageCardProps {
   stage: CompetitionStage;
@@ -72,6 +73,7 @@ export function StageCard({
           { id: "points", label: "Points", content: <PointsPanel stage={stage} onChange={onPointsChange} /> },
           { id: "standing", label: "Standing Rules", content: <StandingPanel stage={stage} onChange={onStandingChange} /> },
           { id: "schedule", label: "Schedule", content: <SchedulePanel stage={stage} onChange={onScheduleChange} /> },
+          { id: "draw", label: "Draw", content: <DrawPanel stage={stage} /> },
           { id: "rules", label: "Rules", content: <RulesPanel stage={stage} validation={validation} /> },
         ]}
       />
