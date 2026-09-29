@@ -142,7 +142,7 @@ export class PlayerGenerator {
       insertTechnicalAttributes.run(
         personId,
         10, 10, 10, 10, 10, 10, 10, 10,
-        10, 10, 10, 10, 10, 10, 10, 10,
+        10, 10, 10, 10, 10, 10, 10,
       );
 
       insertPhysicalAttributes.run(
@@ -154,12 +154,12 @@ export class PlayerGenerator {
       insertPsychologicalAttributes.run(
         personId,
         10, 10, 10, 10, 10, 10, 10, 10, 10,
-        10, 10, 10, 10, 10, 10, 10,
+        10, 10, 10, 10, 10, 10, 10, 10
       );
 
       const clubId =
         context.clubIds[
-          index % context.clubIds.length
+        index % context.clubIds.length
         ];
 
       insertClubPeriod.run(

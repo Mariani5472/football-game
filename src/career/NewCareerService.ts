@@ -2,10 +2,10 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
-import type { WorldDatabase } from "../../database/world/WorldDatabase.js";
-import { SaveDatabase } from "../../database/save/SaveDatabase.js";
-import { CompetitionEngine } from "../../modules/competition/engine/CompetitionEngine.js";
-import { CompetitionRepository } from "../../modules/competition/repository/CompetitionRepository.js";
+import type { WorldDatabase } from "../database/world/WorldDatabase.js";
+import { SaveDatabase } from "../database/save/SaveDatabase.js";
+import { CompetitionEngine } from "../modules/competition/engine/CompetitionEngine.js";
+import { CompetitionRepository } from "../modules/competition/repository/CompetitionRepository.js";
 
 export interface NewCareerOptions {
   savePath: string;
@@ -889,8 +889,8 @@ export class NewCareerService {
           )
           .pluck()
           .get(competition.competitionId) as
-          | string
-          | undefined;
+        | string
+        | undefined;
 
       for (const fixture of competition.generated.fixtures) {
         insertFixtureEvent.run(
@@ -1015,14 +1015,14 @@ export class NewCareerService {
 
     const packageHash =
       sourcePath &&
-      sourcePath !== ":memory:" &&
-      fs.existsSync(sourcePath)
+        sourcePath !== ":memory:" &&
+        fs.existsSync(sourcePath)
         ? crypto
-            .createHash("sha256")
-            .update(
-              fs.readFileSync(sourcePath),
-            )
-            .digest("hex")
+          .createHash("sha256")
+          .update(
+            fs.readFileSync(sourcePath),
+          )
+          .digest("hex")
         : null;
 
     return {
