@@ -5,9 +5,25 @@ export type {
   CompetitionStage,
   CompetitionStatus,
   StageFormat,
-  StageRules,
+  ParticipantType,
+  StandingRuleType,
+  StageParticipantRule,
+  StageParticipantSource,
+  StageFormatRule,
+  StagePointsRule,
+  StageMatchRule,
+  StandingRule,
   StageSchedule,
-  StandingRules,
   QualificationRule,
   DrawDefinition,
 } from "./types";
+
+export {
+  LEAGUE_TEAM_COUNT,
+  LEAGUE_LEGS,
+  LEAGUE_ROUNDS,
+  LEAGUE_TOTAL_ROUNDS,
+  LEAGUE_MATCHES_PER_ROUND,
+  LEAGUE_TOTAL_MATCHES,
+  validateSimpleLeague,
+} from "./rules/league";
