@@ -1,5 +1,4 @@
 import { useMemo, useState } from "react";
-import { SearchInput } from "../../../shared/components";
 
 interface EntityLike {
   id: number;

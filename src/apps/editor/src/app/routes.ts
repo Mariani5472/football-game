@@ -9,4 +9,6 @@ export type EditorRoute =
   | "competitions"
   | "fast-start"
   | "validation"
+  | "continents"
+  | "regions"
   | "export";
