@@ -1,5 +1,11 @@
 export type CompetitionStatus = "DRAFT" | "SCHEDULED" | "ACTIVE" | "COMPLETED";
 export type StageFormat = "LEAGUE" | "GROUP" | "KNOCKOUT";
+export type ParticipantType = "TEAM";
+export type StandingRuleType =
+  | "POINTS"
+  | "GOAL_DIFFERENCE"
+  | "GOALS_FOR"
+  | "WINS";
 
 export interface Competition {
   id: number;
@@ -30,19 +36,61 @@ export interface CompetitionStage {
   stageOrder: number;
   format: StageFormat;
   participants: number[];
-  rules: StageRules;
+
+  // Second-pass schema rules.
+  participantRule: StageParticipantRule;
+  participantSources: StageParticipantSource[];
+  formatRule: StageFormatRule;
+  pointsRule: StagePointsRule;
+  matchRules: StageMatchRule[];
+  standingRules: StandingRule[];
+
   schedule: StageSchedule;
-  standing: StandingRules;
   qualification: QualificationRule[];
   draw: DrawDefinition;
 }
 
-export interface StageRules {
+export interface StageParticipantRule {
+  participantType: ParticipantType;
+  minParticipants: number;
+  maxParticipants: number;
+}
+
+export interface StageParticipantSource {
+  sourceType: string;
+  sourceCompetitionId?: number;
+  sourceStageId?: number;
+  positionFrom?: number;
+  positionTo?: number;
+}
+
+export interface StageFormatRule {
+  formatType: StageFormat;
+  participantCount: number;
+  groupCount?: number;
+  participantsPerGroup?: number;
   legs: number;
-  homeAway: boolean;
-  pointsForWin: number;
-  pointsForDraw: number;
-  pointsForLoss: number;
+  homeAway: 0 | 1;
+  aggregateScore: 0 | 1;
+  extraTime: 0 | 1;
+  penalties: 0 | 1;
+  awayGoalsRule: 0 | 1;
+}
+
+export interface StagePointsRule {
+  winPoints: number;
+  drawPoints: number;
+  lossPoints: number;
+}
+
+export interface StageMatchRule {
+  ruleType: string;
+  ruleValue?: string;
+}
+
+export interface StandingRule {
+  ruleOrder: number;
+  ruleType: StandingRuleType;
 }
 
 export interface StageSchedule {
@@ -50,10 +98,6 @@ export interface StageSchedule {
   endDate: string;
   intervalDays: number;
   homeAwayBalanced: boolean;
-}
-
-export interface StandingRules {
-  tiebreakers: string[];
 }
 
 export interface QualificationRule {
