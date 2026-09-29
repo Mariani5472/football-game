@@ -9,6 +9,7 @@ import {
   Map,
   ShieldCheck,
   Trophy,
+  Swords,
   UserRound,
   UsersRound,
   Wrench,
@@ -47,6 +48,10 @@ const competitionItems: NavItem[] = [
   { id: "competitions", label: "Competitions", icon: Trophy },
 ];
 
+const tacticsItems: NavItem[] = [
+  { id: "formations", label: "Formations", icon: Swords },
+];
+
 const toolItems: NavItem[] = [
   { id: "fast-start", label: "Fast Start", icon: CircleDot },
   { id: "validation", label: "Validation", icon: CheckCircle2 },
@@ -80,6 +85,7 @@ export function EditorSidebar({
         <NavGroup label="PEOPLE" items={peopleItems} activeRoute={activeRoute} onNavigate={onNavigate} />
         <NavGroup label="TEAMS" items={teamItems} activeRoute={activeRoute} onNavigate={onNavigate} />
         <NavGroup label="COMPETITIONS" items={competitionItems} activeRoute={activeRoute} onNavigate={onNavigate} />
+        <NavGroup label="TACTICS" items={tacticsItems} activeRoute={activeRoute} onNavigate={onNavigate} />
         <NavGroup label="TOOLS" items={toolItems} activeRoute={activeRoute} onNavigate={onNavigate} />
       </nav>
 
