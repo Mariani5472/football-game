@@ -17,15 +17,12 @@ export interface Region extends EntitySummary {
 }
 
 export interface LanguageFamily extends EntitySummary {}
-
 export interface LanguageGroup extends EntitySummary {
   familyId: number;
 }
-
 export interface LanguageSubgroup extends EntitySummary {
   groupId: number;
 }
-
 export interface Language extends EntitySummary {
   familyId?: number;
   groupId?: number;
@@ -33,7 +30,6 @@ export interface Language extends EntitySummary {
 }
 
 export interface Climate extends EntitySummary {}
-
 export interface ClimateSeason extends EntitySummary {
   climateId: number;
 }
