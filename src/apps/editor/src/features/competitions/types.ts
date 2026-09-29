@@ -2,11 +2,7 @@ export type CompetitionStatus = "DRAFT" | "SCHEDULED" | "ACTIVE" | "COMPLETED";
 export type StageFormat = "LEAGUE" | "GROUP" | "KNOCKOUT";
 export type ParticipantType = "TEAM";
 export type SchedulingType = "ROUND_ROBIN";
-export type StandingRuleType =
-  | "POINTS"
-  | "GOAL_DIFFERENCE"
-  | "GOALS_FOR"
-  | "WINS";
+export type StandingRuleType = "POINTS" | "GOAL_DIFFERENCE" | "GOALS_FOR" | "WINS";
 
 export interface Competition {
   id: number;
@@ -37,18 +33,15 @@ export interface CompetitionStage {
   stageOrder: number;
   format: StageFormat;
   participants: number[];
-
-  // Second-pass schema rules.
   participantRule: StageParticipantRule;
   participantSources: StageParticipantSource[];
   formatRule: StageFormatRule;
   pointsRule: StagePointsRule;
   matchRules: StageMatchRule[];
   standingRules: StandingRule[];
-
   schedule: StageSchedule;
+  draw: StageDraw;
   qualification: QualificationRule[];
-  draw: DrawDefinition;
 }
 
 export interface StageParticipantRule {
@@ -110,8 +103,10 @@ export interface QualificationRule {
   destinationStageId?: number;
 }
 
-export interface DrawDefinition {
-  type: "NONE" | "RANDOM" | "SEEDED";
+export interface StageDraw {
+  definitionId?: number;
+  drawType: "NONE" | "RANDOM" | "SEEDED" | "CONDITIONAL";
+  groupCount: number;
+  teamsPerGroup: number;
   seedCount: number;
-  orderMode: "RANDOM" | "SEEDED";
 }
