@@ -1,6 +1,6 @@
 import fs from "node:fs";
 
-import type { Database } from "@/database/Database.js";
+import { Database } from "./Database.js";
 
 interface MetadataOptions {
   schemaVersion: number;

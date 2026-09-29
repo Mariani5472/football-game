@@ -4,7 +4,7 @@ import path from "node:path";
 
 import { afterEach, describe, expect, it } from "vitest";
 
-import { WorldDatabase } from "@database/world/WorldDatabase.js";
+import { WorldDatabase } from "../../src/database/world/WorldDatabase.js";
 
 const databases: WorldDatabase[] = [];
 const temporaryFiles: string[] = [];

@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "test": "vitest run",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "db:create-world": "tsx src/commands/database/create-world.ts"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^9.6.0",

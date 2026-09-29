@@ -11,12 +11,6 @@
     "outDir": "dist",
 
     "skipLibCheck": true,
-
-    "paths": {
-      "@/*": ["./*"],
-      "@database/*": ["./src/database/*"],
-      "@editor/*": ["./src/apps/editor/*"]
-    }
   },
   "include": [
     "**/*.ts"

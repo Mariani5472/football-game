@@ -1,5 +1,5 @@
-import { WorldDatabase } from "@database/world/WorldDatabase.js";
 import path from "node:path";
+import { WorldDatabase } from "../../database/world/WorldDatabase.js";
 
 const databasePath = path.resolve(process.cwd(), "save/world.db");
 
