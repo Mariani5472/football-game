@@ -36,6 +36,7 @@ export function EditorTabs({
               onFormatChange={editor.updateStageFormatRule}
               onPointsChange={editor.updateStagePointsRule}
               onStandingChange={editor.updateStageStandingRules}
+              onScheduleChange={editor.updateStage}
             />
           ),
         },
