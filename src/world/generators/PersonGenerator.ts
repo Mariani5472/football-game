@@ -11,20 +11,22 @@ export class PersonGenerator {
   ): void {
     const personTypeId = this.getOrCreatePlayerPersonType();
 
-    const insertPerson = this.database.connection.prepare(`
-      INSERT INTO person (
-        first_name,
-        second_name,
-        common_name,
-        full_name,
-        person_type_id,
-        sex,
-        height,
-        birth_date,
-        birth_city_id
-      )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `);
+    const insertPerson = this.database.connection.prepare(
+      `
+        INSERT INTO person (
+          first_name,
+          second_name,
+          common_name,
+          full_name,
+          person_type_id,
+          sex,
+          height,
+          birth_date,
+          birth_city_id
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `,
+    );
 
     for (let i = 0; i < 160; i++) {
       const firstName = "Player";
@@ -56,12 +58,14 @@ export class PersonGenerator {
 
   private getOrCreatePlayerPersonType(): number {
     const existing = this.database.connection
-      .prepare(`
-        SELECT id
-        FROM person_type
-        WHERE name = ?
-        LIMIT 1
-      `)
+      .prepare(
+        `
+          SELECT id
+          FROM person_type
+          WHERE name = ?
+          LIMIT 1
+        `,
+      )
       .get("PLAYER") as { id: number } | undefined;
 
     if (existing) {
@@ -69,12 +73,14 @@ export class PersonGenerator {
     }
 
     const result = this.database.connection
-      .prepare(`
-        INSERT INTO person_type (
-          name
-        )
-        VALUES (?)
-      `)
+      .prepare(
+        `
+          INSERT INTO person_type (
+            name
+          )
+          VALUES (?)
+        `,
+      )
       .run("PLAYER");
 
     return Number(result.lastInsertRowid);
