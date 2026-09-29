@@ -9,6 +9,8 @@ import {
   Map,
   ShieldCheck,
   Trophy,
+  UserRound,
+  UsersRound,
   Wrench,
 } from "lucide-react";
 
@@ -29,6 +31,11 @@ const worldItems: NavItem[] = [
   { id: "cities", label: "Cities", icon: Map },
   { id: "languages", label: "Languages", icon: Languages },
   { id: "climates", label: "Climates", icon: CloudSun },
+];
+
+const peopleItems: NavItem[] = [
+  { id: "people", label: "People", icon: UserRound },
+  { id: "players", label: "Players", icon: UsersRound },
 ];
 
 const teamItems: NavItem[] = [
@@ -63,17 +70,14 @@ export function EditorSidebar({
         </div>
 
         <div>
-          <div className="text-sm font-semibold text-white">
-            Football Game Editor
-          </div>
-          <div className="text-xs text-slate-500">
-            World Studio
-          </div>
+          <div className="text-sm font-semibold text-white">Football Game Editor</div>
+          <div className="text-xs text-slate-500">World Studio</div>
         </div>
       </div>
 
       <nav className="space-y-5 px-3 py-5">
         <NavGroup label="WORLD" items={worldItems} activeRoute={activeRoute} onNavigate={onNavigate} />
+        <NavGroup label="PEOPLE" items={peopleItems} activeRoute={activeRoute} onNavigate={onNavigate} />
         <NavGroup label="TEAMS" items={teamItems} activeRoute={activeRoute} onNavigate={onNavigate} />
         <NavGroup label="COMPETITIONS" items={competitionItems} activeRoute={activeRoute} onNavigate={onNavigate} />
         <NavGroup label="TOOLS" items={toolItems} activeRoute={activeRoute} onNavigate={onNavigate} />
@@ -83,12 +87,8 @@ export function EditorSidebar({
         <div className="flex items-center gap-3">
           <div className="h-8 w-8 rounded-full bg-gradient-to-br from-emerald-400/60 to-cyan-400/20" />
           <div className="min-w-0">
-            <div className="truncate text-xs font-medium text-slate-200">
-              Brazil 2026
-            </div>
-            <div className="truncate text-[11px] text-slate-500">
-              world.db · schema v2
-            </div>
+            <div className="truncate text-xs font-medium text-slate-200">Brazil 2026</div>
+            <div className="truncate text-[11px] text-slate-500">world.db · schema v2</div>
           </div>
         </div>
       </div>
