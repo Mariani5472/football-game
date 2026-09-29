@@ -78,50 +78,67 @@ export function FormationEditor({ formation, onBack }: FormationEditorProps) {
                     return (
                       <div
                         key={position.id}
-                        className="grid gap-3 rounded-xl border border-white/10 bg-white/[0.02] p-4 md:grid-cols-[90px_1fr_160px_130px]"
+                        className="rounded-xl border border-white/10 bg-white/[0.02] p-4"
                       >
-                        <div>
-                          <div className="text-sm font-semibold text-white">
-                            {position.label}
+                        <div className="grid gap-3 md:grid-cols-[90px_1fr_160px_130px]">
+                          <div>
+                            <div className="text-sm font-semibold text-white">
+                              {position.label}
+                            </div>
+                            <div className="mt-1 text-[11px] text-slate-600">
+                              {positionDefinition?.name}
+                            </div>
                           </div>
-                          <div className="mt-1 text-[11px] text-slate-600">
-                            {positionDefinition?.name}
+
+                          <div className="text-xs text-slate-500">
+                            Slot {position.id}
                           </div>
+
+                          <select
+                            value={position.roleId}
+                            onChange={(event) =>
+                              editor.setRole(position.id, Number(event.target.value))
+                            }
+                            className="rounded-lg border border-white/10 bg-[#121820] px-3 py-2 text-xs text-slate-300 outline-none"
+                          >
+                            {editor.getAvailableRoles(position.positionId).map((option) => (
+                              <option key={option.id} value={option.id}>
+                                {option.name}
+                              </option>
+                            ))}
+                          </select>
+
+                          <select
+                            value={position.dutyId}
+                            onChange={(event) =>
+                              editor.setDuty(position.id, Number(event.target.value))
+                            }
+                            className="rounded-lg border border-white/10 bg-[#121820] px-3 py-2 text-xs text-slate-300 outline-none"
+                          >
+                            {editor.getAvailableDuties(position.roleId).map((option) => (
+                              <option key={option.id} value={option.id}>
+                                {option.name}
+                              </option>
+                            ))}
+                          </select>
                         </div>
 
-                        <div className="text-xs text-slate-500">
-                          Slot {position.id}
+                        <div className="mt-4 border-t border-white/5 pt-3">
+                          <div className="mb-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-600">
+                            Key Attributes
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            {keyAttributes.map((entry) => (
+                              <span
+                                key={entry.attributeId}
+                                title={`Weight ${entry.weight}`}
+                                className="rounded-full border border-emerald-400/10 bg-emerald-400/[0.03] px-2.5 py-1 text-[11px] text-emerald-200"
+                              >
+                                {entry.attribute?.name}
+                              </span>
+                            ))}
+                          </div>
                         </div>
-
-                        <select
-                          value={position.roleId}
-                          onChange={(event) =>
-                            editor.setRole(position.id, Number(event.target.value))
-                          }
-                          className="rounded-lg border border-white/10 bg-[#121820] px-3 py-2 text-xs text-slate-300 outline-none"
-                        >
-                          {editor.getAvailableRoles(position.positionId).map((option) => (
-                            <option key={option.id} value={option.id}>
-                              {option.name}
-                            </option>
-                          ))}
-                        </select>
-
-                        <select
-                          value={position.dutyId}
-                          onChange={(event) =>
-                            editor.updatePosition(position.id, {
-                              dutyId: Number(event.target.value),
-                            })
-                          }
-                          className="rounded-lg border border-white/10 bg-[#121820] px-3 py-2 text-xs text-slate-300 outline-none"
-                        >
-                          {editor.getAvailableDuties(position.roleId).map((option) => (
-                            <option key={option.id} value={option.id}>
-                              {option.name}
-                            </option>
-                          ))}
-                        </select>
                       </div>
                     );
                   })}
@@ -195,7 +212,7 @@ export function FormationEditor({ formation, onBack }: FormationEditorProps) {
                 })}
               </div>
             ),
-          }},
+          },
         ]}
       />
     </div>
