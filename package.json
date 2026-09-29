@@ -10,8 +10,8 @@
     "world:fast-start": "tsx src/commands/world/fast-start.ts",
     "competition:brazil-sandbox": "tsx src/commands/competition/brazil-sandbox.ts",
     "career:new": "tsx src/commands/career/new.ts",
-    "editor:dev": "npm --prefix src/editor run dev",
-    "editor:build": "npm --prefix src/editor install && npm --prefix src/editor run build"
+    "editor:dev": "npm --prefix apps/editor run dev",
+    "editor:build": "npm --prefix apps/editor install && npm --prefix apps/editor run build"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^9.6.0",
