@@ -124,6 +124,7 @@ export class CompetitionGenerator {
         this.createStage(
           seasonId,
           year,
+          context.teamIds.length,
         );
 
       context.competitionStageIds.push(
@@ -172,6 +173,7 @@ export class CompetitionGenerator {
   private createStage(
     seasonId: number,
     year: number,
+    participantCount: number,
   ): number {
     const result = this.database.connection
       .prepare(
@@ -215,9 +217,9 @@ export class CompetitionGenerator {
       .run(
         stageId,
         "LEAGUE",
-        20,
+        participantCount,
         1,
-        20,
+        participantCount,
         2,
         1,
         0,
@@ -245,31 +247,28 @@ export class CompetitionGenerator {
         0,
       );
 
-    const scheduleResult =
-      this.database.connection
-        .prepare(
-          `
-            INSERT INTO schedule_profile (
-              stage_id,
-              scheduling_type,
-              start_date,
-              end_date,
-              interval_days,
-              home_away_balanced
-            )
-            VALUES (?, ?, ?, ?, ?, ?)
-          `,
-        )
-        .run(
-          stageId,
-          "ROUND_ROBIN",
-          `${year}-04-04`,
-          `${year}-12-19`,
-          7,
-          1,
-        );
-
-    void scheduleResult;
+    this.database.connection
+      .prepare(
+        `
+          INSERT INTO schedule_profile (
+            stage_id,
+            scheduling_type,
+            start_date,
+            end_date,
+            interval_days,
+            home_away_balanced
+          )
+          VALUES (?, ?, ?, ?, ?, ?)
+        `,
+      )
+      .run(
+        stageId,
+        "ROUND_ROBIN",
+        `${year}-04-04`,
+        `${year}-12-19`,
+        7,
+        1,
+      );
 
     return stageId;
   }
