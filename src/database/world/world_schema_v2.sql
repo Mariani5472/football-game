@@ -1,5 +1,4 @@
 
-PRAGMA foreign_keys = ON;
 
 -- ============================================================
 -- WORLD DATABASE
@@ -10,6 +9,11 @@ PRAGMA foreign_keys = ON;
 -- Dates/timestamps: ISO-8601 TEXT.
 -- Money: INTEGER in the database currency minor unit.
 -- ============================================================
+
+CREATE TABLE IF NOT EXISTS database_metadata (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+);
 
 -- =========================
 -- GEOGRAPHY / REFERENCE
@@ -497,9 +501,10 @@ CREATE TABLE IF NOT EXISTS competition_stage (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     competition_season_id INTEGER NOT NULL,
     name TEXT NOT NULL,
-    type TEXT NOT NULL,
+    stage_type_id INTEGER,
     stage_order INTEGER NOT NULL,
     FOREIGN KEY (competition_season_id) REFERENCES competition_season(id) ON DELETE CASCADE,
+    FOREIGN KEY (stage_type_id) REFERENCES competition_stage_type(id),
     UNIQUE (competition_season_id, stage_order),
     UNIQUE (competition_season_id, name)
 );
@@ -559,7 +564,8 @@ CREATE TABLE IF NOT EXISTS qualification_rule (
     CHECK (
         destination_competition_id IS NOT NULL
         OR destination_stage_id IS NOT NULL
-    )
+    ),
+    UNIQUE (stage_id, position_from, position_to, qualification_type)
 );
 
 CREATE TABLE IF NOT EXISTS stage_transition (
@@ -590,31 +596,10 @@ CREATE TABLE IF NOT EXISTS fixture (
     CHECK (home_team_id <> away_team_id)
 );
 
--- Runtime/cache table. It is intentionally separate from the world definition.
--- standing_snapshot belongs to save.db, not world.db.
--- Removed from world schema.
-/*
-CREATE TABLE IF NOT EXISTS standing_snapshot (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    stage_id INTEGER NOT NULL,
-    team_id INTEGER NOT NULL,
-    played INTEGER NOT NULL DEFAULT 0,
-    wins INTEGER NOT NULL DEFAULT 0,
-    draws INTEGER NOT NULL DEFAULT 0,
-    losses INTEGER NOT NULL DEFAULT 0,
-    goals_for INTEGER NOT NULL DEFAULT 0,
-    goals_against INTEGER NOT NULL DEFAULT 0,
-    points INTEGER NOT NULL DEFAULT 0,
-    FOREIGN KEY (stage_id) REFERENCES competition_stage(id),
-    FOREIGN KEY (team_id) REFERENCES team(id),
-    UNIQUE (stage_id, team_id)
-);
 
 -- =========================
 -- NATIONAL TEAM
 -- =========================
-
-*/
 
 CREATE TABLE IF NOT EXISTS national_team_info (
     team_id INTEGER PRIMARY KEY,
@@ -1032,7 +1017,10 @@ CREATE TABLE IF NOT EXISTS player_attribute_definition (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     attribute_key TEXT NOT NULL UNIQUE,
     name TEXT NOT NULL,
-    category TEXT NOT NULL
+    category TEXT NOT NULL,
+    scale_id INTEGER,
+    is_hidden INTEGER NOT NULL DEFAULT 0 CHECK (is_hidden IN (0,1)),
+    FOREIGN KEY (scale_id) REFERENCES attribute_scale(id)
 );
 
 CREATE TABLE IF NOT EXISTS position_attribute_weight (
@@ -1987,6 +1975,487 @@ CREATE TABLE IF NOT EXISTS climate_season_profile (
     UNIQUE (climate_id, season_id)
 );
 
+
+-- ============================================================
+-- WORLD V1.1 — SECOND PASS
+-- Competition rules, scheduling, draws, transfers, tactics,
+-- attributes, nationality and editor validation support.
+-- ============================================================
+
+-- =========================
+-- COMPETITION RULES
+-- =========================
+
+CREATE TABLE IF NOT EXISTS stage_participant_rule (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    stage_id INTEGER NOT NULL,
+    participant_type TEXT NOT NULL,
+    min_participants INTEGER,
+    max_participants INTEGER,
+    FOREIGN KEY (stage_id) REFERENCES competition_stage(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS stage_participant_source (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    stage_id INTEGER NOT NULL,
+    source_type TEXT NOT NULL,
+    source_competition_id INTEGER,
+    source_stage_id INTEGER,
+    position_from INTEGER,
+    position_to INTEGER,
+    FOREIGN KEY (stage_id) REFERENCES competition_stage(id) ON DELETE CASCADE,
+    FOREIGN KEY (source_competition_id) REFERENCES competition(id),
+    FOREIGN KEY (source_stage_id) REFERENCES competition_stage(id)
+);
+
+CREATE TABLE IF NOT EXISTS stage_format (
+    stage_id INTEGER PRIMARY KEY,
+    format_type TEXT NOT NULL,
+    participant_count INTEGER,
+    group_count INTEGER,
+    participants_per_group INTEGER,
+    legs INTEGER NOT NULL DEFAULT 1,
+    home_away INTEGER NOT NULL DEFAULT 1 CHECK (home_away IN (0,1)),
+    aggregate_score INTEGER NOT NULL DEFAULT 0 CHECK (aggregate_score IN (0,1)),
+    extra_time INTEGER NOT NULL DEFAULT 0 CHECK (extra_time IN (0,1)),
+    penalties INTEGER NOT NULL DEFAULT 0 CHECK (penalties IN (0,1)),
+    away_goals_rule INTEGER NOT NULL DEFAULT 0 CHECK (away_goals_rule IN (0,1)),
+    FOREIGN KEY (stage_id) REFERENCES competition_stage(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS stage_points_rule (
+    stage_id INTEGER PRIMARY KEY,
+    win_points INTEGER NOT NULL DEFAULT 3,
+    draw_points INTEGER NOT NULL DEFAULT 1,
+    loss_points INTEGER NOT NULL DEFAULT 0,
+    FOREIGN KEY (stage_id) REFERENCES competition_stage(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS stage_match_rule (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    stage_id INTEGER NOT NULL,
+    rule_type TEXT NOT NULL,
+    rule_value TEXT,
+    FOREIGN KEY (stage_id) REFERENCES competition_stage(id) ON DELETE CASCADE,
+    UNIQUE (stage_id, rule_type)
+);
+
+CREATE TABLE IF NOT EXISTS stage_squad_rule (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    stage_id INTEGER NOT NULL,
+    rule_type TEXT NOT NULL,
+    value INTEGER,
+    nation_id INTEGER,
+    competition_id INTEGER,
+    FOREIGN KEY (stage_id) REFERENCES competition_stage(id) ON DELETE CASCADE,
+    FOREIGN KEY (nation_id) REFERENCES nation(id),
+    FOREIGN KEY (competition_id) REFERENCES competition(id)
+);
+
+CREATE TABLE IF NOT EXISTS stage_registration_rule (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    stage_id INTEGER NOT NULL,
+    rule_type TEXT NOT NULL,
+    value INTEGER,
+    position_id INTEGER,
+    nation_id INTEGER,
+    FOREIGN KEY (stage_id) REFERENCES competition_stage(id) ON DELETE CASCADE,
+    FOREIGN KEY (position_id) REFERENCES position_definition(id),
+    FOREIGN KEY (nation_id) REFERENCES nation(id)
+);
+
+CREATE TABLE IF NOT EXISTS stage_promotion_relegation_rule (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    stage_id INTEGER NOT NULL,
+    position_from INTEGER NOT NULL,
+    position_to INTEGER NOT NULL,
+    direction TEXT NOT NULL,
+    destination_competition_id INTEGER,
+    destination_stage_id INTEGER,
+    FOREIGN KEY (stage_id) REFERENCES competition_stage(id) ON DELETE CASCADE,
+    FOREIGN KEY (destination_competition_id) REFERENCES competition(id),
+    FOREIGN KEY (destination_stage_id) REFERENCES competition_stage(id),
+    CHECK (position_from > 0 AND position_to >= position_from)
+);
+
+CREATE TABLE IF NOT EXISTS stage_technology_rule (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    stage_id INTEGER NOT NULL,
+    technology TEXT NOT NULL,
+    enabled INTEGER NOT NULL DEFAULT 0 CHECK (enabled IN (0,1)),
+    from_date TEXT,
+    tv_only INTEGER NOT NULL DEFAULT 0 CHECK (tv_only IN (0,1)),
+    FOREIGN KEY (stage_id) REFERENCES competition_stage(id) ON DELETE CASCADE,
+    UNIQUE (stage_id, technology)
+);
+
+-- =========================
+-- SCHEDULING
+-- =========================
+
+CREATE TABLE IF NOT EXISTS schedule_profile (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    stage_id INTEGER NOT NULL UNIQUE,
+    scheduling_type TEXT NOT NULL,
+    start_date TEXT,
+    end_date TEXT,
+    interval_days INTEGER,
+    home_away_balanced INTEGER NOT NULL DEFAULT 1 CHECK (home_away_balanced IN (0,1)),
+    FOREIGN KEY (stage_id) REFERENCES competition_stage(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS schedule_matchday_rule (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    schedule_profile_id INTEGER NOT NULL,
+    weekday_id INTEGER,
+    start_time TEXT,
+    end_time TEXT,
+    priority INTEGER NOT NULL DEFAULT 0,
+    FOREIGN KEY (schedule_profile_id) REFERENCES schedule_profile(id) ON DELETE CASCADE,
+    FOREIGN KEY (weekday_id) REFERENCES weekday(id)
+);
+
+CREATE TABLE IF NOT EXISTS schedule_blackout (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    schedule_profile_id INTEGER NOT NULL,
+    start_date TEXT NOT NULL,
+    end_date TEXT NOT NULL,
+    reason TEXT,
+    FOREIGN KEY (schedule_profile_id) REFERENCES schedule_profile(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS schedule_constraint (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    schedule_profile_id INTEGER NOT NULL,
+    constraint_type TEXT NOT NULL,
+    value TEXT,
+    FOREIGN KEY (schedule_profile_id) REFERENCES schedule_profile(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS fixture_leg (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    fixture_id INTEGER NOT NULL,
+    leg_number INTEGER NOT NULL,
+    aggregate_group TEXT,
+    FOREIGN KEY (fixture_id) REFERENCES fixture(id) ON DELETE CASCADE,
+    UNIQUE (fixture_id, leg_number)
+);
+
+CREATE TABLE IF NOT EXISTS fixture_venue (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    fixture_id INTEGER NOT NULL UNIQUE,
+    stadium_id INTEGER,
+    alternative_stadium_id INTEGER,
+    venue_reason TEXT,
+    FOREIGN KEY (fixture_id) REFERENCES fixture(id) ON DELETE CASCADE,
+    FOREIGN KEY (stadium_id) REFERENCES stadium(id),
+    FOREIGN KEY (alternative_stadium_id) REFERENCES stadium(id)
+);
+
+-- =========================
+-- DRAW / POTS / RESTRICTIONS
+-- =========================
+
+CREATE TABLE IF NOT EXISTS draw_definition (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    stage_id INTEGER NOT NULL,
+    name TEXT NOT NULL,
+    draw_type TEXT NOT NULL,
+    seed_count INTEGER,
+    order_mode TEXT,
+    FOREIGN KEY (stage_id) REFERENCES competition_stage(id) ON DELETE CASCADE,
+    UNIQUE (stage_id, name)
+);
+
+CREATE TABLE IF NOT EXISTS draw_pot (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    draw_id INTEGER NOT NULL,
+    name TEXT NOT NULL,
+    pot_order INTEGER NOT NULL,
+    team_count INTEGER,
+    FOREIGN KEY (draw_id) REFERENCES draw_definition(id) ON DELETE CASCADE,
+    UNIQUE (draw_id, pot_order)
+);
+
+CREATE TABLE IF NOT EXISTS draw_pot_team (
+    draw_pot_id INTEGER NOT NULL,
+    team_id INTEGER NOT NULL,
+    seed INTEGER,
+    PRIMARY KEY (draw_pot_id, team_id),
+    FOREIGN KEY (draw_pot_id) REFERENCES draw_pot(id) ON DELETE CASCADE,
+    FOREIGN KEY (team_id) REFERENCES team(id)
+);
+
+CREATE TABLE IF NOT EXISTS draw_participant (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    draw_id INTEGER NOT NULL,
+    team_id INTEGER,
+    participant_slot INTEGER,
+    source_type TEXT,
+    source_stage_id INTEGER,
+    source_position INTEGER,
+    FOREIGN KEY (draw_id) REFERENCES draw_definition(id) ON DELETE CASCADE,
+    FOREIGN KEY (team_id) REFERENCES team(id),
+    FOREIGN KEY (source_stage_id) REFERENCES competition_stage(id),
+    UNIQUE (draw_id, participant_slot)
+);
+
+CREATE TABLE IF NOT EXISTS draw_restriction (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    draw_id INTEGER NOT NULL,
+    restriction_type TEXT NOT NULL,
+    source_pot_id INTEGER,
+    target_pot_id INTEGER,
+    nation_id INTEGER,
+    continent_id INTEGER,
+    competition_id INTEGER,
+    max_meetings INTEGER,
+    same_group_allowed INTEGER,
+    FOREIGN KEY (draw_id) REFERENCES draw_definition(id) ON DELETE CASCADE,
+    FOREIGN KEY (source_pot_id) REFERENCES draw_pot(id),
+    FOREIGN KEY (target_pot_id) REFERENCES draw_pot(id),
+    FOREIGN KEY (nation_id) REFERENCES nation(id),
+    FOREIGN KEY (continent_id) REFERENCES continent(id),
+    FOREIGN KEY (competition_id) REFERENCES competition(id)
+);
+
+CREATE TABLE IF NOT EXISTS draw_slot (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    draw_id INTEGER NOT NULL,
+    slot_number INTEGER NOT NULL,
+    pot_id INTEGER,
+    group_number INTEGER,
+    FOREIGN KEY (draw_id) REFERENCES draw_definition(id) ON DELETE CASCADE,
+    FOREIGN KEY (pot_id) REFERENCES draw_pot(id),
+    UNIQUE (draw_id, slot_number)
+);
+
+-- =========================
+-- TRANSFERS / CONTRACTS
+-- =========================
+
+CREATE TABLE IF NOT EXISTS transfer_window (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    competition_id INTEGER,
+    nation_id INTEGER,
+    name TEXT NOT NULL,
+    start_date TEXT NOT NULL,
+    end_date TEXT NOT NULL,
+    FOREIGN KEY (competition_id) REFERENCES competition(id),
+    FOREIGN KEY (nation_id) REFERENCES nation(id),
+    CHECK (competition_id IS NOT NULL OR nation_id IS NOT NULL)
+);
+
+CREATE TABLE IF NOT EXISTS transfer_status (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL UNIQUE
+);
+
+CREATE TABLE IF NOT EXISTS transfer_type (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL UNIQUE
+);
+
+CREATE TABLE IF NOT EXISTS player_transfer (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    player_id INTEGER NOT NULL,
+    origin_club_id INTEGER,
+    destination_club_id INTEGER,
+    transfer_type_id INTEGER,
+    transfer_status_id INTEGER,
+    transfer_window_id INTEGER,
+    transfer_date TEXT,
+    fee INTEGER,
+    currency_id INTEGER,
+    permanent INTEGER NOT NULL DEFAULT 1 CHECK (permanent IN (0,1)),
+    FOREIGN KEY (player_id) REFERENCES player(person_id),
+    FOREIGN KEY (origin_club_id) REFERENCES club(team_id),
+    FOREIGN KEY (destination_club_id) REFERENCES club(team_id),
+    FOREIGN KEY (transfer_type_id) REFERENCES transfer_type(id),
+    FOREIGN KEY (transfer_status_id) REFERENCES transfer_status(id),
+    FOREIGN KEY (transfer_window_id) REFERENCES transfer_window(id),
+    FOREIGN KEY (currency_id) REFERENCES currency(id)
+);
+
+CREATE TABLE IF NOT EXISTS contract_type (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL UNIQUE
+);
+
+CREATE TABLE IF NOT EXISTS contract_clause_type (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL UNIQUE
+);
+
+CREATE TABLE IF NOT EXISTS player_contract_clause (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    contract_id INTEGER NOT NULL,
+    clause_type_id INTEGER NOT NULL,
+    value INTEGER,
+    percentage REAL,
+    target_club_id INTEGER,
+    condition_id INTEGER,
+    target_quantity INTEGER,
+    FOREIGN KEY (contract_id) REFERENCES person_contract(id) ON DELETE CASCADE,
+    FOREIGN KEY (clause_type_id) REFERENCES contract_clause_type(id),
+    FOREIGN KEY (target_club_id) REFERENCES club(team_id),
+    FOREIGN KEY (condition_id) REFERENCES clause_condition(id)
+);
+
+-- =========================
+-- TACTICS / FORMATIONS / ROLES
+-- =========================
+
+CREATE TABLE IF NOT EXISTS formation_position (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    formation_id INTEGER NOT NULL,
+    position_id INTEGER NOT NULL,
+    x REAL NOT NULL,
+    y REAL NOT NULL,
+    side TEXT,
+    FOREIGN KEY (formation_id) REFERENCES formation(id) ON DELETE CASCADE,
+    FOREIGN KEY (position_id) REFERENCES position_definition(id),
+    UNIQUE (formation_id, x, y)
+);
+
+CREATE TABLE IF NOT EXISTS role_duty (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL UNIQUE
+);
+
+CREATE TABLE IF NOT EXISTS player_role_duty (
+    role_id INTEGER NOT NULL,
+    duty_id INTEGER NOT NULL,
+    PRIMARY KEY (role_id, duty_id),
+    FOREIGN KEY (role_id) REFERENCES player_role(id) ON DELETE CASCADE,
+    FOREIGN KEY (duty_id) REFERENCES role_duty(id)
+);
+
+CREATE TABLE IF NOT EXISTS player_role_key_attribute (
+    role_id INTEGER NOT NULL,
+    attribute_id INTEGER NOT NULL,
+    weight REAL NOT NULL DEFAULT 1,
+    PRIMARY KEY (role_id, attribute_id),
+    FOREIGN KEY (role_id) REFERENCES player_role(id) ON DELETE CASCADE,
+    FOREIGN KEY (attribute_id) REFERENCES player_attribute_definition(id)
+);
+
+CREATE TABLE IF NOT EXISTS tactical_instruction (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL UNIQUE,
+    category TEXT NOT NULL,
+    value_type TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS formation_instruction (
+    formation_id INTEGER NOT NULL,
+    instruction_id INTEGER NOT NULL,
+    value TEXT,
+    PRIMARY KEY (formation_id, instruction_id),
+    FOREIGN KEY (formation_id) REFERENCES formation(id) ON DELETE CASCADE,
+    FOREIGN KEY (instruction_id) REFERENCES tactical_instruction(id)
+);
+
+-- =========================
+-- ATTRIBUTES / WEIGHTS
+-- =========================
+
+CREATE TABLE IF NOT EXISTS attribute_scale (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL UNIQUE,
+    minimum_value INTEGER NOT NULL,
+    maximum_value INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS role_attribute_weight (
+    role_id INTEGER NOT NULL,
+    attribute_id INTEGER NOT NULL,
+    weight REAL NOT NULL,
+    PRIMARY KEY (role_id, attribute_id),
+    FOREIGN KEY (role_id) REFERENCES player_role(id) ON DELETE CASCADE,
+    FOREIGN KEY (attribute_id) REFERENCES player_attribute_definition(id)
+);
+
+-- =========================
+-- NATIONALITY RULES
+-- =========================
+
+CREATE TABLE IF NOT EXISTS nationality_rule (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    nation_id INTEGER NOT NULL,
+    rule_type TEXT NOT NULL,
+    value INTEGER,
+    required_nation_id INTEGER,
+    cumulative INTEGER NOT NULL DEFAULT 0 CHECK (cumulative IN (0,1)),
+    enabled INTEGER NOT NULL DEFAULT 1 CHECK (enabled IN (0,1)),
+    FOREIGN KEY (nation_id) REFERENCES nation(id) ON DELETE CASCADE,
+    FOREIGN KEY (required_nation_id) REFERENCES nation(id)
+);
+
+CREATE TABLE IF NOT EXISTS nationality_eligibility_rule (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    nation_id INTEGER NOT NULL,
+    rule_type TEXT NOT NULL,
+    minimum_age INTEGER,
+    maximum_age INTEGER,
+    years_required INTEGER,
+    matches_required INTEGER,
+    required_nation_id INTEGER,
+    FOREIGN KEY (nation_id) REFERENCES nation(id) ON DELETE CASCADE,
+    FOREIGN KEY (required_nation_id) REFERENCES nation(id)
+);
+
+CREATE TABLE IF NOT EXISTS nation_treatment_rule (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    root_nation_id INTEGER NOT NULL,
+    target_nation_id INTEGER NOT NULL,
+    treatment_type TEXT NOT NULL,
+    value INTEGER,
+    FOREIGN KEY (root_nation_id) REFERENCES nation(id) ON DELETE CASCADE,
+    FOREIGN KEY (target_nation_id) REFERENCES nation(id) ON DELETE CASCADE,
+    UNIQUE (root_nation_id, target_nation_id, treatment_type)
+);
+
+-- =========================
+-- EDITOR VALIDATION
+-- =========================
+
+CREATE TABLE IF NOT EXISTS validation_rule_definition (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    rule_key TEXT NOT NULL UNIQUE,
+    name TEXT NOT NULL,
+    entity_type TEXT NOT NULL,
+    severity TEXT NOT NULL CHECK (severity IN ('ERROR', 'WARNING', 'INFO')),
+    description TEXT NOT NULL,
+    enabled INTEGER NOT NULL DEFAULT 1 CHECK (enabled IN (0,1))
+);
+
+CREATE TABLE IF NOT EXISTS validation_rule_parameter (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    validation_rule_id INTEGER NOT NULL,
+    parameter_key TEXT NOT NULL,
+    parameter_value TEXT,
+    FOREIGN KEY (validation_rule_id) REFERENCES validation_rule_definition(id) ON DELETE CASCADE,
+    UNIQUE (validation_rule_id, parameter_key)
+);
+
+CREATE TABLE IF NOT EXISTS editor_validation_profile (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL UNIQUE,
+    description TEXT,
+    enabled INTEGER NOT NULL DEFAULT 1 CHECK (enabled IN (0,1))
+);
+
+CREATE TABLE IF NOT EXISTS editor_validation_profile_rule (
+    profile_id INTEGER NOT NULL,
+    validation_rule_id INTEGER NOT NULL,
+    enabled INTEGER NOT NULL DEFAULT 1 CHECK (enabled IN (0,1)),
+    PRIMARY KEY (profile_id, validation_rule_id),
+    FOREIGN KEY (profile_id) REFERENCES editor_validation_profile(id) ON DELETE CASCADE,
+    FOREIGN KEY (validation_rule_id) REFERENCES validation_rule_definition(id) ON DELETE CASCADE
+);
+
+
 -- =========================
 -- INDEXES
 -- =========================
@@ -2014,3 +2483,15 @@ CREATE INDEX IF NOT EXISTS idx_player_injury ON player_injury(player_id, start_d
 CREATE INDEX IF NOT EXISTS idx_competition_history ON competition_history(competition_id, year);
 CREATE INDEX IF NOT EXISTS idx_club_record ON club_record(club_id, record_type_id);
 CREATE INDEX IF NOT EXISTS idx_press_area_source ON press_source_area(press_source_id);
+
+CREATE INDEX IF NOT EXISTS idx_stage_participant_rule_stage ON stage_participant_rule(stage_id);
+CREATE INDEX IF NOT EXISTS idx_stage_participant_source_stage ON stage_participant_source(stage_id);
+CREATE INDEX IF NOT EXISTS idx_schedule_profile_stage ON schedule_profile(stage_id);
+CREATE INDEX IF NOT EXISTS idx_draw_stage ON draw_definition(stage_id);
+CREATE INDEX IF NOT EXISTS idx_draw_pot_draw ON draw_pot(draw_id);
+CREATE INDEX IF NOT EXISTS idx_transfer_player ON player_transfer(player_id);
+CREATE INDEX IF NOT EXISTS idx_transfer_club_origin ON player_transfer(origin_club_id);
+CREATE INDEX IF NOT EXISTS idx_transfer_club_destination ON player_transfer(destination_club_id);
+CREATE INDEX IF NOT EXISTS idx_player_contract_clause_contract ON player_contract_clause(contract_id);
+CREATE INDEX IF NOT EXISTS idx_nationality_rule_nation ON nationality_rule(nation_id);
+CREATE INDEX IF NOT EXISTS idx_validation_rule_entity ON validation_rule_definition(entity_type);

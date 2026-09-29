@@ -1,0 +1,28 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+
+    "strict": true,
+    "declaration": true,
+
+    "rootDir": ".",
+    "outDir": "dist",
+
+    "skipLibCheck": true,
+
+    "paths": {
+      "@/*": ["./*"],
+      "@root/*": ["../*"],
+      "@database/*": ["./database/*"],
+      "@editor/*": ["./apps/editor/*"]
+    }
+  },
+  "include": [
+    "**/*.ts"
+  ],
+  "exclude": [
+    "dist"
+  ]
+}

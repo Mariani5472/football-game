@@ -1,6 +1,4 @@
 
-PRAGMA foreign_keys = ON;
-
 -- ============================================================
 -- SAVE DATABASE V1
 -- Runtime state of a career/game.
