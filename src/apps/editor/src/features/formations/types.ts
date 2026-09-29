@@ -29,10 +29,16 @@ export interface Duty {
   name: string;
 }
 
+export interface RoleKeyAttribute {
+  attributeId: number;
+  weight: number;
+}
+
 export interface Role {
   id: number;
   positionId: number;
   name: string;
   description?: string;
   dutyIds: number[];
+  keyAttributes: RoleKeyAttribute[];
 }
