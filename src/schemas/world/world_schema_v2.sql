@@ -2340,6 +2340,15 @@ CREATE TABLE IF NOT EXISTS player_role_key_attribute (
     FOREIGN KEY (attribute_id) REFERENCES player_attribute_definition(id)
 );
 
+CREATE TABLE IF NOT EXISTS formation_position_assignment (
+    formation_position_id INTEGER PRIMARY KEY,
+    role_id INTEGER,
+    duty_id INTEGER,
+    FOREIGN KEY (formation_position_id) REFERENCES formation_position(id) ON DELETE CASCADE,
+    FOREIGN KEY (role_id) REFERENCES player_role(id),
+    FOREIGN KEY (duty_id) REFERENCES role_duty(id)
+);
+
 CREATE TABLE IF NOT EXISTS tactical_instruction (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL UNIQUE,
