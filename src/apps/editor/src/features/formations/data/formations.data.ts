@@ -27,6 +27,7 @@ export const roles: Role[] = [
     name: "Goalkeeper",
     description: "Protects the goal and starts play from the back.",
     dutyIds: [1, 2],
+    keyAttributes: keyAttributes([8, 0.9], [1, 0.6]),
   },
   {
     id: 2,
@@ -34,6 +35,7 @@ export const roles: Role[] = [
     name: "Sweeper Keeper",
     description: "Defends space behind the defensive line and participates in build-up.",
     dutyIds: [1, 2],
+    keyAttributes: keyAttributes([8, 0.8], [7, 0.7], [4, 0.4]),
   },
   {
     id: 3,
@@ -41,6 +43,7 @@ export const roles: Role[] = [
     name: "Full Back",
     description: "Defends the flank and supports the team in possession.",
     dutyIds: [1, 2],
+    keyAttributes: keyAttributes([1, 0.8], [8, 0.7], [4, 0.5]),
   },
   {
     id: 4,
@@ -48,6 +51,7 @@ export const roles: Role[] = [
     name: "Wing Back",
     description: "Provides width and advances aggressively from the full-back line.",
     dutyIds: [2, 3],
+    keyAttributes: keyAttributes([4, 0.8], [1, 0.7], [3, 0.6]),
   },
   {
     id: 5,
@@ -55,6 +59,7 @@ export const roles: Role[] = [
     name: "Central Defender",
     description: "Protects the centre of the defensive line and wins defensive duels.",
     dutyIds: [1, 2],
+    keyAttributes: keyAttributes([5, 0.8], [8, 0.7], [1, 0.5]),
   },
   {
     id: 6,
@@ -62,6 +67,7 @@ export const roles: Role[] = [
     name: "Ball Playing Defender",
     description: "Combines defensive responsibility with progressive distribution.",
     dutyIds: [1, 2],
+    keyAttributes: keyAttributes([1, 0.9], [7, 0.7], [8, 0.7]),
   },
   {
     id: 7,
@@ -69,6 +75,7 @@ export const roles: Role[] = [
     name: "Defensive Midfielder",
     description: "Shields the defence and keeps the midfield structure balanced.",
     dutyIds: [1, 2],
+    keyAttributes: keyAttributes([1, 0.9], [7, 0.8], [5, 0.6]),
   },
   {
     id: 8,
@@ -76,6 +83,7 @@ export const roles: Role[] = [
     name: "Deep Lying Playmaker",
     description: "Provides a deep passing outlet while protecting the centre.",
     dutyIds: [1, 2],
+    keyAttributes: keyAttributes([1, 0.9], [7, 0.8], [8, 0.8]),
   },
   {
     id: 9,
@@ -83,6 +91,7 @@ export const roles: Role[] = [
     name: "Central Midfielder",
     description: "Connects defensive and attacking phases from central areas.",
     dutyIds: [1, 2, 3],
+    keyAttributes: keyAttributes([1, 0.8], [8, 0.8], [7, 0.6], [6, 0.5]),
   },
   {
     id: 10,
@@ -90,6 +99,7 @@ export const roles: Role[] = [
     name: "Box to Box",
     description: "Covers ground between both boxes and contributes in both phases.",
     dutyIds: [2, 3],
+    keyAttributes: keyAttributes([6, 0.8], [7, 0.7], [1, 0.6], [4, 0.5]),
   },
   {
     id: 11,
@@ -97,6 +107,7 @@ export const roles: Role[] = [
     name: "Playmaker",
     description: "Takes responsibility for progressing and creating possession.",
     dutyIds: [2, 3],
+    keyAttributes: keyAttributes([6, 0.9], [7, 0.8], [1, 0.7]),
   },
   {
     id: 12,
@@ -104,6 +115,7 @@ export const roles: Role[] = [
     name: "Winger",
     description: "Holds width and attacks from the flank.",
     dutyIds: [2, 3],
+    keyAttributes: keyAttributes([4, 0.8], [3, 0.7], [1, 0.6]),
   },
   {
     id: 13,
@@ -111,6 +123,7 @@ export const roles: Role[] = [
     name: "Inside Forward",
     description: "Starts wide and attacks central spaces.",
     dutyIds: [2, 3],
+    keyAttributes: keyAttributes([3, 0.9], [4, 0.8], [2, 0.7]),
   },
   {
     id: 14,
@@ -118,6 +131,7 @@ export const roles: Role[] = [
     name: "Advanced Forward",
     description: "Leads the line and attacks space behind the defence.",
     dutyIds: [2, 3],
+    keyAttributes: keyAttributes([2, 0.9], [4, 0.8], [8, 0.7]),
   },
   {
     id: 15,
@@ -125,6 +139,7 @@ export const roles: Role[] = [
     name: "Target Forward",
     description: "Provides a focal point for direct play and brings teammates into attacks.",
     dutyIds: [2, 3],
+    keyAttributes: keyAttributes([2, 0.8], [5, 0.8], [8, 0.6]),
   },
   {
     id: 16,
@@ -132,6 +147,7 @@ export const roles: Role[] = [
     name: "False 9",
     description: "Drops into midfield to connect play and create space ahead.",
     dutyIds: [2, 3],
+    keyAttributes: keyAttributes([7, 0.9], [1, 0.7], [3, 0.6]),
   },
 ];
 
