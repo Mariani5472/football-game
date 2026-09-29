@@ -11,6 +11,17 @@ export function PlayersPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
 
+  const positionNames: Record<number, string> = {
+    1: "Goalkeeper",
+    2: "Centre Back",
+    3: "Full Back",
+    4: "Defensive Midfielder",
+    5: "Central Midfielder",
+    6: "Attacking Midfielder",
+    7: "Winger",
+    8: "Striker",
+  };
+
   const columns: DataTableColumn<Player>[] = [
     {
       key: "name",
@@ -24,7 +35,7 @@ export function PlayersPage() {
     {
       key: "positions",
       header: "Positions",
-      render: (row) => row.positionIds.map((id) => "Position #" + id).join(", "),
+      render: (row) => row.positionIds.map((id) => positionNames[id] ?? "Position #" + id).join(", "),
     },
     {
       key: "value",
