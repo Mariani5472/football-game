@@ -6,7 +6,8 @@
   "scripts": {
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "db:create-world": "tsx src/commands/database/create-world.ts"
+    "db:create-world": "tsx src/commands/database/create-world.ts",
+    "world:fast-start": "tsx src/commands/world/fast-start.ts"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^9.6.0",

@@ -1,6 +1,6 @@
 node_modules/
 dist/
-saves/
+save/
 edit/assets/
 edit/data/
 .env
