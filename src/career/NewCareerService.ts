@@ -104,6 +104,7 @@ export class NewCareerService {
           save,
           saveId,
           options.gameDate,
+          competitions,
           fixtures,
         );
 
@@ -839,6 +840,7 @@ export class NewCareerService {
     save: SaveDatabase,
     saveId: number,
     gameDate: string,
+    competitions: CompetitionSnapshot[],
     fixtures: number,
   ): void {
     save.connection
@@ -863,6 +865,44 @@ export class NewCareerService {
         "New Career",
         "Career created from the selected world package.",
       );
+
+    const insertFixtureEvent =
+      save.connection.prepare(
+        `
+          INSERT INTO calendar_event (
+            save_id,
+            event_type,
+            event_date,
+            priority,
+            title,
+            description
+          )
+          VALUES (?, ?, ?, ?, ?, ?)
+        `,
+      );
+
+    for (const competition of competitions) {
+      const competitionName =
+        this.world.connection
+          .prepare(
+            "SELECT name FROM competition WHERE id = ? LIMIT 1",
+          )
+          .pluck()
+          .get(competition.competitionId) as
+          | string
+          | undefined;
+
+      for (const fixture of competition.generated.fixtures) {
+        insertFixtureEvent.run(
+          saveId,
+          "FIXTURE",
+          fixture.scheduledAt.slice(0, 10),
+          50,
+          "Matchday",
+          `${competitionName ?? "Competition"}: ${fixture.homeTeamId} vs ${fixture.awayTeamId}`,
+        );
+      }
+    }
 
     save.connection
       .prepare(
