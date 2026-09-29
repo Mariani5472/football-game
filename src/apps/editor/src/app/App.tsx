@@ -9,7 +9,6 @@ import {
   LanguagesPage,
   RegionsPage,
 } from "../features/world/pages";
-
 import { EditorLayout } from "../shared/layout/EditorLayout";
 import type { EditorRoute } from "./routes";
 
@@ -52,8 +51,7 @@ function renderRoute(route: EditorRoute) {
 }
 
 export default function App() {
-  const [route, setRoute] =
-    useState<EditorRoute>("dashboard");
+  const [route, setRoute] = useState<EditorRoute>("dashboard");
 
   return (
     <EditorLayout
