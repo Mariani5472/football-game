@@ -1,1 +1,81 @@
-import fs from "node:fs";\nimport os from "node:os";\nimport path from "node:path";\n\nimport { afterEach, describe, expect, it } from "vitest";\n\nimport { WorldDatabase } from "../../src/database/world/WorldDatabase.js";\n\nconst databases: WorldDatabase[] = [];\nconst temporaryFiles: string[] = [];\n\nafterEach(() => {\n  for (const database of databases) database.close();\n  databases.length = 0;\n\n  for (const file of temporaryFiles) {\n    if (fs.existsSync(file)) fs.unlinkSync(file);\n  }\n  temporaryFiles.length = 0;\n});\n\nfunction createDatabase() {\n  const filePath = path.join(\n    os.tmpdir(),\n    "football-world-test-" + Date.now() + "-" + Math.random().toString(16).slice(2) + ".db",\n  );\n  temporaryFiles.push(filePath);\n  const database = WorldDatabase.create(filePath);\n  databases.push(database);\n  return { database, filePath };\n}\n\ndescribe("WorldDatabase", () => {\n  it("creates a valid world database", () => {\n    const { database } = createDatabase();\n    const metadata = database.connection.prepare(`\n      SELECT key, value FROM database_metadata ORDER BY key\n    `).all();\n\n    expect(metadata).toEqual(expect.arrayContaining([\n      { key: "schema_version", value: "2" },\n      { key: "database_type", value: "world" },\n    ]));\n    expect(database.listTables().length).toBeGreaterThan(0);\n    expect(database.connection.prepare("PRAGMA foreign_key_check").all()).toEqual([]);\n  });\n\n  it("introspects database constraints", () => {\n    const { database } = createDatabase();\n    const schema = database.tableSchema("city");\n\n    expect(schema.primaryKey).toEqual(["id"]);\n    expect(schema.columns.some((column) => column.name === "name" && column.notNull)).toBe(true);\n    expect(schema.foreignKeys.some((fk) => fk.table === "nation" && fk.from === "nation_id")).toBe(true);\n    expect(schema.uniqueColumns.length).toBeGreaterThan(0);\n  });\n\n  it("performs create, read, update, count, exists and delete", () => {\n    const { database, filePath } = createDatabase();\n    const nation = database.create("nation", { name: "Test Nation", short_name: "TST" });\n\n    expect(nation.name).toBe("Test Nation");\n    expect(database.exists("nation", nation.id as number)).toBe(true);\n    expect(database.count("nation")).toBe(1);\n\n    const updated = database.update("nation", nation.id as number, { name: "Updated Nation" });\n    expect(updated.name).toBe("Updated Nation");\n\n    database.close();\n    databases.pop();\n\n    const reopened = WorldDatabase.open(filePath);\n    databases.push(reopened);\n    expect(reopened.findById("nation", nation.id as number)).toMatchObject({ name: "Updated Nation" });\n\n    expect(reopened.delete("nation", nation.id as number)).toBe(true);\n    expect(reopened.exists("nation", nation.id as number)).toBe(false);\n  });\n\n  it("supports SQL search, pagination and ordering", () => {\n    const { database } = createDatabase();\n    for (const name of ["Alpha", "Beta", "Alpine", "Gamma"]) database.create("climate", { name });\n\n    const result = database.list("climate", { page: 1, pageSize: 2, search: "alp", orderBy: "name" });\n    expect(result.total).toBe(2);\n    expect(result.rows.map((row) => row.name)).toEqual(["Alpha", "Alpine"]);\n  });\n\n  it("enforces foreign keys", () => {\n    const { database } = createDatabase();\n    expect(() => database.create("city", { nation_id: 999999, name: "Invalid City" })).toThrow();\n  });\n\n  it("rolls back compound operations", () => {\n    const { database } = createDatabase();\n    expect(() => database.transaction(() => {\n      database.create("climate", { name: "Temporary" });\n      database.create("climate", { name: "Temporary" });\n    })).toThrow();\n    expect(database.count("climate")).toBe(0);\n  });\n});
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+
+import { afterEach, describe, expect, it } from "vitest";
+
+import { WorldDatabase } from "../../src/database/world/WorldDatabase.js";
+
+const databases: WorldDatabase[] = [];
+const temporaryFiles: string[] = [];
+
+afterEach(() => {
+  for (const database of databases) {
+    database.close();
+  }
+
+  databases.length = 0;
+
+  for (const file of temporaryFiles) {
+    if (fs.existsSync(file)) {
+      fs.unlinkSync(file);
+    }
+  }
+
+  temporaryFiles.length = 0;
+});
+
+describe("WorldDatabase", () => {
+  it("creates a valid world database", () => {
+    const filePath = path.join(
+      os.tmpdir(),
+      `football-world-${Date.now()}.db`,
+    );
+
+    temporaryFiles.push(filePath);
+
+    const database = WorldDatabase.create(filePath);
+
+    databases.push(database);
+
+    const metadata = database.connection
+      .prepare(`
+        SELECT key, value
+        FROM database_metadata
+        ORDER BY key
+      `)
+      .all();
+
+    expect(metadata).toEqual(
+      expect.arrayContaining([
+        {
+          key: "schema_version",
+          value: "2",
+        },
+        {
+          key: "database_type",
+          value: "world",
+        },
+      ]),
+    );
+
+    const tables = database.connection
+      .prepare(`
+        SELECT name
+        FROM sqlite_master
+        WHERE type = 'table'
+          AND name NOT LIKE 'sqlite_%'
+      `)
+      .all();
+
+    expect(tables.length).toBeGreaterThan(0);
+
+    const foreignKeys = database.connection
+      .prepare(`
+        PRAGMA foreign_key_check
+      `)
+      .all();
+
+    expect(foreignKeys).toEqual([]);
+  });
+});
