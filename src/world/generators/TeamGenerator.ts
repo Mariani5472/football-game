@@ -1,6 +1,12 @@
 import type { WorldDatabase } from "../../database/world/WorldDatabase.js";
 import type { GenerationContext } from "./GenerationContext.js";
 
+export interface TeamGenerationOptions {
+  count?: number;
+  namePrefix?: string;
+  shortNamePrefix?: string;
+}
+
 export class TeamGenerator {
   constructor(
     private readonly database: WorldDatabase,
@@ -8,7 +14,18 @@ export class TeamGenerator {
 
   generateSandbox(
     context: GenerationContext,
+    options: TeamGenerationOptions = {},
   ): void {
+    const count = options.count ?? 8;
+    const namePrefix = options.namePrefix ?? "Sandbox FC";
+    const shortNamePrefix = options.shortNamePrefix ?? "SB";
+
+    if (context.cityIds.length < count) {
+      throw new Error(
+        `Sandbox precisa de pelo menos ${count} cidades para gerar os times.`,
+      );
+    }
+
     const insertTeam = this.database.connection
       .prepare(
         `
@@ -34,16 +51,16 @@ export class TeamGenerator {
         `,
       );
 
-    for (let i = 0; i < 8; i++) {
+    for (let i = 0; i < count; i++) {
       const nationId =
-        context.nationIds[i % 2];
+        context.nationIds[i % context.nationIds.length];
 
       const cityId =
         context.cityIds[i];
 
       const team = insertTeam.run(
-        `Sandbox FC ${i + 1}`,
-        `SB${i + 1}`,
+        `${namePrefix} ${i + 1}`,
+        `${shortNamePrefix}${i + 1}`,
         nationId,
         50,
       );
