@@ -12,6 +12,7 @@ const routeTitles: Record<
   string
 > = {
   dashboard: "Dashboard",
+  geography: "Geography",
   countries: "Countries",
   cities: "Cities",
   languages: "Languages",
