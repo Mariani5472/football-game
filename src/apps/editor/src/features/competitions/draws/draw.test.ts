@@ -20,6 +20,21 @@ describe("draws", () => {
     expect(new Set(pots.flatMap((pot) => pot.teamIds)).size).toBe(16);
   });
 
+  it("supports seeded order through the conditional solver", () => {
+    const teams = Array.from({ length: 16 }, (_, index) => ({
+      teamId: index + 1,
+      seed: index + 1,
+    }));
+
+    const result = conditionalDraw(teams, {
+      groupCount: 4,
+      teamsPerGroup: 4,
+      restrictions: [],
+    });
+
+    expect(result.assignments.size).toBe(16);
+  });
+
   it("does not place teams from the same nation in one group", () => {
     const teams = Array.from({ length: 16 }, (_, index) => ({
       teamId: index + 1,
