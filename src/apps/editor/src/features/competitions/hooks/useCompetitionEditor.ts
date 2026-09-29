@@ -45,6 +45,60 @@ export function useCompetitionEditor(competition?: Competition) {
     }));
   }
 
+  function updateStageSchedule(id: number, patch: Partial<CompetitionStage["schedule"]>) {
+    setDraft((current) => ({
+      ...current,
+      seasons: current.seasons.map((season) => ({
+        ...season,
+        stages: season.stages.map((stage) =>
+          stage.id === id
+            ? { ...stage, schedule: { ...stage.schedule, ...patch } }
+            : stage,
+        ),
+      })),
+    }));
+  }
+
+  function updateStageStanding(id: number, patch: Partial<CompetitionStage["standing"]>) {
+    setDraft((current) => ({
+      ...current,
+      seasons: current.seasons.map((season) => ({
+        ...season,
+        stages: season.stages.map((stage) =>
+          stage.id === id
+            ? { ...stage, standing: { ...stage.standing, ...patch } }
+            : stage,
+        ),
+      })),
+    }));
+  }
+
+  function updateStageDraw(id: number, patch: Partial<CompetitionStage["draw"]>) {
+    setDraft((current) => ({
+      ...current,
+      seasons: current.seasons.map((season) => ({
+        ...season,
+        stages: season.stages.map((stage) =>
+          stage.id === id
+            ? { ...stage, draw: { ...stage.draw, ...patch } }
+            : stage,
+        ),
+      })),
+    }));
+  }
+
+  function updateStageQualification(id: number, qualification: CompetitionStage["qualification"]) {
+    setDraft((current) => ({
+      ...current,
+      seasons: current.seasons.map((season) => ({
+        ...season,
+        stages: season.stages.map((stage) =>
+          stage.id === id ? { ...stage, qualification } : stage,
+        ),
+      })),
+    }));
+  }
+
   function updateStageRules(id: number, patch: Partial<StageRules>) {
     setDraft((current) => ({
       ...current,
@@ -65,5 +119,9 @@ export function useCompetitionEditor(competition?: Competition) {
     updateSeason,
     updateStage,
     updateStageRules,
+    updateStageSchedule,
+    updateStageStanding,
+    updateStageDraw,
+    updateStageQualification,
   };
 }
