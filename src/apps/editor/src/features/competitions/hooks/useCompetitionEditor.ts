@@ -48,36 +48,21 @@ export function useCompetitionEditor(competition?: Competition) {
     id: number,
     patch: Partial<CompetitionStage["participantRule"]>,
   ) {
-    updateStage(id, {
-      participantRule: {
-        ...findStage(id).participantRule,
-        ...patch,
-      },
-    });
+    setDraft((current) => updateStageNested(current, id, "participantRule", patch));
   }
 
   function updateStageFormatRule(
     id: number,
     patch: Partial<CompetitionStage["formatRule"]>,
   ) {
-    updateStage(id, {
-      formatRule: {
-        ...findStage(id).formatRule,
-        ...patch,
-      },
-    });
+    setDraft((current) => updateStageNested(current, id, "formatRule", patch));
   }
 
   function updateStagePointsRule(
     id: number,
     patch: Partial<CompetitionStage["pointsRule"]>,
   ) {
-    updateStage(id, {
-      pointsRule: {
-        ...findStage(id).pointsRule,
-        ...patch,
-      },
-    });
+    setDraft((current) => updateStageNested(current, id, "pointsRule", patch));
   }
 
   function updateStageStandingRules(
@@ -92,18 +77,6 @@ export function useCompetitionEditor(competition?: Competition) {
     });
   }
 
-  function findStage(id: number): CompetitionStage {
-    for (const season of draft.seasons) {
-      const stage = season.stages.find((item) => item.id === id);
-
-      if (stage) {
-        return stage;
-      }
-    }
-
-    throw new Error(`Stage ${id} not found.`);
-  }
-
   return {
     draft,
     setCompetitionValue,
@@ -113,5 +86,32 @@ export function useCompetitionEditor(competition?: Competition) {
     updateStageFormatRule,
     updateStagePointsRule,
     updateStageStandingRules,
+  };
+}
+
+function updateStageNested<
+  K extends "participantRule" | "formatRule" | "pointsRule",
+>(
+  competition: Competition,
+  stageId: number,
+  key: K,
+  patch: Partial<CompetitionStage[K]>,
+): Competition {
+  return {
+    ...competition,
+    seasons: competition.seasons.map((season) => ({
+      ...season,
+      stages: season.stages.map((stage) =>
+        stage.id === stageId
+          ? {
+              ...stage,
+              [key]: {
+                ...stage[key],
+                ...patch,
+              },
+            }
+          : stage,
+      ),
+    })),
   };
 }
