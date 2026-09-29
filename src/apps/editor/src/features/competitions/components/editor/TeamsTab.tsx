@@ -1,5 +1,6 @@
 import { teams } from "../../../teams/data/teams.data";
 import type { CompetitionSeason } from "../../types";
+import { Empty } from "./shared";
 
 export function TeamsTab({
   season,
