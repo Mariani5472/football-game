@@ -8,7 +8,7 @@ import type {
 
 export const LEAGUE_TEAM_COUNT = 20;
 export const LEAGUE_LEGS = 2;
-export const LEAGUE_ROUNDS = LEAGUE_TEAM_COUNT - 2 + 1; // 19 rounds per leg.
+export const LEAGUE_ROUNDS = LEAGUE_TEAM_COUNT - 1; // 19 rounds per leg.
 export const LEAGUE_TOTAL_ROUNDS = LEAGUE_ROUNDS * LEAGUE_LEGS;
 export const LEAGUE_MATCHES_PER_ROUND = LEAGUE_TEAM_COUNT / 2;
 export const LEAGUE_TOTAL_MATCHES =
