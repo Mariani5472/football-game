@@ -1,4 +1,4 @@
-import type { Duty, Formation, Role, TacticalPosition } from "../types";
+import type { Duty, Formation, Role, RoleKeyAttribute, TacticalPosition } from "../types";
 
 export const tacticalPositions: TacticalPosition[] = [
   { id: 1, name: "Goalkeeper", shortName: "GK" },
@@ -16,6 +16,9 @@ export const duties: Duty[] = [
   { id: 2, name: "Support" },
   { id: 3, name: "Attack" },
 ];
+
+const keyAttributes = (...entries: Array<[number, number]>): RoleKeyAttribute[] =>
+  entries.map(([attributeId, weight]) => ({ attributeId, weight }));
 
 export const roles: Role[] = [
   {
