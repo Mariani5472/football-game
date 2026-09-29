@@ -28,9 +28,7 @@ export const countries: Country[] = [
 ];
 
 export const regions: Region[] = [
-  { id: 1, name: "São Paulo", shortName: "SP", countryId: 1 },
-  { id: 2, name: "Rio de Janeiro", shortName: "RJ", countryId: 1 },
-  { id: 3, name: "Minas Gerais", shortName: "MG", countryId: 1 },
+  { id: 1, name: "Brazil", shortName: "BRA", countryId: 1 },
 ];
 
 export const nationRegions: Region[] = [
@@ -116,7 +114,7 @@ export const cities: City[] = [
     name: "Curitiba",
     shortName: "CWB",
     countryId: 1,
-    climateId: 2,
+    climateId: 3,
   },
 ];
 
