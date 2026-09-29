@@ -53,7 +53,7 @@ export class WorldValidator {
       .all() as Array<{
         id: number;
         name: string;
-        nation_id: number | null;
+        nation_id: number;
         climate_id: number | null;
       }>;
 
@@ -67,16 +67,6 @@ export class WorldValidator {
     );
 
     for (const city of cities) {
-      if (city.nation_id === null) {
-        issues.push({
-          severity: "ERROR",
-          rule: "CITY_WITHOUT_NATION",
-          message: `City "${city.name}" has no nation.`,
-          entityType: "CITY",
-          entityId: city.id,
-        });
-      }
-
       if (city.climate_id === null) {
         issues.push({
           severity: "WARNING",
@@ -319,24 +309,6 @@ export class WorldValidator {
       `,
     );
 
-    const fixtureCount = this.database.connection.prepare(
-      `
-        SELECT COUNT(*) AS count
-        FROM fixture f
-        JOIN competition_round r
-          ON r.id = f.round_id
-        WHERE r.stage_id = ?
-      `,
-    );
-
-    const scheduleProfileCount = this.database.connection.prepare(
-      `
-        SELECT COUNT(*) AS count
-        FROM schedule_profile
-        WHERE stage_id = ?
-      `,
-    );
-
     for (const competition of competitions) {
       const seasonRows = seasons.all(
         competition.id,
@@ -408,37 +380,7 @@ export class WorldValidator {
             issues.push({
               severity: "ERROR",
               rule: "STAGE_WITHOUT_SCHEDULE",
-              message: `Competition "${competition.name}" has a stage without rounds.`,
-              entityType: "COMPETITION_STAGE",
-              entityId: stage.id,
-            });
-
-            continue;
-          }
-
-          const fixtures = fixtureCount.get(
-            stage.id,
-          ) as { count: number };
-
-          if (fixtures.count === 0) {
-            issues.push({
-              severity: "WARNING",
-              rule: "STAGE_WITHOUT_FIXTURES",
-              message: `Competition "${competition.name}" has rounds but no fixtures yet.`,
-              entityType: "COMPETITION_STAGE",
-              entityId: stage.id,
-            });
-          }
-
-          const schedules = scheduleProfileCount.get(
-            stage.id,
-          ) as { count: number };
-
-          if (schedules.count === 0) {
-            issues.push({
-              severity: "WARNING",
-              rule: "STAGE_WITHOUT_SCHEDULE_PROFILE",
-              message: `Competition "${competition.name}" has no schedule profile.`,
+              message: `Competition "${competition.name}" has no rounds.`,
               entityType: "COMPETITION_STAGE",
               entityId: stage.id,
             });
