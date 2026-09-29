@@ -7,7 +7,9 @@
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "db:create-world": "tsx src/commands/database/create-world.ts",
-    "world:fast-start": "tsx src/commands/world/fast-start.ts"
+    "world:fast-start": "tsx src/commands/world/fast-start.ts",
+    "editor:dev": "npm --prefix src/editor run dev",
+    "editor:build": "npm --prefix src/editor install && npm --prefix src/editor run build"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^9.6.0",
