@@ -1,5 +1,5 @@
 import { Building2, SlidersHorizontal } from "lucide-react";
-import { EntityForm, EntityPicker, Tabs } from "../../../../shared/components";
+import { EntityForm, EntityPicker, Tabs } from "../../../shared/components";
 import { cities } from "../../world/data/world.data";
 import { clubs } from "../../teams/data/teams.data";
 import { teams } from "../../teams/data/teams.data";
@@ -97,7 +97,7 @@ export function StadiumEditor({ stadium, onBack }: StadiumEditorProps) {
                     label="City"
                     value={draft.cityId}
                     options={cities.map((city) => ({ id: city.id, label: city.name }))}
-                    onChange={(value) => setValue("cityId", value)}
+                    onChange={(value) => setValue("cityId", String(value))}
                   />
                   <EntityPicker
                     label="Owner"
@@ -106,13 +106,13 @@ export function StadiumEditor({ stadium, onBack }: StadiumEditorProps) {
                       id: club.teamId,
                       label: teams.find((team) => team.id === club.teamId)?.name ?? "Unknown club",
                     }))}
-                    onChange={(value) => setValue("ownerClubId", value)}
+                    onChange={(value) => setValue("ownerClubId", String(value))}
                   />
                   <EntityPicker
                     label="Pitch"
                     value={draft.pitchTypeId}
                     options={pitchOptions}
-                    onChange={(value) => setValue("pitchTypeId", value)}
+                    onChange={(value) => setValue("pitchTypeId", String(value))}
                   />
                 </SectionCard>
               </div>
@@ -124,11 +124,11 @@ export function StadiumEditor({ stadium, onBack }: StadiumEditorProps) {
             content: (
               <div className="grid gap-5 md:grid-cols-2">
                 <SectionCard title="Quality">
-                  <EntityPicker label="Quality" value={draft.qualityStateId} options={qualityOptions} onChange={(value) => setValue("qualityStateId", value)} />
-                  <EntityPicker label="Environment" value={draft.environmentQualityId} options={environmentOptions} onChange={(value) => setValue("environmentQualityId", value)} />
+                  <EntityPicker label="Quality" value={draft.qualityStateId} options={qualityOptions} onChange={(value) => setValue("qualityStateId", String(value))} />
+                  <EntityPicker label="Environment" value={draft.environmentQualityId} options={environmentOptions} onChange={(value) => setValue("environmentQualityId", String(value))} />
                 </SectionCard>
                 <SectionCard title="Field">
-                  <EntityPicker label="Field deterioration" value={draft.grassDeteriorationRateId} options={deteriorationOptions} onChange={(value) => setValue("grassDeteriorationRateId", value)} />
+                  <EntityPicker label="Field deterioration" value={draft.grassDeteriorationRateId} options={deteriorationOptions} onChange={(value) => setValue("grassDeteriorationRateId", String(value))} />
                 </SectionCard>
               </div>
             ),

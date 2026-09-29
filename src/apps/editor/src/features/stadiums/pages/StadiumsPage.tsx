@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Plus } from "lucide-react";
-import { DataTable } from "../../../../shared/components";
-import type { DataTableColumn } from "../../../../shared/components";
+import { DataTable } from "../../../shared/components";
+import type { DataTableColumn } from "../../../shared/components";
 import { cities } from "../../world/data/world.data";
 import { teams } from "../../teams/data/teams.data";
 import { stadiums } from "../data/stadiums.data";
