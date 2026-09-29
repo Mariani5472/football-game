@@ -1,5 +1,6 @@
 import { useState } from "react";
 
+import { FormationsPage } from "../features/formations/pages";
 import { DashboardPage } from "../features/dashboard/pages/DashboardPage";
 import { PeoplePage } from "../features/people/pages";
 import { PlayersPage } from "../features/players/pages";
@@ -51,6 +52,8 @@ function renderRoute(route: EditorRoute) {
       return <TeamsPage />;
     case "stadiums":
       return <StadiumsPage />;
+    case "formations":
+      return <FormationsPage />;
     case "competitions":
       return <ComingSoon title="Competitions" />;
     case "fast-start":
