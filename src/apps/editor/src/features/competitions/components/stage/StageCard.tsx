@@ -7,9 +7,10 @@ import { PointsPanel } from "./panels/PointsPanel";
 import { ParticipantsPanel } from "./panels/ParticipantsPanel";
 import { RulesPanel } from "./panels/RulesPanel";
 import { StandingPanel } from "./panels/StandingPanel";
+import { SchedulePanel } from "./panels/SchedulePanel";
 import { Field, NumberInput } from "../editor/shared";
 
-type StageTab = "participants" | "format" | "points" | "standing" | "rules";
+type StageTab = "participants" | "format" | "points" | "standing" | "schedule" | "rules";
 
 interface StageCardProps {
   stage: CompetitionStage;
@@ -31,6 +32,7 @@ interface StageCardProps {
     id: number,
     standingRules: CompetitionStage["standingRules"],
   ) => void;
+  onScheduleChange: (id: number, patch: Partial<CompetitionStage>) => void;
 }
 
 export function StageCard({
@@ -41,6 +43,7 @@ export function StageCard({
   onFormatChange,
   onPointsChange,
   onStandingChange,
+  onScheduleChange,
 }: StageCardProps) {
   const [tab, setTab] = useState<StageTab>("participants");
   const validation = validateSimpleLeague(stage);
@@ -68,6 +71,7 @@ export function StageCard({
           { id: "format", label: "Format", content: <FormatPanel stage={stage} onChange={onFormatChange} /> },
           { id: "points", label: "Points", content: <PointsPanel stage={stage} onChange={onPointsChange} /> },
           { id: "standing", label: "Standing Rules", content: <StandingPanel stage={stage} onChange={onStandingChange} /> },
+          { id: "schedule", label: "Schedule", content: <SchedulePanel stage={stage} onChange={onScheduleChange} /> },
           { id: "rules", label: "Rules", content: <RulesPanel stage={stage} validation={validation} /> },
         ]}
       />
