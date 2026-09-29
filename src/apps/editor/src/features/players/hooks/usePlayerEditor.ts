@@ -1,5 +1,6 @@
 import { useState } from "react";
 
+import type { AttributeCategory } from "../../attributes/types";
 import type { Player, PlayerDraft } from "../types";
 
 const emptyDraft: PlayerDraft = {
@@ -8,8 +9,8 @@ const emptyDraft: PlayerDraft = {
   attributes: {
     technical: {},
     physical: {},
-    psychological: {},
-    goalkeeper: {},
+    mental: {},
+    goalkeeping: {},
   },
   potential: "",
   estimatedValue: "",
@@ -36,8 +37,8 @@ export function usePlayerEditor(player?: Player) {
           attributes: {
             technical: toAttributeDraft(player.attributes.technical),
             physical: toAttributeDraft(player.attributes.physical),
-            psychological: toAttributeDraft(player.attributes.psychological),
-            goalkeeper: toAttributeDraft(player.attributes.goalkeeper),
+            mental: toAttributeDraft(player.attributes.mental),
+            goalkeeping: toAttributeDraft(player.attributes.goalkeeping),
           },
           potential: player.potential?.toString() ?? "",
           estimatedValue: player.estimatedValue?.toString() ?? "",
@@ -57,7 +58,7 @@ export function usePlayerEditor(player?: Player) {
   }
 
   function setAttribute(
-    category: keyof PlayerDraft["attributes"],
+    category: AttributeCategory,
     name: string,
     value: string,
   ) {
