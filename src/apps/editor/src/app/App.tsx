@@ -1,6 +1,7 @@
 import { useState } from "react";
 
 import { TeamsPage } from "../features/teams/pages";
+import { StadiumsPage } from "../features/stadiums/pages";
 import {
   CitiesPage,
   ClimatesPage,
@@ -45,7 +46,7 @@ function renderRoute(route: EditorRoute) {
     case "clubs":
       return <TeamsPage />;
     case "stadiums":
-      return <ComingSoon title="Stadiums" />;
+      return <StadiumsPage />;
     case "competitions":
       return <ComingSoon title="Competitions" />;
     case "fast-start":
