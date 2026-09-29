@@ -3,7 +3,6 @@ import type {
   Competition,
   CompetitionSeason,
   CompetitionStage,
-  StageRules,
 } from "../types";
 
 export function useCompetitionEditor(competition?: Competition) {
@@ -45,72 +44,64 @@ export function useCompetitionEditor(competition?: Competition) {
     }));
   }
 
-  function updateStageSchedule(id: number, patch: Partial<CompetitionStage["schedule"]>) {
-    setDraft((current) => ({
-      ...current,
-      seasons: current.seasons.map((season) => ({
-        ...season,
-        stages: season.stages.map((stage) =>
-          stage.id === id
-            ? { ...stage, schedule: { ...stage.schedule, ...patch } }
-            : stage,
-        ),
-      })),
-    }));
+  function updateStageParticipantRule(
+    id: number,
+    patch: Partial<CompetitionStage["participantRule"]>,
+  ) {
+    updateStage(id, {
+      participantRule: {
+        ...findStage(id).participantRule,
+        ...patch,
+      },
+    });
   }
 
-  function updateStageStanding(id: number, patch: Partial<CompetitionStage["standing"]>) {
-    setDraft((current) => ({
-      ...current,
-      seasons: current.seasons.map((season) => ({
-        ...season,
-        stages: season.stages.map((stage) =>
-          stage.id === id
-            ? { ...stage, standing: { ...stage.standing, ...patch } }
-            : stage,
-        ),
-      })),
-    }));
+  function updateStageFormatRule(
+    id: number,
+    patch: Partial<CompetitionStage["formatRule"]>,
+  ) {
+    updateStage(id, {
+      formatRule: {
+        ...findStage(id).formatRule,
+        ...patch,
+      },
+    });
   }
 
-  function updateStageDraw(id: number, patch: Partial<CompetitionStage["draw"]>) {
-    setDraft((current) => ({
-      ...current,
-      seasons: current.seasons.map((season) => ({
-        ...season,
-        stages: season.stages.map((stage) =>
-          stage.id === id
-            ? { ...stage, draw: { ...stage.draw, ...patch } }
-            : stage,
-        ),
-      })),
-    }));
+  function updateStagePointsRule(
+    id: number,
+    patch: Partial<CompetitionStage["pointsRule"]>,
+  ) {
+    updateStage(id, {
+      pointsRule: {
+        ...findStage(id).pointsRule,
+        ...patch,
+      },
+    });
   }
 
-  function updateStageQualification(id: number, qualification: CompetitionStage["qualification"]) {
-    setDraft((current) => ({
-      ...current,
-      seasons: current.seasons.map((season) => ({
-        ...season,
-        stages: season.stages.map((stage) =>
-          stage.id === id ? { ...stage, qualification } : stage,
-        ),
+  function updateStageStandingRules(
+    id: number,
+    standingRules: CompetitionStage["standingRules"],
+  ) {
+    updateStage(id, {
+      standingRules: standingRules.map((rule, index) => ({
+        ...rule,
+        ruleOrder: index + 1,
       })),
-    }));
+    });
   }
 
-  function updateStageRules(id: number, patch: Partial<StageRules>) {
-    setDraft((current) => ({
-      ...current,
-      seasons: current.seasons.map((season) => ({
-        ...season,
-        stages: season.stages.map((stage) =>
-          stage.id === id
-            ? { ...stage, rules: { ...stage.rules, ...patch } }
-            : stage,
-        ),
-      })),
-    }));
+  function findStage(id: number): CompetitionStage {
+    for (const season of draft.seasons) {
+      const stage = season.stages.find((item) => item.id === id);
+
+      if (stage) {
+        return stage;
+      }
+    }
+
+    throw new Error(`Stage ${id} not found.`);
   }
 
   return {
@@ -118,10 +109,9 @@ export function useCompetitionEditor(competition?: Competition) {
     setCompetitionValue,
     updateSeason,
     updateStage,
-    updateStageRules,
-    updateStageSchedule,
-    updateStageStanding,
-    updateStageDraw,
-    updateStageQualification,
+    updateStageParticipantRule,
+    updateStageFormatRule,
+    updateStagePointsRule,
+    updateStageStandingRules,
   };
 }
