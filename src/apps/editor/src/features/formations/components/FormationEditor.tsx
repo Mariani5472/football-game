@@ -73,6 +73,7 @@ export function FormationEditor({ formation, onBack }: FormationEditorProps) {
                     const positionDefinition = getPosition(position.positionId);
                     const role = getRole(position.roleId);
                     const duty = getDuty(position.dutyId);
+                    const keyAttributes = editor.getKeyAttributes(position.roleId);
 
                     return (
                       <div
@@ -132,34 +133,69 @@ export function FormationEditor({ formation, onBack }: FormationEditorProps) {
             id: "roles",
             label: "Roles & Duties",
             content: (
-              <div className="grid gap-4 md:grid-cols-2">
-                {roles.map((role) => (
-                  <div
-                    key={role.id}
-                    className="rounded-2xl border border-white/10 bg-white/[0.02] p-5"
-                  >
-                    <div className="text-sm font-semibold text-white">{role.name}</div>
-                    <div className="mt-1 text-xs text-slate-500">
-                      {getPosition(role.positionId)?.name}
+              <div className="space-y-4">
+                {roles.map((role) => {
+                  const roleKeyAttributes = editor.getKeyAttributes(role.id);
+                  const roleDuties = editor.getAvailableDuties(role.id);
+
+                  return (
+                    <div
+                      key={role.id}
+                      className="rounded-2xl border border-white/10 bg-white/[0.02] p-5"
+                    >
+                      <div className="flex items-start justify-between gap-4">
+                        <div>
+                          <div className="text-sm font-semibold text-white">{role.name}</div>
+                          <div className="mt-1 text-xs text-slate-500">
+                            {getPosition(role.positionId)?.name}
+                          </div>
+                        </div>
+                      </div>
+
+                      <p className="mt-3 text-xs leading-5 text-slate-500">
+                        {role.description}
+                      </p>
+
+                      <div className="mt-4 grid gap-4 md:grid-cols-2">
+                        <div>
+                          <div className="mb-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-600">
+                            Duties
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            {roleDuties.map((duty) => (
+                              <span
+                                key={duty.id}
+                                className="rounded-full border border-white/10 px-2.5 py-1 text-[11px] text-slate-400"
+                              >
+                                {duty.name}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div>
+                          <div className="mb-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-600">
+                            Key Attributes
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            {roleKeyAttributes.map((entry) => (
+                              <span
+                                key={entry.attributeId}
+                                title={`Weight ${entry.weight}`}
+                                className="rounded-full border border-emerald-400/10 bg-emerald-400/[0.03] px-2.5 py-1 text-[11px] text-emerald-200"
+                              >
+                                {entry.attribute?.name}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
                     </div>
-                    <p className="mt-3 text-xs leading-5 text-slate-600">
-                      {role.description}
-                    </p>
-                    <div className="mt-4 flex flex-wrap gap-2">
-                      {role.dutyIds.map((dutyId) => (
-                        <span
-                          key={dutyId}
-                          className="rounded-full border border-white/10 px-2.5 py-1 text-[11px] text-slate-400"
-                        >
-                          {getDuty(dutyId)?.name}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             ),
-          },
+          }},
         ]}
       />
     </div>
