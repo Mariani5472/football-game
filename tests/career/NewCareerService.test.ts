@@ -159,6 +159,22 @@ describe("NewCareerService", () => {
 
     expect(fixtureCount).toBe(380);
 
+    const calendarFixtureCount =
+      (
+        save.connection
+          .prepare(
+            `
+              SELECT COUNT(*) AS count
+              FROM calendar_event
+              WHERE save_id = ?
+                AND event_type = 'FIXTURE'
+            `,
+          )
+          .get(result.saveId) as { count: number }
+      ).count;
+
+    expect(calendarFixtureCount).toBe(380);
+
     const manager =
       save.connection
         .prepare(
