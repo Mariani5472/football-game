@@ -27,3 +27,6 @@ export {
   LEAGUE_TOTAL_MATCHES,
   validateSimpleLeague,
 } from "./rules/league";
+
+export type { SchedulingType, ScheduleProfile, ScheduledFixture, ScheduledRound, RoundRobinSchedule, ScheduleGenerationResult } from "./scheduling";
+export { generateRoundRobin } from "./scheduling";
