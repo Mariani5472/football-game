@@ -112,6 +112,20 @@ export class PlayerGenerator {
         `,
       );
 
+    const insertContract =
+      this.database.connection.prepare(
+        `
+          INSERT INTO person_contract (
+            person_id,
+            club_id,
+            start_date,
+            contract_type,
+            salary
+          )
+          VALUES (?, ?, ?, ?, ?)
+        `,
+      );
+
     for (const [
       index,
       personId,
@@ -143,10 +157,23 @@ export class PlayerGenerator {
         10, 10, 10, 10, 10, 10, 10,
       );
 
+      const clubId =
+        context.clubIds[
+          index % context.clubIds.length
+        ];
+
       insertClubPeriod.run(
         personId,
-        context.clubIds[index % context.clubIds.length],
+        clubId,
         "2026-01-01",
+      );
+
+      insertContract.run(
+        personId,
+        clubId,
+        "2026-01-01",
+        "PLAYER",
+        10_000,
       );
 
       context.playerIds.push(personId);
