@@ -9,6 +9,7 @@
     "db:create-world": "tsx src/commands/database/create-world.ts",
     "world:fast-start": "tsx src/commands/world/fast-start.ts",
     "competition:brazil-sandbox": "tsx src/commands/competition/brazil-sandbox.ts",
+    "career:new": "tsx src/commands/career/new.ts",
     "editor:dev": "npm --prefix src/editor run dev",
     "editor:build": "npm --prefix src/editor install && npm --prefix src/editor run build"
   },
@@ -20,6 +21,6 @@
     "vitest": "^3.2.0"
   },
   "dependencies": {
-    "better-sqlite3": "^13.0.3"
+    "better-sqlite3": "^13.0.0"
   }
 }
