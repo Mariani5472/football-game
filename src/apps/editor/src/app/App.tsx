@@ -1,7 +1,7 @@
 import { useState } from "react";
 
-import { DashboardPage } from "../features/dashboard/pages/DashboardPage";
 import { EditorLayout } from "../shared/layout/EditorLayout";
+import { DashboardPage } from "../features/dashboard/pages/DashboardPage";
 import type { EditorRoute } from "./routes";
 
 export default function App() {
@@ -13,7 +13,7 @@ export default function App() {
       activeRoute={route}
       onNavigate={setRoute}
     >
-      {route === "dashboard" && <DashboardPage />}
+      <DashboardPage />
     </EditorLayout>
   );
 }

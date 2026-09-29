@@ -6,6 +6,10 @@ import {
   Send,
 } from "lucide-react";
 
+interface QuickActionsProps {
+  onAction?: (action: string) => void;
+}
+
 const actions = [
   {
     id: "new-world",
@@ -32,9 +36,11 @@ const actions = [
     label: "Export",
     icon: Send,
   },
-] as const;
+];
 
-export function QuickActions() {
+export function QuickActions({
+  onAction,
+}: QuickActionsProps) {
   return (
     <section>
       <div className="mb-3 text-[11px] font-semibold tracking-[0.2em] text-slate-600">
@@ -49,6 +55,7 @@ export function QuickActions() {
             <button
               key={action.id}
               type="button"
+              onClick={() => onAction?.(action.id)}
               className="flex min-h-24 flex-col justify-between rounded-2xl border border-white/10 bg-white/[0.02] p-4 text-left transition hover:border-emerald-400/20 hover:bg-white/[0.04]"
             >
               <Icon

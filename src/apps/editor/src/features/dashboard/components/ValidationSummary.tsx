@@ -1,7 +1,4 @@
-import {
-  AlertCircle,
-  AlertTriangle,
-} from "lucide-react";
+import { AlertCircle, AlertTriangle } from "lucide-react";
 
 export function ValidationSummary({
   warnings,
@@ -45,11 +42,7 @@ function ValidationItem({
   return (
     <div className="flex items-center justify-between rounded-xl border border-white/5 bg-black/10 px-4 py-3">
       <div className="flex items-center gap-3">
-        <Icon
-          size={16}
-          className="text-slate-500"
-        />
-
+        <Icon size={16} className="text-slate-500" />
         <span className="text-sm text-slate-400">
           {label}
         </span>

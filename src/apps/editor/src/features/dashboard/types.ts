@@ -1,6 +1,4 @@
-export type DashboardStatus =
-  | "VALID"
-  | "INVALID";
+export type DashboardStatus = "VALID" | "INVALID";
 
 export interface WorldSummary {
   name: string;

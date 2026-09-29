@@ -8,7 +8,6 @@ export const dashboardData: DashboardData = {
     warnings: 3,
     errors: 0,
   },
-
   counts: {
     countries: 1,
     cities: 27,
@@ -17,7 +16,6 @@ export const dashboardData: DashboardData = {
     stadiums: 20,
     competitions: 5,
   },
-
   recentEntities: [
     {
       id: "club-corinthians",

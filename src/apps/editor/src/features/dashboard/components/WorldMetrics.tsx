@@ -56,7 +56,9 @@ export function WorldMetrics({
         {metrics.map((metric) => (
           <MetricCard
             key={metric.label}
-            {...metric}
+            label={metric.label}
+            value={metric.value}
+            icon={metric.icon}
           />
         ))}
       </div>
@@ -64,11 +66,7 @@ export function WorldMetrics({
   );
 }
 
-function SectionLabel({
-  label,
-}: {
-  label: string;
-}) {
+function SectionLabel({ label }: { label: string }) {
   return (
     <div className="mb-3 text-[11px] font-semibold tracking-[0.2em] text-slate-600">
       {label}
