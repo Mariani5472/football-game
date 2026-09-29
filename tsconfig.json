@@ -14,9 +14,8 @@
 
     "paths": {
       "@/*": ["./*"],
-      "@root/*": ["../*"],
-      "@database/*": ["./database/*"],
-      "@editor/*": ["./apps/editor/*"]
+      "@database/*": ["./src/database/*"],
+      "@editor/*": ["./src/apps/editor/*"]
     }
   },
   "include": [
