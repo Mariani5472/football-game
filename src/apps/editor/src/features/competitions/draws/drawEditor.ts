@@ -44,19 +44,7 @@ export function useDrawEditor(
     restrictions: DrawRestriction[] = [],
   ) => {
     if (state.drawType === "RANDOM") {
-      return randomDraw(
-        teams,
-        state.groupCount,
-        state.teamsPerGroup,
-      );
-    }
-
-    if (state.drawType === "CONDITIONAL") {
-      return conditionalDraw(teams, {
-        groupCount: state.groupCount,
-        teamsPerGroup: state.teamsPerGroup,
-        restrictions,
-      });
+      return randomDraw(teams, state.groupCount, state.teamsPerGroup);
     }
 
     return conditionalDraw(teams, {
