@@ -37,7 +37,15 @@ export function CompetitionEditor({ competition, onBack }: CompetitionEditorProp
           { id: "general", label: "General", content: <GeneralTab editor={editor} /> },
           { id: "seasons", label: "Seasons", content: <SeasonsTab seasons={editor.draft.seasons} onChange={editor.updateSeason} /> },
           { id: "teams", label: "Teams", content: <TeamsTab season={season} onChange={editor.updateSeason} /> },
-          { id: "stages", label: "Stages", content: <StagesTab season={season} onChange={editor.updateStage} onRulesChange={editor.updateStageRules} /> },
+          { id: "stages", label: "Stages", content: <StagesTab
+                season={season}
+                onChange={editor.updateStage}
+                onRulesChange={editor.updateStageRules}
+                onScheduleChange={editor.updateStageSchedule}
+                onStandingChange={editor.updateStageStanding}
+                onDrawChange={editor.updateStageDraw}
+                onQualificationChange={editor.updateStageQualification}
+              /> },
           { id: "history", label: "History", content: <HistoryTab seasons={editor.draft.seasons} /> },
         ]}
       />
@@ -117,19 +125,40 @@ function StagesTab({ season, onChange, onRulesChange }: {
   season?: CompetitionSeason;
   onChange: (id: number, patch: Partial<CompetitionStage>) => void;
   onRulesChange: (id: number, patch: Partial<CompetitionStage["rules"]>) => void;
+  onScheduleChange: (id: number, patch: Partial<CompetitionStage["schedule"]>) => void;
+  onStandingChange: (id: number, patch: Partial<CompetitionStage["standing"]>) => void;
+  onDrawChange: (id: number, patch: Partial<CompetitionStage["draw"]>) => void;
+  onQualificationChange: (id: number, qualification: CompetitionStage["qualification"]) => void;
 }) {
   if (!season) return <Empty message="Create a season before configuring stages." />;
   return (
     <div className="space-y-4">
-      {season.stages.map((stage) => <StageCard key={stage.id} stage={stage} onChange={onChange} onRulesChange={onRulesChange} />)}
+      {season.stages.map((stage) => (
+        <StageCard
+          key={stage.id}
+          stage={stage}
+          seasonTeams={season.teams}
+          onChange={onChange}
+          onRulesChange={onRulesChange}
+          onScheduleChange={onScheduleChange}
+          onStandingChange={onStandingChange}
+          onDrawChange={onDrawChange}
+          onQualificationChange={onQualificationChange}
+        />
+      ))}
     </div>
   );
 }
 
-function StageCard({ stage, onChange, onRulesChange }: {
+function StageCard({ stage, seasonTeams, onChange, onRulesChange, onScheduleChange, onStandingChange, onDrawChange, onQualificationChange }: {
   stage: CompetitionStage;
+  seasonTeams: number[];
   onChange: (id: number, patch: Partial<CompetitionStage>) => void;
   onRulesChange: (id: number, patch: Partial<CompetitionStage["rules"]>) => void;
+  onScheduleChange: (id: number, patch: Partial<CompetitionStage["schedule"]>) => void;
+  onStandingChange: (id: number, patch: Partial<CompetitionStage["standing"]>) => void;
+  onDrawChange: (id: number, patch: Partial<CompetitionStage["draw"]>) => void;
+  onQualificationChange: (id: number, qualification: CompetitionStage["qualification"]) => void;
 }) {
   const [tab, setTab] = useState<"participants" | "format" | "rules" | "schedule" | "standing" | "qualification" | "draw">("participants");
 
@@ -147,20 +176,35 @@ function StageCard({ stage, onChange, onRulesChange }: {
       </div>
 
       <Tabs activeTab={tab} onChange={setTab} items={[
-        { id: "participants", label: "Participants", content: <ParticipantsPanel stage={stage} /> },
+        { id: "participants", label: "Participants", content: <ParticipantsPanel stage={stage} seasonTeams={seasonTeams} onChange={onChange} /> },
         { id: "format", label: "Format", content: <FormatPanel stage={stage} onRulesChange={onRulesChange} /> },
         { id: "rules", label: "Rules", content: <RulesPanel stage={stage} /> },
-        { id: "schedule", label: "Schedule", content: <SchedulePanel stage={stage} /> },
-        { id: "standing", label: "Standing", content: <StandingPanel stage={stage} /> },
-        { id: "qualification", label: "Qualification", content: <QualificationPanel stage={stage} /> },
-        { id: "draw", label: "Draw", content: <DrawPanel stage={stage} /> },
+        { id: "schedule", label: "Schedule", content: <SchedulePanel stage={stage} onChange={onScheduleChange} /> },
+        { id: "standing", label: "Standing", content: <StandingPanel stage={stage} onChange={onStandingChange} /> },
+        { id: "qualification", label: "Qualification", content: <QualificationPanel stage={stage} onChange={onQualificationChange} /> },
+        { id: "draw", label: "Draw", content: <DrawPanel stage={stage} onChange={onDrawChange} /> },
       ]} />
     </div>
   );
 }
 
-function ParticipantsPanel({ stage }: { stage: CompetitionStage }) {
-  return <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-4">{stage.participants.map((teamId) => <div key={teamId} className="rounded-lg border border-white/10 px-3 py-2 text-xs text-slate-400">Team #{teamId}</div>)}</div>;
+function ParticipantsPanel({ stage, seasonTeams, onChange }: { stage: CompetitionStage; seasonTeams: number[]; onChange: (id: number, patch: Partial<CompetitionStage>) => void }) {
+  const selected = new Set(stage.participants);
+  return (
+    <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-4">
+      {seasonTeams.map((teamId) => (
+        <label key={teamId} className="flex items-center gap-3 rounded-lg border border-white/10 px-3 py-2 text-xs text-slate-400">
+          <input type="checkbox" checked={selected.has(teamId)} onChange={(event) => {
+            const participants = event.target.checked
+              ? [...stage.participants, teamId]
+              : stage.participants.filter((id) => id !== teamId);
+            onChange(stage.id, { participants });
+          }} />
+          Team #{teamId}
+        </label>
+      ))}
+    </div>
+  );
 }
 
 function FormatPanel({ stage, onRulesChange }: { stage: CompetitionStage; onRulesChange: (id: number, patch: Partial<CompetitionStage["rules"]>) => void }) {
@@ -179,20 +223,70 @@ function RulesPanel({ stage }: { stage: CompetitionStage }) {
   return <div className="grid gap-3 md:grid-cols-3"><Stat label="Legs" value={String(stage.rules.legs)} /><Stat label="Home / Away" value={stage.rules.homeAway ? "Yes" : "No"} /><Stat label="Points" value={stage.rules.pointsForWin + " / " + stage.rules.pointsForDraw + " / " + stage.rules.pointsForLoss} /></div>;
 }
 
-function SchedulePanel({ stage }: { stage: CompetitionStage }) {
-  return <div className="grid gap-3 md:grid-cols-4"><Stat label="Start" value={stage.schedule.startDate} /><Stat label="End" value={stage.schedule.endDate} /><Stat label="Interval" value={stage.schedule.intervalDays + " days"} /><Stat label="Balanced" value={stage.schedule.homeAwayBalanced ? "Yes" : "No"} /></div>;
+function SchedulePanel({ stage, onChange }: { stage: CompetitionStage; onChange: (id: number, patch: Partial<CompetitionStage["schedule"]>) => void }) {
+  return (
+    <div className="grid gap-5 md:grid-cols-2">
+      <Field label="Start" value={stage.schedule.startDate} onChange={(value) => onChange(stage.id, { startDate: value })} />
+      <Field label="End" value={stage.schedule.endDate} onChange={(value) => onChange(stage.id, { endDate: value })} />
+      <NumberInput label="Interval (days)" value={stage.schedule.intervalDays} onChange={(value) => onChange(stage.id, { intervalDays: value ?? 7 })} />
+      <Toggle label="Home / Away Balanced" value={stage.schedule.homeAwayBalanced} onChange={(value) => onChange(stage.id, { homeAwayBalanced: value })} />
+    </div>
+  );
 }
 
-function StandingPanel({ stage }: { stage: CompetitionStage }) {
-  return <div className="flex flex-wrap gap-2">{stage.standing.tiebreakers.map((rule) => <span key={rule} className="rounded-full border border-white/10 px-3 py-1.5 text-xs text-slate-400">{rule}</span>)}</div>;
+function StandingPanel({ stage, onChange }: { stage: CompetitionStage; onChange: (id: number, patch: Partial<CompetitionStage["standing"]>) => void }) {
+  return (
+    <Field
+      label="Tiebreakers (comma separated)"
+      value={stage.standing.tiebreakers.join(", ")}
+      onChange={(value) =>
+        onChange(stage.id, {
+          tiebreakers: value.split(",").map((item) => item.trim()).filter(Boolean),
+        })
+      }
+    />
+  );
 }
 
-function QualificationPanel({ stage }: { stage: CompetitionStage }) {
-  return <div className="space-y-2">{stage.qualification.map((rule, index) => <div key={index} className="rounded-xl border border-white/10 px-4 py-3 text-xs text-slate-400">{rule.type}: positions {rule.positionFrom}–{rule.positionTo}{rule.destinationCompetitionId ? " → Competition #" + rule.destinationCompetitionId : ""}</div>)}</div>;
+function QualificationPanel({ stage, onChange }: { stage: CompetitionStage; onChange: (id: number, qualification: CompetitionStage["qualification"]) => void }) {
+  return (
+    <div className="space-y-3">
+      {stage.qualification.map((rule, index) => (
+        <div key={index} className="grid gap-3 rounded-xl border border-white/10 p-4 md:grid-cols-4">
+          <NumberInput label="From" value={rule.positionFrom} onChange={(value) => {
+            const next = [...stage.qualification];
+            next[index] = { ...rule, positionFrom: value ?? rule.positionFrom };
+            onChange(stage.id, next);
+          }} />
+          <NumberInput label="To" value={rule.positionTo} onChange={(value) => {
+            const next = [...stage.qualification];
+            next[index] = { ...rule, positionTo: value ?? rule.positionTo };
+            onChange(stage.id, next);
+          }} />
+          <SelectField label="Type" value={rule.type} options={["QUALIFY", "PROMOTE", "RELEGATE"]} onChange={(value) => {
+            const next = [...stage.qualification];
+            next[index] = { ...rule, type: value as typeof rule.type };
+            onChange(stage.id, next);
+          }} />
+          <NumberInput label="Destination Competition ID" value={rule.destinationCompetitionId} onChange={(value) => {
+            const next = [...stage.qualification];
+            next[index] = { ...rule, destinationCompetitionId: value };
+            onChange(stage.id, next);
+          }} />
+        </div>
+      ))}
+    </div>
+  );
 }
 
-function DrawPanel({ stage }: { stage: CompetitionStage }) {
-  return <div className="grid gap-3 md:grid-cols-3"><Stat label="Draw Type" value={stage.draw.type} /><Stat label="Seeds" value={String(stage.draw.seedCount)} /><Stat label="Order" value={stage.draw.orderMode} /></div>;
+function DrawPanel({ stage, onChange }: { stage: CompetitionStage; onChange: (id: number, patch: Partial<CompetitionStage["draw"]>) => void }) {
+  return (
+    <div className="grid gap-5 md:grid-cols-3">
+      <SelectField label="Draw Type" value={stage.draw.type} options={["NONE", "RANDOM", "SEEDED"]} onChange={(value) => onChange(stage.id, { type: value as CompetitionStage["draw"]["type"] })} />
+      <NumberInput label="Seed Count" value={stage.draw.seedCount} onChange={(value) => onChange(stage.id, { seedCount: value ?? 0 })} />
+      <SelectField label="Order Mode" value={stage.draw.orderMode} options={["RANDOM", "SEEDED"]} onChange={(value) => onChange(stage.id, { orderMode: value as CompetitionStage["draw"]["orderMode"] })} />
+    </div>
+  );
 }
 
 function HistoryTab({ seasons }: { seasons: CompetitionSeason[] }) {
@@ -205,6 +299,17 @@ function Field({ label, value, onChange }: { label: string; value: string; onCha
 
 function NumberInput({ label, value, onChange }: { label: string; value?: number; onChange: (value: number | undefined) => void }) {
   return <Field label={label} value={value === undefined ? "" : String(value)} onChange={(value) => onChange(value === "" ? undefined : Number(value))} />;
+}
+
+function SelectField({ label, value, options, onChange }: { label: string; value: string; options: string[]; onChange: (value: string) => void }) {
+  return (
+    <label className="space-y-2">
+      <span className="block text-xs font-medium text-slate-400">{label}</span>
+      <select value={value} onChange={(event) => onChange(event.target.value)} className="w-full rounded-xl border border-white/10 bg-[#121820] px-3 py-2.5 text-sm text-slate-300 outline-none">
+        {options.map((option) => <option key={option} value={option}>{option}</option>)}
+      </select>
+    </label>
+  );
 }
 
 function Toggle({ label, value, onChange }: { label: string; value: boolean; onChange: (value: boolean) => void }) {
