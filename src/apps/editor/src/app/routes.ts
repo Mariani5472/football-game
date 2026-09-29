@@ -11,6 +11,7 @@ export type EditorRoute =
   | "players"
   | "clubs"
   | "stadiums"
+  | "formations"
   | "competitions"
   | "fast-start"
   | "validation"
