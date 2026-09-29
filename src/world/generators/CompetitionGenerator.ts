@@ -1,6 +1,22 @@
 import type { WorldDatabase } from "../../database/world/WorldDatabase.js";
 import type { GenerationContext } from "./GenerationContext.js";
 
+interface CompetitionDefinition {
+  name: string;
+  level: number;
+}
+
+const SANDBOX_COMPETITIONS: CompetitionDefinition[] = [
+  {
+    name: "Sandbox League",
+    level: 1,
+  },
+  {
+    name: "Sandbox Cup",
+    level: 2,
+  },
+];
+
 export class CompetitionGenerator {
   constructor(
     private readonly database: WorldDatabase,
@@ -10,18 +26,10 @@ export class CompetitionGenerator {
     context: GenerationContext,
     seasonYear: number,
   ): void {
-    const competitionIds = [
-      this.createCompetition(
-        "Sandbox League",
-        1,
-      ),
-      this.createCompetition(
-        "Sandbox Cup",
-        2,
-      ),
-    ];
+    for (const definition of SANDBOX_COMPETITIONS) {
+      const competitionId =
+        this.createCompetition(definition);
 
-    for (const competitionId of competitionIds) {
       context.competitionIds.push(competitionId);
 
       this.createSeasons(
@@ -33,20 +41,21 @@ export class CompetitionGenerator {
   }
 
   private createCompetition(
-    name: string,
-    level: number,
+    definition: CompetitionDefinition,
   ): number {
     const result = this.database.connection
-      .prepare(`
-        INSERT INTO competition (
-          name,
-          level
-        )
-        VALUES (?, ?)
-      `)
+      .prepare(
+        `
+          INSERT INTO competition (
+            name,
+            level
+          )
+          VALUES (?, ?)
+        `,
+      )
       .run(
-        name,
-        level,
+        definition.name,
+        definition.level,
       );
 
     return Number(result.lastInsertRowid);
@@ -101,16 +110,18 @@ export class CompetitionGenerator {
     year: number,
   ): number {
     const result = this.database.connection
-      .prepare(`
-        INSERT INTO competition_season (
-          competition_id,
-          year,
-          start_date,
-          end_date,
-          status
-        )
-        VALUES (?, ?, ?, ?, ?)
-      `)
+      .prepare(
+        `
+          INSERT INTO competition_season (
+            competition_id,
+            year,
+            start_date,
+            end_date,
+            status
+          )
+          VALUES (?, ?, ?, ?, ?)
+        `,
+      )
       .run(
         competitionId,
         year,
@@ -126,17 +137,19 @@ export class CompetitionGenerator {
     seasonId: number,
   ): number {
     const result = this.database.connection
-      .prepare(`
-        INSERT INTO competition_stage (
-          competition_season_id,
-          name,
-          stage_order
-        )
-        VALUES (?, ?, ?)
-      `)
+      .prepare(
+        `
+          INSERT INTO competition_stage (
+            competition_season_id,
+            name,
+            stage_order
+          )
+          VALUES (?, ?, ?)
+        `,
+      )
       .run(
         seasonId,
-        "League",
+        "Main Stage",
         1,
       );
 
@@ -148,16 +161,18 @@ export class CompetitionGenerator {
     year: number,
   ): void {
     this.database.connection
-      .prepare(`
-        INSERT INTO competition_round (
-          stage_id,
-          round_number,
-          name,
-          start_date,
-          end_date
-        )
-        VALUES (?, ?, ?, ?, ?)
-      `)
+      .prepare(
+        `
+          INSERT INTO competition_round (
+            stage_id,
+            round_number,
+            name,
+            start_date,
+            end_date
+          )
+          VALUES (?, ?, ?, ?, ?)
+        `,
+      )
       .run(
         stageId,
         1,
@@ -172,13 +187,15 @@ export class CompetitionGenerator {
     teamIds: number[],
   ): void {
     const insert = this.database.connection
-      .prepare(`
-        INSERT INTO competition_team (
-          competition_season_id,
-          team_id
-        )
-        VALUES (?, ?)
-      `);
+      .prepare(
+        `
+          INSERT INTO competition_team (
+            competition_season_id,
+            team_id
+          )
+          VALUES (?, ?)
+        `,
+      );
 
     for (const teamId of teamIds) {
       insert.run(
@@ -192,14 +209,16 @@ export class CompetitionGenerator {
     stageId: number,
   ): void {
     const insert = this.database.connection
-      .prepare(`
-        INSERT INTO standing_rule (
-          stage_id,
-          rule_order,
-          rule_type
-        )
-        VALUES (?, ?, ?)
-      `);
+      .prepare(
+        `
+          INSERT INTO standing_rule (
+            stage_id,
+            rule_order,
+            rule_type
+          )
+          VALUES (?, ?, ?)
+        `,
+      );
 
     const rules = [
       "POINTS",
