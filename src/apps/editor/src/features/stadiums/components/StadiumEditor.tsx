@@ -1,9 +1,8 @@
-import { Building2, Settings2, SlidersHorizontal } from "lucide-react";
+import { Building2, SlidersHorizontal } from "lucide-react";
 import { EntityForm, EntityPicker, Tabs } from "../../../../shared/components";
 import { cities } from "../../world/data/world.data";
 import { clubs } from "../../teams/data/teams.data";
 import { teams } from "../../teams/data/teams.data";
-import { stadiums } from "../data/stadiums.data";
 import { useStadiumEditor } from "../hooks/useStadiumEditor";
 import type { Stadium } from "../types";
 
@@ -44,11 +43,6 @@ export function StadiumEditor({ stadium, onBack }: StadiumEditorProps) {
     { name: "name", label: "Name", required: true },
     { name: "capacity", label: "Capacity", type: "number" as const },
     { name: "seatedCapacity", label: "Seated capacity", type: "number" as const },
-  ];
-
-  const infrastructureFields = [
-    { name: "fieldLength", label: "Field length" },
-    { name: "fieldWidth", label: "Field width" },
   ];
 
   return (
