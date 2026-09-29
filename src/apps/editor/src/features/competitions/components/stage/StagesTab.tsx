@@ -21,6 +21,7 @@ interface StagesTabProps {
     id: number,
     standingRules: CompetitionStage["standingRules"],
   ) => void;
+  onScheduleChange: (id: number, patch: Partial<CompetitionStage>) => void;
 }
 
 export function StagesTab({
@@ -30,6 +31,7 @@ export function StagesTab({
   onFormatChange,
   onPointsChange,
   onStandingChange,
+  onScheduleChange,
 }: StagesTabProps) {
   if (!season) return <Empty message="Create a season before configuring stages." />;
 
@@ -45,6 +47,7 @@ export function StagesTab({
           onFormatChange={onFormatChange}
           onPointsChange={onPointsChange}
           onStandingChange={onStandingChange}
+          onScheduleChange={onScheduleChange}
         />
       ))}
     </div>
