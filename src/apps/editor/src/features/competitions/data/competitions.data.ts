@@ -45,6 +45,7 @@ export const competitions: Competition[] = [
             matchRules: [],
             standingRules: leagueStandingRules,
             schedule: {
+              schedulingType: "ROUND_ROBIN",
               startDate: "2026-04-04",
               endDate: "2026-12-06",
               intervalDays: 7,
