@@ -1,7 +1,7 @@
 import { CheckCircle2, CircleAlert } from "lucide-react";
 import type { CompetitionStage } from "../../../types";
 import { LEAGUE_TOTAL_MATCHES, LEAGUE_TOTAL_ROUNDS } from "../../../rules/league";
-import type { validateSimpleLeague } from "../../../rules/league";
+import type { LeagueValidationResult } from "../../../rules/league";
 import { Stat } from "../../editor/shared";
 
 export function RulesPanel({
@@ -9,7 +9,7 @@ export function RulesPanel({
   validation,
 }: {
   stage: CompetitionStage;
-  validation: ReturnType<typeof validateSimpleLeague>;
+  validation: LeagueValidationResult;
 }) {
   return (
     <div className="space-y-5">
