@@ -7,6 +7,7 @@ import {
   type FastStartTemplate,
 } from "../../world/services/FastStartService.js";
 import { WorldStatisticsService } from "../../world/services/WorldStatisticsService.js";
+import { WorldValidator } from "../../world/validation/WorldValidator.js";
 
 const argument = process.argv[2];
 
@@ -46,6 +47,37 @@ try {
     template: selectedTemplate,
     seasonYear,
   });
+
+  const validation = new WorldValidator(database).validate();
+
+  console.log("");
+  console.log(
+    validation.valid
+      ? "Validation: PASSED"
+      : "Validation: FAILED",
+  );
+
+  if (validation.warnings.length > 0) {
+    console.log(
+      `Warnings: ${validation.warnings.length}`,
+    );
+  }
+
+  if (validation.infos.length > 0) {
+    console.log(
+      `Info: ${validation.infos.length}`,
+    );
+  }
+
+  if (!validation.valid) {
+    for (const issue of validation.errors) {
+      console.error(
+        `[ERROR] [${issue.rule}] ${issue.message}`,
+      );
+    }
+
+    throw new Error("World validation failed.");
+  }
 
   console.log("");
   console.log("World generated successfully.");
