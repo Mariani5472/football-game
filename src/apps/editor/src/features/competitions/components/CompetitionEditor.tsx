@@ -121,7 +121,15 @@ function TeamsTab({ season, onChange }: { season?: CompetitionSeason; onChange: 
   );
 }
 
-function StagesTab({ season, onChange, onRulesChange }: {
+function StagesTab({
+  season,
+  onChange,
+  onRulesChange,
+  onScheduleChange,
+  onStandingChange,
+  onDrawChange,
+  onQualificationChange,
+}: {
   season?: CompetitionSeason;
   onChange: (id: number, patch: Partial<CompetitionStage>) => void;
   onRulesChange: (id: number, patch: Partial<CompetitionStage["rules"]>) => void;
