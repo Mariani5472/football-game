@@ -13,26 +13,31 @@ export function canDrawTeam(
   allTeams: Map<number, DrawTeam>,
 ): boolean {
   for (const restriction of restrictions) {
-    if (restriction.type === "SEEDING" && restriction.sourcePotId !== undefined) {
+    if (restriction.type === "SEEDING") {
       continue;
     }
 
     if (restriction.type === "SAME_NATION" && !restriction.sameGroupAllowed) {
       const group = state.groups.find((item) => item.number === groupNumber);
-      if (!group) continue;
+
+      if (!group || team.nationId === undefined) {
+        continue;
+      }
 
       const sameNation = group.teamIds.some((teamId) => {
         const current = allTeams.get(teamId);
-        return current?.nationId !== undefined &&
-          current.nationId === team.nationId;
+        return current?.nationId === team.nationId;
       });
 
-      if (sameNation) return false;
+      if (sameNation) {
+        return false;
+      }
     }
 
     if (restriction.type === "SAME_GROUP" && !restriction.sameGroupAllowed) {
       const previousGroup = state.assignments.get(team.teamId);
-      if (previousGroup !== undefined && previousGroup === groupNumber) {
+
+      if (previousGroup === groupNumber) {
         return false;
       }
     }
