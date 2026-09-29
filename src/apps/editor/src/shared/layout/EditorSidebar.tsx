@@ -21,70 +21,29 @@ interface NavItem {
 }
 
 const worldItems: NavItem[] = [
-  {
-    id: "dashboard",
-    label: "Dashboard",
-    icon: CircleDot,
-  },
-  {
-    id: "countries",
-    label: "Countries",
-    icon: Globe2,
-  },
-  {
-    id: "cities",
-    label: "Cities",
-    icon: Map,
-  },
-  {
-    id: "languages",
-    label: "Languages",
-    icon: Languages,
-  },
-  {
-    id: "climates",
-    label: "Climates",
-    icon: CloudSun,
-  },
+  { id: "dashboard", label: "Dashboard", icon: CircleDot },
+  { id: "geography", label: "Geography", icon: Globe2 },
+  { id: "continents", label: "Continents", icon: Globe2 },
+  { id: "countries", label: "Countries", icon: Globe2 },
+  { id: "regions", label: "Regions", icon: Map },
+  { id: "cities", label: "Cities", icon: Map },
+  { id: "languages", label: "Languages", icon: Languages },
+  { id: "climates", label: "Climates", icon: CloudSun },
 ];
 
 const teamItems: NavItem[] = [
-  {
-    id: "clubs",
-    label: "Clubs",
-    icon: ShieldCheck,
-  },
-  {
-    id: "stadiums",
-    label: "Stadiums",
-    icon: Building2,
-  },
+  { id: "clubs", label: "Clubs", icon: ShieldCheck },
+  { id: "stadiums", label: "Stadiums", icon: Building2 },
 ];
 
 const competitionItems: NavItem[] = [
-  {
-    id: "competitions",
-    label: "Competitions",
-    icon: Trophy,
-  },
+  { id: "competitions", label: "Competitions", icon: Trophy },
 ];
 
 const toolItems: NavItem[] = [
-  {
-    id: "fast-start",
-    label: "Fast Start",
-    icon: CircleDot,
-  },
-  {
-    id: "validation",
-    label: "Validation",
-    icon: CheckCircle2,
-  },
-  {
-    id: "export",
-    label: "Export",
-    icon: Database,
-  },
+  { id: "fast-start", label: "Fast Start", icon: CircleDot },
+  { id: "validation", label: "Validation", icon: CheckCircle2 },
+  { id: "export", label: "Export", icon: Database },
 ];
 
 interface EditorSidebarProps {
@@ -107,7 +66,6 @@ export function EditorSidebar({
           <div className="text-sm font-semibold text-white">
             Football Game Editor
           </div>
-
           <div className="text-xs text-slate-500">
             World Studio
           </div>
@@ -115,44 +73,19 @@ export function EditorSidebar({
       </div>
 
       <nav className="space-y-5 px-3 py-5">
-        <NavGroup
-          label="WORLD"
-          items={worldItems}
-          activeRoute={activeRoute}
-          onNavigate={onNavigate}
-        />
-
-        <NavGroup
-          label="TEAMS"
-          items={teamItems}
-          activeRoute={activeRoute}
-          onNavigate={onNavigate}
-        />
-
-        <NavGroup
-          label="COMPETITIONS"
-          items={competitionItems}
-          activeRoute={activeRoute}
-          onNavigate={onNavigate}
-        />
-
-        <NavGroup
-          label="TOOLS"
-          items={toolItems}
-          activeRoute={activeRoute}
-          onNavigate={onNavigate}
-        />
+        <NavGroup label="WORLD" items={worldItems} activeRoute={activeRoute} onNavigate={onNavigate} />
+        <NavGroup label="TEAMS" items={teamItems} activeRoute={activeRoute} onNavigate={onNavigate} />
+        <NavGroup label="COMPETITIONS" items={competitionItems} activeRoute={activeRoute} onNavigate={onNavigate} />
+        <NavGroup label="TOOLS" items={toolItems} activeRoute={activeRoute} onNavigate={onNavigate} />
       </nav>
 
       <div className="absolute bottom-0 w-72 border-t border-white/10 bg-[#0f141b] px-5 py-4">
         <div className="flex items-center gap-3">
           <div className="h-8 w-8 rounded-full bg-gradient-to-br from-emerald-400/60 to-cyan-400/20" />
-
           <div className="min-w-0">
             <div className="truncate text-xs font-medium text-slate-200">
               Brazil 2026
             </div>
-
             <div className="truncate text-[11px] text-slate-500">
               world.db · schema v2
             </div>
@@ -185,8 +118,7 @@ function NavGroup({
       <div className="space-y-1">
         {items.map((item) => {
           const Icon = item.icon;
-          const active =
-            activeRoute === item.id;
+          const active = activeRoute === item.id;
 
           return (
             <button
@@ -201,7 +133,6 @@ function NavGroup({
               ].join(" ")}
             >
               <Icon size={17} />
-
               <span>{item.label}</span>
             </button>
           );
