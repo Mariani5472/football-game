@@ -3,7 +3,7 @@ import type { Player } from "../types";
 export const players: Player[] = [
   {
     personId: 1,
-    positionIds: [1],
+    positionIds: [5],
     potential: 16,
     estimatedValue: 12000000,
     leftFoot: 18,
@@ -12,28 +12,20 @@ export const players: Player[] = [
     contractId: 1,
     attributes: {
       technical: {
-        finishing: 15,
         passing: 14,
-        dribbling: 13,
-        first_touch: 15,
-        tackling: 8,
+        finishing: 12,
+        dribbling: 15,
       },
       physical: {
-        acceleration: 14,
-        agility: 15,
-        pace: 14,
-        stamina: 16,
-        strength: 12,
+        pace: 16,
+        strength: 10,
+        stamina: 14,
       },
-      psychological: {
-        anticipation: 14,
-        composure: 13,
-        decisions: 14,
-        determination: 16,
-        teamwork: 15,
-        vision: 14,
+      mental: {
+        vision: 15,
+        decision_making: 13,
       },
-      goalkeeper: {},
+      goalkeeping: {},
     },
   },
 ];
