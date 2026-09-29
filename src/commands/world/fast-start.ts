@@ -50,26 +50,10 @@ try {
 
   const validation = new WorldValidator(database).validate();
 
-  console.log("");
-  console.log(
-    validation.valid
-      ? "Validation: PASSED"
-      : "Validation: FAILED",
-  );
-
-  if (validation.warnings.length > 0) {
-    console.log(
-      `Warnings: ${validation.warnings.length}`,
-    );
-  }
-
-  if (validation.infos.length > 0) {
-    console.log(
-      `Info: ${validation.infos.length}`,
-    );
-  }
-
   if (!validation.valid) {
+    console.log("");
+    console.log("Validation: FAILED");
+
     for (const issue of validation.errors) {
       console.error(
         `[ERROR] [${issue.rule}] ${issue.message}`,
@@ -81,6 +65,14 @@ try {
 
   console.log("");
   console.log("World generated successfully.");
+
+  console.log("");
+  console.log(
+    `Validation: PASSED${validation.warnings.length > 0
+      ? ` (${validation.warnings.length} warnings)`
+      : ""
+    }`,
+  );
 
   const statistics =
     new WorldStatisticsService(database).get();
