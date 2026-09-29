@@ -8,7 +8,17 @@ export class StadiumGenerator {
 
   generateSandbox(
     context: GenerationContext,
+    count = 8,
   ): void {
+    if (
+      context.cityIds.length < count ||
+      context.clubIds.length < count
+    ) {
+      throw new Error(
+        `Sandbox precisa de pelo menos ${count} cidades e clubes para gerar os estádios.`,
+      );
+    }
+
     const insert = this.database.connection
       .prepare(
         `
@@ -24,7 +34,7 @@ export class StadiumGenerator {
         `,
       );
 
-    for (let i = 0; i < 8; i++) {
+    for (let i = 0; i < count; i++) {
       const cityId = context.cityIds[i];
       const clubId = context.clubIds[i];
 
