@@ -14,6 +14,24 @@ export class CompetitionRepository {
     private readonly database: WorldDatabase,
   ) {}
 
+  findById(id: number): Competition | null {
+    const row = this.database.connection
+      .prepare(
+        `
+          SELECT
+            id,
+            name,
+            level
+          FROM competition
+          WHERE id = ?
+          LIMIT 1
+        `,
+      )
+      .get(id) as Competition | undefined;
+
+    return row ?? null;
+  }
+
   findByName(name: string): Competition | null {
     const row = this.database.connection
       .prepare(
@@ -28,6 +46,26 @@ export class CompetitionRepository {
         `,
       )
       .get(name) as Competition | undefined;
+
+    return row ?? null;
+  }
+
+  findSeasonById(id: number): CompetitionSeason | null {
+    const row = this.database.connection
+      .prepare(
+        `
+          SELECT
+            id,
+            competition_id AS competitionId,
+            year,
+            start_date AS startDate,
+            end_date AS endDate
+          FROM competition_season
+          WHERE id = ?
+          LIMIT 1
+        `,
+      )
+      .get(id) as CompetitionSeason | undefined;
 
     return row ?? null;
   }
@@ -109,7 +147,7 @@ export class CompetitionRepository {
         : {
             formatType: row.formatType,
             participantCount: row.participantCount,
-            legs: row.legs,
+            legs: row.legs ?? 1,
             homeAway: row.homeAway === 1,
           };
 
@@ -130,7 +168,8 @@ export class CompetitionRepository {
             startDate: row.startDate,
             endDate: row.endDate,
             intervalDays: row.intervalDays ?? 0,
-            homeAwayBalanced: row.homeAwayBalanced === 1,
+            homeAwayBalanced:
+              row.homeAwayBalanced === 1,
           };
 
     return {
