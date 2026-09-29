@@ -4,12 +4,12 @@ import type {
   ClimateSeason,
   Continent,
   Country,
+  EntitySummary,
   Language,
   LanguageFamily,
   LanguageGroup,
   LanguageSubgroup,
   Region,
-  EntitySummary,
 } from "../types";
 
 export const continents: Continent[] = [
@@ -33,9 +33,10 @@ export const regions: Region[] = [
   { id: 3, name: "Minas Gerais", shortName: "MG", countryId: 1 },
 ];
 
-export const languages: Language[] = [
-  { id: 1, name: "Portuguese", shortName: "PT", familyId: 1, groupId: 1, subgroupId: 1 },
-  { id: 2, name: "Spanish", shortName: "ES", familyId: 1, groupId: 1, subgroupId: 1 },
+export const nationRegions: Region[] = [
+  { id: 1, name: "São Paulo", shortName: "SP", countryId: 1 },
+  { id: 2, name: "Rio de Janeiro", shortName: "RJ", countryId: 1 },
+  { id: 3, name: "Minas Gerais", shortName: "MG", countryId: 1 },
 ];
 
 export const languageFamilies: LanguageFamily[] = [
@@ -48,6 +49,25 @@ export const languageGroups: LanguageGroup[] = [
 
 export const languageSubgroups: LanguageSubgroup[] = [
   { id: 1, name: "Western Romance", shortName: "WROM", groupId: 1 },
+];
+
+export const languages: Language[] = [
+  {
+    id: 1,
+    name: "Portuguese",
+    shortName: "PT",
+    familyId: 1,
+    groupId: 1,
+    subgroupId: 1,
+  },
+  {
+    id: 2,
+    name: "Spanish",
+    shortName: "ES",
+    familyId: 1,
+    groupId: 1,
+    subgroupId: 1,
+  },
 ];
 
 export const climates: Climate[] = [
@@ -64,12 +84,6 @@ export const climateSeasons: ClimateSeason[] = [
   { id: 6, name: "Autumn", climateId: 2 },
   { id: 7, name: "Winter", climateId: 2 },
   { id: 8, name: "Spring", climateId: 2 },
-];
-
-export const nationRegions: Region[] = [
-  { id: 1, name: "São Paulo", shortName: "SP", countryId: 1 },
-  { id: 2, name: "Rio de Janeiro", shortName: "RJ", countryId: 1 },
-  { id: 3, name: "Minas Gerais", shortName: "MG", countryId: 1 },
 ];
 
 export const cities: City[] = [
