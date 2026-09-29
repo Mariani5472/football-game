@@ -1,5 +1,8 @@
 import { useState } from "react";
 
+import { DashboardPage } from "../features/dashboard/pages/DashboardPage";
+import { PeoplePage } from "../features/people/pages";
+import { PlayersPage } from "../features/players/pages";
 import { TeamsPage } from "../features/teams/pages";
 import { StadiumsPage } from "../features/stadiums/pages";
 import {
@@ -12,14 +15,11 @@ import {
 } from "../features/world/pages";
 import { EditorLayout } from "../shared/layout/EditorLayout";
 import type { EditorRoute } from "./routes";
-import { DashboardPage } from "../features/dashboard/pages/DashboardPage";
 
 function ComingSoon({ title }: { title: string }) {
   return (
     <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-8">
-      <h1 className="text-xl font-semibold text-white">
-        {title}
-      </h1>
+      <h1 className="text-xl font-semibold text-white">{title}</h1>
       <p className="mt-2 text-sm text-slate-500">
         This editor section is reserved for a later domain module.
       </p>
@@ -43,6 +43,10 @@ function renderRoute(route: EditorRoute) {
       return <LanguagesPage />;
     case "climates":
       return <ClimatesPage />;
+    case "people":
+      return <PeoplePage />;
+    case "players":
+      return <PlayersPage />;
     case "clubs":
       return <TeamsPage />;
     case "stadiums":
@@ -62,10 +66,7 @@ export default function App() {
   const [route, setRoute] = useState<EditorRoute>("dashboard");
 
   return (
-    <EditorLayout
-      activeRoute={route}
-      onNavigate={setRoute}
-    >
+    <EditorLayout activeRoute={route} onNavigate={setRoute}>
       {renderRoute(route)}
     </EditorLayout>
   );
