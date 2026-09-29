@@ -30,3 +30,6 @@ export {
 
 export type { SchedulingType, ScheduleProfile, ScheduledFixture, ScheduledRound, RoundRobinSchedule, ScheduleGenerationResult } from "./scheduling";
 export { generateRoundRobin } from "./scheduling";
+
+export type { DrawType, DrawRestrictionType, DrawDefinition, DrawPot, DrawRestriction, DrawTeam, DrawGroup, DrawResult } from "./draws";
+export { randomDraw, conditionalDraw, createPots, canDrawTeam } from "./draws";
