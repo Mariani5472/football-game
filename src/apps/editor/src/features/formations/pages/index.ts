@@ -1,0 +1,1 @@
+export { FormationsPage } from "./FormationsPage";
