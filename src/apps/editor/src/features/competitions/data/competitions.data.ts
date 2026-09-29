@@ -66,9 +66,11 @@ export const competitions: Competition[] = [
               },
             ],
             draw: {
-              type: "NONE",
+              definitionId: 1,
+              drawType: "RANDOM",
+              groupCount: 4,
+              teamsPerGroup: 4,
               seedCount: 0,
-              orderMode: "RANDOM",
             },
           },
         ],
