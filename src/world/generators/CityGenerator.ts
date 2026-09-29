@@ -8,6 +8,7 @@ export class CityGenerator {
 
   generateSandbox(
     context: GenerationContext,
+    count = 8,
   ): void {
     if (context.nationIds.length !== 2) {
       throw new Error(
@@ -18,6 +19,12 @@ export class CityGenerator {
     if (context.climateIds.length === 0) {
       throw new Error(
         "Nenhum clima foi criado.",
+      );
+    }
+
+    if (context.languageId === undefined) {
+      throw new Error(
+        "Sandbox precisa de um idioma.",
       );
     }
 
@@ -45,15 +52,9 @@ export class CityGenerator {
       `,
     );
 
-    if (context.languageId === undefined) {
-      throw new Error(
-        "Sandbox precisa de um idioma.",
-      );
-    }
-
-    for (let i = 0; i < 8; i++) {
+    for (let i = 0; i < count; i++) {
       const nationId =
-        context.nationIds[i % 2];
+        context.nationIds[i % context.nationIds.length];
 
       const climateId =
         context.climateIds[i % context.climateIds.length];
