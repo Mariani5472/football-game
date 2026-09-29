@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Tabs } from "../../../../shared/components";
-import type { CompetitionSeason } from "../../types";
+import { useCompetitionEditor } from "../../hooks/useCompetitionEditor";
 import { GeneralTab } from "./GeneralTab";
 import { HistoryTab } from "./HistoryTab";
 import { SeasonsTab } from "./SeasonsTab";
@@ -12,7 +12,7 @@ type EditorTab = "general" | "seasons" | "teams" | "stages" | "history";
 export function EditorTabs({
   editor,
 }: {
-  editor: any;
+  editor: ReturnType<typeof useCompetitionEditor>;
 }) {
   const [activeTab, setActiveTab] = useState<EditorTab>("general");
   const season = editor.draft.seasons[0];
