@@ -7,7 +7,6 @@ import { countries } from "../../world/data/world.data";
 import { useCompetitionEditor } from "../hooks/useCompetitionEditor";
 import {
   LEAGUE_MATCHES_PER_ROUND,
-  LEAGUE_ROUNDS,
   LEAGUE_TEAM_COUNT,
   LEAGUE_TOTAL_MATCHES,
   LEAGUE_TOTAL_ROUNDS,
@@ -17,7 +16,6 @@ import type {
   Competition,
   CompetitionSeason,
   CompetitionStage,
-  StandingRule,
   StandingRuleType,
 } from "../types";
 
