@@ -7,6 +7,8 @@ export type EditorRoute =
   | "cities"
   | "languages"
   | "climates"
+  | "people"
+  | "players"
   | "clubs"
   | "stadiums"
   | "competitions"
