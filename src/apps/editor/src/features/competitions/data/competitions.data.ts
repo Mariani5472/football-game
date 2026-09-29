@@ -1,6 +1,16 @@
 import type { Competition } from "../types";
+import {
+  LEAGUE_TEAM_COUNT,
+  leagueFormatRule,
+  leagueParticipantRule,
+  leaguePointsRule,
+  leagueStandingRules,
+} from "../rules/league";
 
-export const brasileiraoTeams = Array.from({ length: 20 }, (_, index) => index + 1);
+export const brasileiraoTeams = Array.from(
+  { length: LEAGUE_TEAM_COUNT },
+  (_, index) => index + 1,
+);
 
 export const competitions: Competition[] = [
   {
@@ -28,27 +38,17 @@ export const competitions: Competition[] = [
             stageOrder: 1,
             format: "LEAGUE",
             participants: brasileiraoTeams,
-            rules: {
-              legs: 2,
-              homeAway: true,
-              pointsForWin: 3,
-              pointsForDraw: 1,
-              pointsForLoss: 0,
-            },
+            participantRule: leagueParticipantRule,
+            participantSources: [],
+            formatRule: leagueFormatRule,
+            pointsRule: leaguePointsRule,
+            matchRules: [],
+            standingRules: leagueStandingRules,
             schedule: {
               startDate: "2026-04-04",
               endDate: "2026-12-06",
               intervalDays: 7,
               homeAwayBalanced: true,
-            },
-            standing: {
-              tiebreakers: [
-                "Points",
-                "Wins",
-                "Goal Difference",
-                "Goals For",
-                "Head-to-Head",
-              ],
             },
             qualification: [
               {
