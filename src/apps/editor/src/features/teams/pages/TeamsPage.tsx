@@ -1,11 +1,7 @@
 import { useState } from "react";
 import { Plus } from "lucide-react";
 
-import {
-  DataTable,
-  EntityForm,
-} from "../../../../shared/components";
-import type { DataTableColumn } from "../../../../shared/components";
+
 
 import { countries, cities } from "../../world/data/world.data";
 import { teams } from "../data/teams.data";
@@ -13,6 +9,7 @@ import { ClubEditor } from "../components/ClubEditor";
 import { TeamTypeSelector } from "../components/TeamTypeSelector";
 import { useTeamEditor } from "../hooks/useTeamEditor";
 import type { Team, TeamKind } from "../types";
+import { DataTable, DataTableColumn, EntityForm } from "../../../shared/components";
 
 export function TeamsPage() {
   const [showCreate, setShowCreate] = useState(false);

@@ -1,6 +1,5 @@
 import { useState } from "react";
 
-import { DashboardPage } from "../features/dashboard/pages";
 import { TeamsPage } from "../features/teams/pages";
 import {
   CitiesPage,
@@ -12,6 +11,7 @@ import {
 } from "../features/world/pages";
 import { EditorLayout } from "../shared/layout/EditorLayout";
 import type { EditorRoute } from "./routes";
+import { DashboardPage } from "../features/dashboard/pages/DashboardPage";
 
 function ComingSoon({ title }: { title: string }) {
   return (

@@ -1,5 +1,5 @@
 import { Building2, CircleDollarSign, Users, Trophy, Shield, History, Settings2, Star, MapPin } from "lucide-react";
-import { Tabs } from "../../../../shared/components";
+import { Tabs } from "../../../shared/components";
 
 const tabs = [
   { id: "general", label: "General", icon: Settings2 },
