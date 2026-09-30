@@ -241,16 +241,6 @@ export function GeographyPage() {
     finally { setSaving(false); }
   }
 
-  async function addLanguage() {
-    if (!selectedNode || !relationTable) return;
-    const language = languageQuery.rows.find(item => !relationRows.some(row => Number(row.language_id) === Number(item.id)));
-    if (!language) return;
-    try {
-      await editorApi.create(relationTable, { [relationOwner]: selectedNode.entityId, language_id: language.id, percentage: 0 });
-      await relationQuery.reload();
-    } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); }
-  }
-
   async function addAlternativeName() {
     if (!selectedNode || selectedNode.kind !== "continent") return;
     const name = window.prompt("Alternative continent name");
