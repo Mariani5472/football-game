@@ -58,7 +58,7 @@ export function PersonEditor({ person, onBack }: PersonEditorProps) {
           }}
           onChange={(name, value) => {
             if (name === "fullName" || name === "commonName" || name === "birthDate") {
-              editor.setValue(name, value);
+              editor.setValue(name, String(value));
             }
           }}
           onSubmit={() => undefined}
@@ -69,13 +69,13 @@ export function PersonEditor({ person, onBack }: PersonEditorProps) {
               label="Birth City"
               value={editor.draft.birthCityId}
               options={cities.map((city) => ({ id: city.id, label: city.name }))}
-              onChange={(value) => editor.setValue("birthCityId", value)}
+              onChange={(value) => editor.setValue("birthCityId", String(value))}
             />
             <EntityPicker
               label="Nationality"
               value={editor.draft.nationalityId}
               options={countries.map((country) => ({ id: country.id, label: country.name }))}
-              onChange={(value) => editor.setValue("nationalityId", value)}
+              onChange={(value) => editor.setValue("nationalityId", String(value))}
             />
           </div>
 
