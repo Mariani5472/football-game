@@ -15,7 +15,6 @@ export type {
   StandingRule,
   StageSchedule,
   QualificationRule,
-  DrawDefinition,
 } from "./types";
 
 export {
