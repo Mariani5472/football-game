@@ -29,14 +29,16 @@ function createStage(
     schedule: {
       startDate: "2026-04-04",
       endDate: "2026-12-06",
+      schedulingType: "ROUND_ROBIN",
       intervalDays: 7,
       homeAwayBalanced: true,
     },
     qualification: [],
     draw: {
-      type: "NONE",
+      drawType: "NONE",
+      groupCount: 0,
+      teamsPerGroup: 0,
       seedCount: 0,
-      orderMode: "RANDOM",
     },
     ...overrides,
   };
