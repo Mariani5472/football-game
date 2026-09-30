@@ -1,66 +1,135 @@
 import { useState } from "react";
-import { Building2, Plus, UsersRound } from "lucide-react";
-import { CrudEntityPage, EntityForm, EntityPicker, type CrudEntityConfig } from "../../../shared/components";
-import { editorApi } from "../../../shared/api/editorApi";
-import { TeamTypeSelector } from "../components/TeamTypeSelector";
-import { useTeamEditor } from "../hooks/useTeamEditor";
+import { CrudEntityPage, Tabs, type CrudEntityConfig } from "../../../shared/components";
+import {
+  teamConfig,
+  clubConfig,
+  nationalTeamInfoConfig,
+  nationalTeamCoefficientConfig,
+  ownershipConfig,
+  reserveTeamConfig,
+  financeConfig,
+  embargoConfig,
+  revenueConfig,
+  debtConfig,
+  ffpConfig,
+  fanProfileConfig,
+  objectivesConfig,
+  equipmentConfig,
+  teamPersonConfig,
+  captainConfig,
+  partnershipConfig,
+  retiredNumberConfig,
+  affiliationConfig,
+  rivalryConfig,
+  derbyConfig,
+  competitionHistoryConfig,
+  regionalCompetitionConfig,
+  expectationConfig,
+  coefficientConfig,
+} from "../config/teamConfig";
 
-const teamConfig: CrudEntityConfig = {
-  table: "team",
-  title: "Teams",
-  description: "Manage shared team identities. Clubs and national teams use this record as their root identity.",
-  searchColumns: ["name", "short_name", "three_letter_name", "nickname"],
-  columns: [
-    { key: "name", header: "Name" },
-    { key: "short_name", header: "Short Name" },
-    { key: "nation_id", header: "Nation", relation: { table: "nation" } },
-    { key: "gender_id", header: "Gender", relation: { table: "gender" } },
-    { key: "reputation", header: "Reputation" },
-    { key: "extinct", header: "Extinct" },
+type ConfigItem = {
+  id: string;
+  label: string;
+  config: CrudEntityConfig;
+};
+
+const sections: Record<string, ConfigItem[]> = {
+  identity: [
+    { id: "team", label: "Team", config: teamConfig },
+    { id: "club", label: "Club", config: clubConfig },
+    { id: "national-info", label: "National Team", config: nationalTeamInfoConfig },
+    { id: "national-coefficients", label: "National Coefficients", config: nationalTeamCoefficientConfig },
   ],
-  fields: [
-    { name: "name", label: "Name", required: true },
-    { name: "short_name", label: "Short Name" },
-    { name: "six_letter_name", label: "Six Letter Name" },
-    { name: "three_letter_name", label: "Three Letter Name" },
-    { name: "alternative_three_letter_name", label: "Alternative Three Letter Name" },
-    { name: "nickname", label: "Nickname" },
-    { name: "hashtag", label: "Hashtag" },
-    { name: "gender_id", label: "Gender", relation: { table: "gender" } },
-    { name: "nation_id", label: "Nation", relation: { table: "nation" } },
-    { name: "reputation", label: "Reputation", type: "number" },
-    { name: "extinct", label: "Extinct", type: "boolean", placeholder: "Team is extinct" },
-    { name: "primary_color", label: "Primary Color" },
-    { name: "secondary_color", label: "Secondary Color" },
-    { name: "tertiary_color", label: "Tertiary Color" },
+  club: [
+    { id: "ownership", label: "Ownership", config: ownershipConfig },
+    { id: "reserve", label: "Reserve Teams", config: reserveTeamConfig },
+    { id: "finance", label: "Finance", config: financeConfig },
+    { id: "embargo", label: "Embargoes", config: embargoConfig },
+    { id: "revenue", label: "Revenue", config: revenueConfig },
+    { id: "debt", label: "Debt", config: debtConfig },
+    { id: "ffp", label: "FFP", config: ffpConfig },
+    { id: "fans", label: "Fan Profile", config: fanProfileConfig },
+    { id: "objectives", label: "Objectives", config: objectivesConfig },
   ],
-  defaultValues: { extinct: false },
+  relations: [
+    { id: "equipment", label: "Equipment", config: equipmentConfig },
+    { id: "people", label: "Team ↔ Person", config: teamPersonConfig },
+    { id: "captains", label: "Captain", config: captainConfig },
+    { id: "partnerships", label: "Partnerships", config: partnershipConfig },
+    { id: "retired-numbers", label: "Retired Numbers", config: retiredNumberConfig },
+    { id: "rivalries", label: "Rivalries", config: rivalryConfig },
+    { id: "derbies", label: "Derbies", config: derbyConfig },
+    { id: "affiliations", label: "Affiliations", config: affiliationConfig },
+  ],
+  history: [
+    { id: "competition-history", label: "Competition History", config: competitionHistoryConfig },
+    { id: "regional-competition", label: "Regional Competitions", config: regionalCompetitionConfig },
+    { id: "expectations", label: "Expectations", config: expectationConfig },
+    { id: "coefficients", label: "Coefficients", config: coefficientConfig },
+  ],
 };
 
 export function TeamsPage() {
-  const [kind, setKind] = useState<"CLUB" | "NATIONAL_TEAM">("CLUB");
-  const [clubTeamId, setClubTeamId] = useState<number | null>(null);
+  const [section, setSection] = useState("identity");
 
   return (
     <div className="space-y-6">
-      <CrudEntityPage
-        config={{
-          ...teamConfig,
-          title: "Teams",
-        }}
-      />
-      <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-5">
-        <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-600">
-          <Building2 size={14} /> Team subtype
+      <header>
+        <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-600">
+          WORLD DB
         </div>
-        <p className="mt-2 text-sm text-slate-500">
-          The generic CRUD above persists the Team identity. Club/National Team subtype rows are created separately so their 1:1 boundaries remain explicit.
+        <h1 className="text-2xl font-semibold tracking-tight text-white">
+          Teams & Clubs
+        </h1>
+        <p className="mt-2 max-w-3xl text-sm text-slate-500">
+          Complete editor for team identity, club data, national-team data,
+          finance, ownership, relationships and competition history.
         </p>
-        <div className="mt-4 flex items-center gap-4">
-          <TeamTypeSelector value={kind} onChange={setKind} />
-          <span className="text-xs text-slate-600">{clubTeamId ? `Club #${clubTeamId}` : "Select a team and create its subtype from the next increment."}</span>
-        </div>
-      </div>
+      </header>
+
+      <Tabs
+        activeTab={section}
+        onChange={setSection}
+        items={[
+          {
+            id: "identity",
+            label: "Identity",
+            content: <ConfigGroup items={sections.identity} />,
+          },
+          {
+            id: "club",
+            label: "Club",
+            content: <ConfigGroup items={sections.club} />,
+          },
+          {
+            id: "relations",
+            label: "Relations",
+            content: <ConfigGroup items={sections.relations} />,
+          },
+          {
+            id: "history",
+            label: "History",
+            content: <ConfigGroup items={sections.history} />,
+          },
+        ]}
+      />
     </div>
+  );
+}
+
+function ConfigGroup({ items }: { items: ConfigItem[] }) {
+  const [activeTab, setActiveTab] = useState(items[0]?.id ?? "");
+
+  return (
+    <Tabs
+      activeTab={activeTab}
+      onChange={setActiveTab}
+      items={items.map(item => ({
+        id: item.id,
+        label: item.label,
+        content: <CrudEntityPage config={item.config} />,
+      }))}
+    />
   );
 }
