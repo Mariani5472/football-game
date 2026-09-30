@@ -1,25 +1,21 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { editorApi, type EntityRow } from "../../../../../shared/api/editorApi";
 import type { EntityFormValue } from "../../../../../shared/components";
-import { useEntityQuery } from "../../../../../shared/hooks/useEntityApi";
 import { useGeography } from "./useGeography";
 import { geographyChildKind, geographySpecs, getInitialGeographyValues, normalizeGeographyValue } from "../config/geographyConfig";
 import type { GeographyEntityKind, GeographyTreeNode } from "../types";
 
-const referenceConfigs = {
-  currency: { title: "Currencies", fields: [{name:"name",label:"Name",required:true},{name:"exchange_rate",label:"Exchange Rate",type:"number" as const}], columns: [] },
-  nationality_method: { title: "Nationality Methods", fields: [{name:"name",label:"Name",required:true}], columns: [] },
-  nation_development_state: { title: "Development States", fields: [{name:"name",label:"Name",required:true},{name:"index_value",label:"Index",type:"number" as const}], columns: [] },
-  language_family: { title: "Language Families", fields: [{name:"name",label:"Name",required:true}], columns: [] },
-  language_group: { title: "Language Groups", fields: [{name:"family_id",label:"Family",relation:"language_family"},{name:"name",label:"Name",required:true}], columns: [] },
-  language_subgroup: { title: "Language Subgroups", fields: [{name:"group_id",label:"Group",relation:"language_group"},{name:"name",label:"Name",required:true}], columns: [] },
-  language: { title: "Languages", fields: [{name:"name",label:"Name",required:true}], columns: [] },
-  climate: { title: "Climates", fields: [{name:"name",label:"Name",required:true},{name:"short_name",label:"Short Name"}], columns: [] },
-  weekday: { title: "Weekdays", fields: [{name:"name",label:"Name",required:true}], columns: [] },
-} as const;
-
-type ReferenceKey = keyof typeof referenceConfigs;
-type RelationState = { table: string; ownerColumn: string } | undefined;
+export type GeographyEditorState = {
+  query: string;
+  filter: GeographyEntityKind | "all";
+  editing: GeographyTreeNode | null;
+  creating: { kind: GeographyEntityKind; parent?: GeographyTreeNode } | null;
+  values: Record<string, EntityFormValue>;
+  saving: boolean;
+  formError: string | null;
+  notice: string | null;
+  deleting: GeographyTreeNode | null;
+};
 
 export function useGeographyEditor() {
   const geography = useGeography();
