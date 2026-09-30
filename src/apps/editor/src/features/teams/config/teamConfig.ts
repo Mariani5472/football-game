@@ -18,7 +18,7 @@ const config = (
   fields: CrudField[],
   visibleColumns: Array<[string, string, CrudColumn["relation"]?]>,
   searchColumns?: string[],
-  getRowId?: (row: Record<string, unknown>) => string | number,
+  getRowId?: CrudEntityConfig["getRowId"],
 ): CrudEntityConfig => ({
   table,
   title,
