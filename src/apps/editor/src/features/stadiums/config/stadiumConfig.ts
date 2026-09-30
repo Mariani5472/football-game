@@ -105,7 +105,7 @@ export const stadiumChangeConfig = config(
   "Stadium Changes",
   "Historical stadium changes for clubs, including replacement and relocation periods.",
   [
-    field("club_id", "Club", { required: true, relation: rel("club") }),
+    field("club_id", "Club", { required: true, relation: rel("team") }),
     field("change_type_id", "Change Type", { required: true, relation: rel("stadium_change_type") }),
     field("new_stadium_id", "New Stadium", { required: true, relation: rel("stadium") }),
     field("old_stadium_id", "Old Stadium", { relation: rel("stadium") }),
