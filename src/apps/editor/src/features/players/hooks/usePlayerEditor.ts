@@ -17,6 +17,26 @@ async function all<T extends EntityRow>(table: string) {
   return (await editorApi.list<T>(table, { page: 1, pageSize: 1000 })).rows;
 }
 
+function readDefinitions(rows: EntityRow[]): AttributeDefinition[] {
+  return rows.map(row => ({
+    id: Number(row.id),
+    attribute_key: String(row.attribute_key ?? ""),
+    name: String(row.name ?? ""),
+    category: String(row.category ?? "technical"),
+    scale_id: row.scale_id == null ? null : Number(row.scale_id),
+    is_hidden: Number(row.is_hidden ?? 0),
+  }));
+}
+
+function readScales(rows: EntityRow[]): AttributeScale[] {
+  return rows.map(row => ({
+    id: Number(row.id),
+    name: String(row.name ?? ""),
+    minimumValue: Number(row.minimum_value ?? 0),
+    maximumValue: Number(row.maximum_value ?? 0),
+  }));
+}
+
 export function usePlayerEditor(playerId?: number) {
   const [player, setPlayer] = useState<EntityRow | null>(null);
   const [definitions, setDefinitions] = useState<AttributeDefinition[]>([]);
@@ -34,27 +54,25 @@ export function usePlayerEditor(playerId?: number) {
   const [error, setError] = useState<string | null>(null);
 
   const load = async () => {
-    setLoading(true);
-    setError(null);
+    setLoading(true); setError(null);
     try {
       const [defs, scaleRows, positionRows, roleRows, pWeights, rWeights] = await Promise.all([
         all("player_attribute_definition"), all("attribute_scale"), all("position_definition"),
         all("player_role"), all("position_attribute_weight"), all("role_attribute_weight"),
       ]);
-      setDefinitions(defs as AttributeDefinition[]);
-      setScales(scaleRows as AttributeScale[]);
+      const parsedDefinitions = readDefinitions(defs);
+      setDefinitions(parsedDefinitions);
+      setScales(readScales(scaleRows));
       setPositions(positionRows);
-      setRoles(roleRows);
-      setPositionWeights(pWeights.map(row => ({
+      setRoles(roleRows.map(row => ({
+        ...row,
+        id: Number(row.id),
         positionId: Number(row.position_id),
-        attributeId: Number(row.attribute_id),
-        weight: Number(row.weight),
-      })));
-      setRoleWeights(rWeights.map(row => ({
-        roleId: Number(row.role_id),
-        attributeId: Number(row.attribute_id),
-        weight: Number(row.weight),
-      })));
+        name: String(row.name ?? ""),
+        description: row.description == null ? undefined : String(row.description),
+      })) as unknown as Array<EntityRow>);
+      setPositionWeights(pWeights.map(row => ({ positionId: Number(row.position_id), attributeId: Number(row.attribute_id), weight: Number(row.weight) })));
+      setRoleWeights(rWeights.map(row => ({ roleId: Number(row.role_id), attributeId: Number(row.attribute_id), weight: Number(row.weight) })));
 
       if (!playerId) {
         setPlayer(null); setSelectedPositions([]); setPositionRatings({}); setRoleRatings({}); setAttributes(emptyAttributes()); return;
@@ -69,8 +87,7 @@ export function usePlayerEditor(playerId?: number) {
 
       const nextPositionRatings: Record<number, string> = {};
       for (const row of playerPositions.filter(row => Number(row.player_id) === playerId)) nextPositionRatings[Number(row.position_id)] = String(row.rating ?? "");
-      setPositionRatings(nextPositionRatings);
-      setSelectedPositions(Object.keys(nextPositionRatings).map(Number));
+      setPositionRatings(nextPositionRatings); setSelectedPositions(Object.keys(nextPositionRatings).map(Number));
 
       const nextRoleRatings: Record<number, string> = {};
       for (const row of playerRoles.filter(row => Number(row.player_id) === playerId)) nextRoleRatings[Number(row.role_id)] = String(row.rating ?? "");
@@ -78,21 +95,17 @@ export function usePlayerEditor(playerId?: number) {
 
       const next = emptyAttributes();
       const tableRows = attributeRows as EntityRow[][];
-      Object.entries(attributeTables).forEach(([category], index) => {
+      Object.keys(attributeTables).forEach((category, index) => {
         const row = tableRows[index].find(item => Number(item.player_id) === playerId);
         if (!row) return;
-        for (const definition of defs as AttributeDefinition[]) {
-          if (definition.category === category && row[definition.attribute_key] != null) {
-            next[category][definition.attribute_key] = String(row[definition.attribute_key]);
-          }
+        for (const definition of parsedDefinitions) {
+          if (definition.category === category && row[definition.attribute_key] != null) next[category][definition.attribute_key] = String(row[definition.attribute_key]);
         }
       });
       setAttributes(next);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause));
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   };
 
   useEffect(() => { void load(); }, [playerId]);
@@ -102,16 +115,13 @@ export function usePlayerEditor(playerId?: number) {
   function setAttribute(category: AttributeCategory, key: string, value: string) {
     setAttributes(current => ({ ...current, [category]: { ...(current[category] ?? {}), [key]: value } }));
   }
-
   function togglePosition(id: number) {
     setSelectedPositions(current => current.includes(id) ? current.filter(value => value !== id) : [...current, id]);
   }
-
   function setPositionRating(id: number, value: string) {
     setPositionRatings(current => ({ ...current, [id]: value }));
     setSelectedPositions(current => current.includes(id) ? current : [...current, id]);
   }
-
   function setRoleRating(id: number, value: string) {
     setRoleRatings(current => ({ ...current, [id]: value }));
   }
@@ -129,7 +139,7 @@ export function usePlayerEditor(playerId?: number) {
     }
   }
 
-  const weightedRating = (weights: { attributeId: number; weight: number }[]) => {
+  function weightedRating(weights: { attributeId: number; weight: number }[]) {
     let total = 0; let weight = 0;
     for (const item of weights) {
       const definition = definitions.find(def => def.id === item.attributeId);
@@ -139,7 +149,7 @@ export function usePlayerEditor(playerId?: number) {
       total += value * item.weight; weight += item.weight;
     }
     return weight ? Math.round((total / weight) * 100) / 100 : null;
-  };
+  }
 
   async function saveCore(values: Record<string, Scalar>) {
     setSaving(true); setError(null);
@@ -147,8 +157,8 @@ export function usePlayerEditor(playerId?: number) {
       validateAttributes();
       const personId = Number(values.person_id);
       if (!Number.isFinite(personId) || personId <= 0) throw new Error("A Person is required.");
-
-      if (player) await editorApi.update("player", playerId!, Object.fromEntries(Object.entries(values).filter(([key]) => key !== "person_id")));
+      const corePayload = Object.fromEntries(Object.entries(values).filter(([key]) => key !== "person_id"));
+      if (player) await editorApi.update("player", playerId!, corePayload);
       else await editorApi.create("player", values);
 
       const id = playerId ?? personId;
@@ -197,9 +207,7 @@ export function usePlayerEditor(playerId?: number) {
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause));
       throw cause;
-    } finally {
-      setSaving(false);
-    }
+    } finally { setSaving(false); }
   }
 
   return { player, definitions, scales, positions, roles, positionWeights, roleWeights, selectedPositions, positionRatings, roleRatings, attributes, loading, saving, error, scaleMap, setAttribute, togglePosition, setPositionRating, setRoleRating, weightedRating, saveCore, reload: load };
