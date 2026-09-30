@@ -3,6 +3,7 @@ import { CrudEntityPage, Tabs, type CrudEntityConfig } from "../../../shared/com
 import {
   teamConfig,
   clubConfig,
+  nationalTeamConfig,
   nationalTeamInfoConfig,
   nationalTeamCoefficientConfig,
   ownershipConfig,
@@ -38,7 +39,8 @@ const sections: Record<string, ConfigItem[]> = {
   identity: [
     { id: "team", label: "Team", config: teamConfig },
     { id: "club", label: "Club", config: clubConfig },
-    { id: "national-info", label: "National Team", config: nationalTeamInfoConfig },
+    { id: "national-team", label: "National Team", config: nationalTeamConfig },
+    { id: "national-info", label: "National Team Info", config: nationalTeamInfoConfig },
     { id: "national-coefficients", label: "National Coefficients", config: nationalTeamCoefficientConfig },
   ],
   club: [
