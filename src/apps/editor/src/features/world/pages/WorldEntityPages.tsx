@@ -1,266 +1,163 @@
-import { useState } from "react";
-import { EntityForm, EntityPicker, Tabs } from "../../../shared/components";
-import type { DataTableColumn, EntityFormField } from "../../../shared/components";
-import { WorldEntityListPage } from "../components/WorldEntityListPage";
-import {
-  cities,
-  climates,
-  continents,
-  countries,
-  languages,
-  regions,
-} from "../data/world.data";
-import type { City, Climate, Continent, Country, Language, Region } from "../types";
+import { CrudEntityPage } from "../../../shared/components";
 
-interface EditPanelProps<T extends { id: number; name: string }> {
-  title: string;
-  entity: T;
-  fields: EntityFormField[];
-  values: Record<string, string | number | undefined>;
-  onChange: (name: string, value: string) => void;
-  onSubmit: () => void;
-  onCancel: () => void;
-  children?: React.ReactNode;
-}
-
-function EditPanel<T extends { id: number; name: string }>({
-  title,
-  entity,
-  fields,
-  values,
-  onChange,
-  onSubmit,
-  onCancel,
-  children,
-}: EditPanelProps<T>) {
-  return (
-    <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-6">
-      <div className="mb-6 flex items-start justify-between gap-6">
-        <div>
-          <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-600">
-            EDIT
-          </div>
-          <h2 className="mt-2 text-lg font-semibold text-white">
-            {title}: {entity.name}
-          </h2>
-        </div>
-
-        <button
-          type="button"
-          onClick={onCancel}
-          className="rounded-lg border border-white/10 px-3 py-2 text-xs text-slate-400 hover:bg-white/[0.04]"
-        >
-          Back
-        </button>
-      </div>
-
-      <EntityForm
-        fields={fields}
-        values={values}
-        onChange={onChange}
-        onSubmit={onSubmit}
-        submitLabel="Save changes"
-      >
-        {children}
-      </EntityForm>
-    </div>
-  );
-}
-
-function useMockEdit<T extends { id: number; name: string }>(entity: T) {
-  const [values, setValues] = useState<Record<string, string | number | undefined>>({
-    name: entity.name,
-    shortName: entity.shortName ?? "",
-  });
-
-  const setValue = (name: string, value: string) =>
-    setValues((current) => ({ ...current, [name]: value }));
-
-  return { values, setValue };
-}
+const relation = (table: string, labelColumn = "name") => ({ table, labelColumn });
 
 export function ContinentsPage() {
-  const [selected, setSelected] = useState<Continent | null>(null);
-  const { values, setValue } = useMockEdit(selected ?? continents[0]);
-
-  const columns: DataTableColumn<Continent>[] = [
-    { key: "name", header: "Name", render: (row) => <span className="font-medium text-white">{row.name}</span> },
-    { key: "shortName", header: "Short Name", render: (row) => row.shortName ?? "—" },
-  ];
-
-  if (selected) {
-    return (
-      <EditPanel
-        title="Continent"
-        entity={selected}
-        fields={[
-          { name: "name", label: "Name", required: true },
-          { name: "shortName", label: "Short Name" },
-          { name: "continentalName", label: "Continental Name" },
-        ]}
-        values={values}
-        onChange={setValue}
-        onSubmit={() => setSelected({ ...selected, name: String(values.name), shortName: String(values.shortName || "") })}
-        onCancel={() => setSelected(null)}
-      />
-    );
-  }
-
   return (
-    <WorldEntityListPage
-      title="Continents"
-      description="Manage the geographic roots of the world."
-      rows={continents}
-      columns={columns}
-      onRowClick={setSelected}
+    <CrudEntityPage
+      config={{
+        table: "continent",
+        title: "Continents",
+        description: "Manage the geographic roots of the world.",
+        searchColumns: ["name", "short_name"],
+        columns: [
+          { key: "name", header: "Name" },
+          { key: "short_name", header: "Short Name" },
+          { key: "continental_name", header: "Continental Name" },
+        ],
+        fields: [
+          { name: "name", label: "Name", required: true },
+          { name: "short_name", label: "Short Name" },
+          { name: "continental_name", label: "Continental Name" },
+          { name: "federation_id", label: "Federation", relation: relation("federation") },
+        ],
+      }}
     />
   );
 }
 
 export function CountriesPage() {
-  const [selected, setSelected] = useState<Country | null>(null);
-  const { values, setValue } = useMockEdit(selected ?? countries[0]);
-
-  const columns: DataTableColumn<Country>[] = [
-    { key: "name", header: "Name", render: (row) => <span className="font-medium text-white">{row.name}</span> },
-    { key: "shortName", header: "Short Name", render: (row) => row.shortName ?? "—" },
-    { key: "continent", header: "Continent", render: (row) => continents.find((item) => item.id === row.continentId)?.name ?? "—" },
-  ];
-
-  if (selected) {
-    return (
-      <EditPanel
-        title="Country"
-        entity={selected}
-        fields={[
-          { name: "name", label: "Name", required: true },
-          { name: "shortName", label: "Short Name" },
-        ]}
-        values={values}
-        onChange={setValue}
-        onSubmit={() => setSelected({ ...selected, name: String(values.name), shortName: String(values.shortName || "") })}
-        onCancel={() => setSelected(null)}
-      >
-        <div className="grid gap-5 md:grid-cols-2">
-          <EntityPicker
-            label="Continent"
-            value={selected.continentId ?? ""}
-            options={continents.map((item) => ({ id: item.id, label: item.name }))}
-            onChange={(value) => setSelected({ ...selected, continentId: Number(value) })}
-          />
-        </div>
-      </EditPanel>
-    );
-  }
-
   return (
-    <WorldEntityListPage
-      title="Countries"
-      description="Countries are domain screens, not isolated database tables."
-      rows={countries}
-      columns={columns}
-      onRowClick={setSelected}
+    <CrudEntityPage
+      config={{
+        table: "nation",
+        title: "Countries",
+        description: "Manage countries and their world-level relationships.",
+        searchColumns: ["name", "short_name"],
+        columns: [
+          { key: "name", header: "Name" },
+          { key: "short_name", header: "Short Name" },
+          { key: "continent_region_id", header: "Continent Region", relation: relation("continent_region") },
+          { key: "currency_id", header: "Currency", relation: relation("currency") },
+        ],
+        fields: [
+          { name: "name", label: "Name", required: true },
+          { name: "short_name", label: "Short Name" },
+          { name: "continent_region_id", label: "Continent Region", relation: relation("continent_region") },
+          { name: "currency_id", label: "Currency", relation: relation("currency") },
+          { name: "national_stadium_id", label: "National Stadium", type: "number" },
+          { name: "economic_factor", label: "Economic Factor", type: "number", step: "0.01" },
+          { name: "years_to_naturalization", label: "Years to Naturalization", type: "number" },
+          { name: "nationality_method_id", label: "Nationality Method", relation: relation("nationality_method") },
+          { name: "development_state_id", label: "Development State", relation: relation("nation_development_state") },
+        ],
+      }}
     />
   );
 }
 
 export function RegionsPage() {
-  const [selected, setSelected] = useState<Region | null>(null);
-  const columns: DataTableColumn<Region>[] = [
-    { key: "name", header: "Name", render: (row) => <span className="font-medium text-white">{row.name}</span> },
-    { key: "shortName", header: "Short Name", render: (row) => row.shortName ?? "—" },
-    { key: "country", header: "Country", render: (row) => countries.find((item) => item.id === row.countryId)?.name ?? "—" },
-  ];
-
   return (
-    <WorldEntityListPage
-      title="Regions"
-      description="Organize the world into regional structures used by cities and rules."
-      rows={regions}
-      columns={columns}
-      onRowClick={setSelected}
+    <CrudEntityPage
+      config={{
+        table: "nation_region",
+        title: "Regions",
+        description: "Organize nations into editor regions used by geography and rules.",
+        searchColumns: ["name", "short_name"],
+        columns: [
+          { key: "name", header: "Name" },
+          { key: "short_name", header: "Short Name" },
+          { key: "nation_id", header: "Country", relation: relation("nation") },
+          { key: "population", header: "Population" },
+        ],
+        fields: [
+          { name: "nation_id", label: "Country", relation: relation("nation") },
+          { name: "name", label: "Name", required: true },
+          { name: "short_name", label: "Short Name" },
+          { name: "population", label: "Population", type: "number" },
+        ],
+      }}
     />
   );
 }
 
 export function LanguagesPage() {
-  const [selectedTab, setSelectedTab] = useState<"languages" | "families">("languages");
-  const [selected, setSelected] = useState<Language | null>(null);
-  const columns: DataTableColumn<Language>[] = [
-    { key: "name", header: "Name", render: (row) => <span className="font-medium text-white">{row.name}</span> },
-    { key: "shortName", header: "Short Name", render: (row) => row.shortName ?? "—" },
-  ];
-
   return (
-    <div className="space-y-6">
-      <Tabs
-        activeTab={selectedTab}
-        onChange={setSelectedTab}
-        items={[
-          {
-            id: "languages",
-            label: "Languages",
-            content: (
-              <WorldEntityListPage
-                title="Languages"
-                description="Languages belong to the world model and are reused by nations, regions and cities."
-                rows={languages}
-                columns={columns}
-                onRowClick={setSelected}
-              />
-            ),
-          },
-          {
-            id: "families",
-            label: "Families",
-            content: (
-              <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-8 text-sm text-slate-500">
-                Language families can be added here when their editor domain is introduced.
-              </div>
-            ),
-          },
-        ]}
-      />
-      {selected && (
-        <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-5 text-sm text-slate-300">
-          Selected language: <strong className="text-white">{selected.name}</strong>
-        </div>
-      )}
-    </div>
+    <CrudEntityPage
+      config={{
+        table: "language",
+        title: "Languages",
+        description: "Manage language definitions and their hierarchy.",
+        searchColumns: ["name"],
+        columns: [
+          { key: "name", header: "Language" },
+          { key: "influence", header: "Influence" },
+          { key: "learning_difficulty", header: "Difficulty" },
+          { key: "family_id", header: "Family", relation: relation("language_family") },
+          { key: "group_id", header: "Group", relation: relation("language_group") },
+          { key: "subgroup_id", header: "Subgroup", relation: relation("language_subgroup") },
+        ],
+        fields: [
+          { name: "name", label: "Name", required: true },
+          { name: "influence", label: "Influence", type: "number" },
+          { name: "learning_difficulty", label: "Learning Difficulty", type: "number" },
+          { name: "family_id", label: "Family", relation: relation("language_family") },
+          { name: "group_id", label: "Group", relation: relation("language_group") },
+          { name: "subgroup_id", label: "Subgroup", relation: relation("language_subgroup") },
+        ],
+      }}
+    />
   );
 }
 
 export function ClimatesPage() {
-  const columns: DataTableColumn<Climate>[] = [
-    { key: "name", header: "Name", render: (row) => <span className="font-medium text-white">{row.name}</span> },
-    { key: "shortName", header: "Short Name", render: (row) => row.shortName ?? "—" },
-  ];
-
   return (
-    <WorldEntityListPage
-      title="Climates"
-      description="Define climate types referenced by regions and cities."
-      rows={climates}
-      columns={columns}
+    <CrudEntityPage
+      config={{
+        table: "climate",
+        title: "Climates",
+        description: "Define climate types referenced by the world geography.",
+        searchColumns: ["name", "short_name"],
+        columns: [
+          { key: "name", header: "Name" },
+          { key: "short_name", header: "Short Name" },
+        ],
+        fields: [
+          { name: "name", label: "Name", required: true },
+          { name: "short_name", label: "Short Name" },
+        ],
+      }}
     />
   );
 }
 
 export function CitiesPage() {
-  const columns: DataTableColumn<City>[] = [
-    { key: "name", header: "Name", render: (row) => <span className="font-medium text-white">{row.name}</span> },
-    { key: "country", header: "Country", render: (row) => countries.find((item) => item.id === row.countryId)?.name ?? "—" },
-    { key: "region", header: "Region", render: (row) => regions.find((item) => item.id === row.regionId)?.name ?? "—" },
-    { key: "climate", header: "Climate", render: (row) => climates.find((item) => item.id === row.climateId)?.name ?? "—" },
-  ];
-
   return (
-    <WorldEntityListPage
-      title="Cities"
-      description="Cities combine geography, region, climate and language relationships."
-      rows={cities}
-      columns={columns}
+    <CrudEntityPage
+      config={{
+        table: "city",
+        title: "Cities",
+        description: "Manage cities, geography, population and climate.",
+        searchColumns: ["name"],
+        columns: [
+          { key: "name", header: "City" },
+          { key: "nation_id", header: "Country", relation: relation("nation") },
+          { key: "nation_region_id", header: "Region", relation: relation("nation_region") },
+          { key: "population", header: "Population" },
+          { key: "climate_id", header: "Climate", relation: relation("climate") },
+        ],
+        fields: [
+          { name: "nation_id", label: "Country", relation: relation("nation") },
+          { name: "nation_region_id", label: "Region", relation: relation("nation_region") },
+          { name: "name", label: "Name", required: true },
+          { name: "attraction", label: "Attraction", type: "number" },
+          { name: "population", label: "Population", type: "number" },
+          { name: "latitude", label: "Latitude", type: "number", step: "0.000001" },
+          { name: "longitude", label: "Longitude", type: "number", step: "0.000001" },
+          { name: "altitude", label: "Altitude", type: "number" },
+          { name: "climate_id", label: "Climate", relation: relation("climate") },
+        ],
+      }}
     />
   );
 }
-
