@@ -12,9 +12,11 @@ export function GeographyBreadcrumb({
   selection,
 }: GeographyBreadcrumbProps) {
   const items = [
+    selection.federation?.name,
     selection.continent?.name,
+    selection.continentRegion?.name,
     selection.country?.name,
-    selection.region?.name,
+    selection.nationRegion?.name,
     selection.city?.name,
   ].filter(Boolean);
 
