@@ -50,7 +50,7 @@ export interface CrudEntityConfig {
   duplicateValues?: (row: EntityRow) => Record<string, EntityFormValue>;
 }
 
-function normalizeValue(
+function requireEntityId(row: EntityRow): string | number {\n  const id = row.id;\n  if (id == null || typeof id === "boolean") throw new Error("Entity does not have a valid id.");\n  return id;\n}\n\nfunction normalizeValue(
   value: EntityFormValue,
   field: CrudField,
 ): string | number | boolean | null {
@@ -262,7 +262,7 @@ export function CrudEntityPage({
       if (editing) {
         await editorApi.update(
           config.table,
-          config.getRowId?.(editing) ?? editing.id,
+          config.getRowId?.(editing) ?? requireEntityId(editing),
           payload,
         );
       } else {
@@ -316,7 +316,7 @@ export function CrudEntityPage({
     try {
       await editorApi.remove(
         config.table,
-        config.getRowId?.(deleting) ?? deleting.id,
+        config.getRowId?.(deleting) ?? requireEntityId(deleting),
       );
       setDeleting(null);
       setNotice("Entity deleted.");
