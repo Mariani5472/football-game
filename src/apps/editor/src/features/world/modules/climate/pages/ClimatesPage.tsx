@@ -5,8 +5,6 @@ import type { EntityRow } from "../../../../../shared/api/editorApi";
 
 export function ClimatesPage() {
   const [activeTab, setActiveTab] = useState<"climates" | "seasons">("climates");
-  const climates = useEntityQuery("climate", { page: 1, pageSize: 100, orderBy: "name", orderDirection: "ASC" });
-  const seasons = useEntityQuery("climate_season", { page: 1, pageSize: 100, orderBy: "name", orderDirection: "ASC" });
 
   return (
     <div className="space-y-6">
@@ -43,9 +41,7 @@ export function ClimatesPage() {
           {
             id: "seasons",
             label: "Climate Seasons",
-            content: (
-              <SeasonList rows={seasons.rows} loading={seasons.loading} error={seasons.error} />
-            ),
+            content: <ClimateSeasonList />,
           },
         ]}
       />
@@ -53,44 +49,66 @@ export function ClimatesPage() {
   );
 }
 
-function SeasonList({
-  rows,
-  loading,
-  error,
-}: {
-  rows: EntityRow[];
-  loading: boolean;
-  error: string | null;
-}) {
-  const climateQuery = useEntityQuery("climate", { page: 1, pageSize: 100, orderBy: "name", orderDirection: "ASC" });
-  const climateMap = new Map(climateQuery.rows.map(row => [String(row.id), String(row.name ?? row.id)]));
+function ClimateSeasonList() {
+  const seasons = useEntityQuery("climate_season_profile", {
+    page: 1,
+    pageSize: 100,
+    orderBy: "id",
+    orderDirection: "ASC",
+  });
 
-  const grouped = new Map<string, EntityRow[]>();
-  for (const row of rows) {
-    const key = String(row.climate_id ?? "");
-    const current = grouped.get(key) ?? [];
-    current.push(row);
-    grouped.set(key, current);
+  const climates = useEntityQuery("climate", {
+    page: 1,
+    pageSize: 100,
+    orderBy: "name",
+    orderDirection: "ASC",
+  });
+
+  const climateMap = new Map(
+    climates.rows.map(row => [
+      String(row.id),
+      String(row.name ?? row.id),
+    ]),
+  );
+
+  const rows = seasons.rows.map(row => ({
+    ...row,
+    climate_name: climateMap.get(String(row.climate_id)) ?? row.climate_id,
+  }));
+
+  if (seasons.loading || climates.loading) {
+    return <div className="text-sm text-slate-500">Loading climate seasons...</div>;
   }
 
-  if (loading || climateQuery.loading) return <div className="text-sm text-slate-500">Loading seasons...</div>;
-  if (error || climateQuery.error) return <div className="rounded-xl border border-red-400/20 bg-red-400/5 px-4 py-3 text-sm text-red-200">{error ?? climateQuery.error}</div>;
+  if (seasons.error || climates.error) {
+    return (
+      <div className="rounded-xl border border-red-400/20 bg-red-400/5 px-4 py-3 text-sm text-red-200">
+        {seasons.error ?? climates.error}
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-4">
-      {[...grouped.entries()].map(([climateId, climateRows]) => (
-        <div key={climateId} className="rounded-2xl border border-white/10 bg-white/[0.02] p-5">
-          <div className="text-sm font-medium text-white">{climateMap.get(climateId) ?? `Climate #${climateId}`}</div>
-          <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-            {climateRows.map(row => (
-              <div key={String(row.id)} className="rounded-xl border border-white/5 bg-black/10 px-4 py-3">
-                <div className="text-sm text-slate-300">{String(row.name ?? row.id)}</div>
-                <div className="mt-1 text-xs text-slate-600">Season {String(row.id)}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      ))}
-    </div>
+    <DataTable
+      rows={rows as EntityRow[]}
+      columns={[
+        {
+          key: "climate_id",
+          header: "Climate",
+          render: row => String(row.climate_name ?? "—"),
+        },
+        {
+          key: "season",
+          header: "Season",
+          render: row => String(row.season ?? row.season_id ?? "—"),
+        },
+        {
+          key: "average_temperature",
+          header: "Avg. Temperature",
+          render: row => String(row.average_temperature ?? "—"),
+        },
+      ]}
+      emptyMessage="No climate season profiles found."
+    />
   );
 }
