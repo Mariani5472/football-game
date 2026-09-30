@@ -113,7 +113,7 @@ export const stadiumChangeConfig = config(
     field("end_date", "End Date", { type: "date" }),
   ],
   [
-    ["club_id", "Club", rel("club")],
+    ["club_id", "Club", rel("team")],
     ["change_type_id", "Change Type", rel("stadium_change_type")],
     ["new_stadium_id", "New Stadium", rel("stadium")],
     ["old_stadium_id", "Old Stadium", rel("stadium")],
@@ -127,7 +127,7 @@ export const alternativeStadiumConfig = config(
   "Alternative Stadiums",
   "Alternative venues used by clubs for specific competitions, seasons or stages.",
   [
-    field("club_id", "Club", { required: true, relation: rel("club") }),
+    field("club_id", "Club", { required: true, relation: rel("team") }),
     field("competition_id", "Competition", { required: true, relation: rel("competition") }),
     field("stadium_id", "Stadium", { required: true, relation: rel("stadium") }),
     field("year", "Year", { type: "number" }),
