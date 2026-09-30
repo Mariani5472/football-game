@@ -1,7 +1,7 @@
 import http from "node:http";
 import fs from "node:fs";
 import { WorldEditorService } from "./WorldEditorService.js";
-import type { ListOptions, SqlValue } from "../database/Database.js";
+import type { ListOptions, SqlKey, SqlValue } from "../database/Database.js";
 
 export interface EditorApiServerOptions {
   databasePath: string;
@@ -31,6 +31,16 @@ async function readBody(request: http.IncomingMessage): Promise<unknown> {
 
 function routeParts(request: http.IncomingMessage): string[] {
   return new URL(request.url ?? "/", "http://localhost").pathname.split("/").filter(Boolean);
+}
+
+function parseEntityKey(value: string): SqlKey {
+  const decoded = decodeURIComponent(value);
+  if (!decoded.startsWith("{")) return decoded;
+  try {
+    return JSON.parse(decoded) as Record<string, SqlValue>;
+  } catch {
+    return decoded;
+  }
 }
 
 function friendlyDatabaseError(error: unknown): { status: number; message: string } {
@@ -100,7 +110,7 @@ export function createEditorApiServer(options: EditorApiServerOptions): http.Ser
         }
 
         if (request.method === "GET" && id !== undefined) {
-          jsonResponse(response, 200, service.findById(table, id) ?? null);
+          jsonResponse(response, 200, service.findById(table, parseEntityKey(id)) ?? null);
           return;
         }
 
@@ -112,12 +122,12 @@ export function createEditorApiServer(options: EditorApiServerOptions): http.Ser
 
         if (request.method === "PATCH" && id !== undefined) {
           const body = (await readBody(request)) as Record<string, SqlValue | undefined>;
-          jsonResponse(response, 200, service.update(table, id, body));
+          jsonResponse(response, 200, service.update(table, parseEntityKey(id), body));
           return;
         }
 
         if (request.method === "DELETE" && id !== undefined) {
-          jsonResponse(response, 200, { deleted: service.delete(table, id) });
+          jsonResponse(response, 200, { deleted: service.delete(table, parseEntityKey(id)) });
           return;
         }
       }
