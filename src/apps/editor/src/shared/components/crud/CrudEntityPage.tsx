@@ -46,6 +46,8 @@ export interface CrudEntityConfig {
   getRowId?: (row: EntityRow) => string | number;
   getRowName?: (row: EntityRow) => string;
   pageSize?: number;
+  duplicate?: boolean;
+  duplicateValues?: (row: EntityRow) => Record<string, EntityFormValue>;
 }
 
 function normalizeValue(
@@ -280,6 +282,31 @@ export function CrudEntityPage({
     }
   }
 
+  async function duplicate(row: EntityRow) {
+    setMutationLoading(true);
+    setMutationError(null);
+    setNotice(null);
+
+    try {
+      const source = config.duplicateValues?.(row) ?? Object.fromEntries(
+        Object.entries(row).filter(([key]) => key !== "id"),
+      );
+      const payload = Object.fromEntries(
+        config.fields.map(field => [
+          field.name,
+          normalizeValue(source[field.name], field),
+        ]),
+      );
+      await editorApi.create(config.table, payload);
+      setNotice("Entity duplicated.");
+      await list.reload();
+    } catch (cause) {
+      setMutationError(cause instanceof Error ? cause.message : String(cause));
+    } finally {
+      setMutationLoading(false);
+    }
+  }
+
   async function remove() {
     if (!deleting) return;
 
@@ -435,6 +462,7 @@ export function CrudEntityPage({
             loading={list.loading || relationsLoading}
             error={list.error ?? relationsError}
             onEdit={openEdit}
+            onDuplicate={config.duplicate ? row => void duplicate(row) : undefined}
             onDelete={row => {
               setMutationError(null);
               setDeleting(row);
