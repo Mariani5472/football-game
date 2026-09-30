@@ -11,8 +11,8 @@
     "competition:brazil-sandbox": "tsx src/commands/competition/brazil-sandbox.ts",
     "career:new": "tsx src/commands/career/new.ts",
     "editor:api": "tsx src/commands/editor/api.ts",
-    "editor:dev": "npm --prefix apps/editor run dev",
-    "editor:build": "npm --prefix apps/editor install && npm --prefix apps/editor run build"
+    "editor:dev": "tsx src/commands/editor/dev.ts",
+    "editor:build": "npm --prefix src/apps/editor install && npm --prefix src/apps/editor run build"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^9.6.0",
