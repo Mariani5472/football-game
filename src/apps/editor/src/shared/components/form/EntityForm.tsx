@@ -19,7 +19,7 @@ export type EntityFormValue = string | number | boolean | null | undefined;
 export interface EntityFormProps {
   fields: EntityFormField[];
   values: Record<string, EntityFormValue>;
-  onChange: (name: string, value: string | boolean) => void;
+  onChange: (name: string, value: EntityFormValue) => void;
   onSubmit: () => void;
   submitLabel?: string;
   submitting?: boolean;
@@ -39,14 +39,14 @@ export function EntityForm({
 }: EntityFormProps) {
   return (
     <form
-      onSubmit={(event) => {
+      onSubmit={event => {
         event.preventDefault();
         onSubmit();
       }}
       className="space-y-5"
     >
       <div className="grid gap-5 md:grid-cols-2">
-        {fields.map((field) => {
+        {fields.map(field => {
           const value = values[field.name];
 
           return (
@@ -65,7 +65,7 @@ export function EntityForm({
               {field.type === "textarea" ? (
                 <textarea
                   value={String(value ?? "")}
-                  onChange={(event) => onChange(field.name, event.target.value)}
+                  onChange={event => onChange(field.name, event.target.value)}
                   required={field.required}
                   disabled={field.disabled || submitting}
                   placeholder={field.placeholder}
@@ -79,7 +79,7 @@ export function EntityForm({
                   <input
                     type="checkbox"
                     checked={Boolean(value)}
-                    onChange={(event) =>
+                    onChange={event =>
                       onChange(field.name, event.target.checked)
                     }
                     disabled={field.disabled || submitting}
@@ -89,7 +89,7 @@ export function EntityForm({
                 <input
                   type={field.type ?? "text"}
                   value={String(value ?? "")}
-                  onChange={(event) => onChange(field.name, event.target.value)}
+                  onChange={event => onChange(field.name, event.target.value)}
                   required={field.required}
                   disabled={field.disabled || submitting}
                   placeholder={field.placeholder}
