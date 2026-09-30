@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
-import { CrudEntityPage } from "../../shared/components/crud/CrudEntityPage";
+import { CrudEntityPage } from "../../../shared/components/crud/CrudEntityPage";
 import type { CrudEntityConfig } from "../../shared/components/crud/CrudEntityPage";
-import { editorApi } from "../../shared/api/editorApi";
+import { editorApi } from "../../../shared/api/editorApi";
 
 const referenceTables = [
   "gender","club_status","club_observation","stadium_owner_type","pitch_type",
