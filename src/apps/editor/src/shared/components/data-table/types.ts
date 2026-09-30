@@ -7,9 +7,10 @@ export interface DataTableColumn<T> {
   className?: string;
 }
 
-export interface DataTableProps<T extends { id: number | string }> {
+export interface DataTableProps<T> {
   columns: DataTableColumn<T>[];
   rows: T[];
+  rowKey?: (row: T, index: number) => string | number;
   onRowClick?: (row: T) => void;
   onEdit?: (row: T) => void;
   onDelete?: (row: T) => void;
