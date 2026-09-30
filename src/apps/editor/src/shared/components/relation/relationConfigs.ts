@@ -66,9 +66,11 @@ export const relationEditorConfigs: RelationEditorConfig[] = [
       keyColumns: ["player_id", "position_id"],
       targetTable: "position_definition",
       targetLabelColumn: "name",
+      valueColumns: ["rating"],
     },
     ownerTable: "player",
     targetTable: "position_definition",
+    valueColumns: ["rating"],
   },
   {
     key: "player-role-duty",
