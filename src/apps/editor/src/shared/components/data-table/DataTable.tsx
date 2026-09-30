@@ -62,7 +62,8 @@ export function DataTable<T>({
               {hasActions && (
                 <td className="px-4 py-4" onClick={(event) => event.stopPropagation()}>
                   <div className="flex justify-end gap-1">
-                    {onDuplicate && <button type="button" onClick={() => onDuplicate(row)} className="rounded-lg p-2 text-slate-500 hover:bg-white/[0.05] hover:text-slate-200" aria-label="Duplicate"><Copy size={14} /></button>}\n                    {onEdit && <button type="button" onClick={() => onEdit(row)} className="rounded-lg p-2 text-slate-500 hover:bg-white/[0.05] hover:text-slate-200" aria-label="Edit"><Pencil size={14} /></button>}
+                    {onDuplicate && <button type="button" onClick={() => onDuplicate(row)} className="rounded-lg p-2 text-slate-500 hover:bg-white/[0.05] hover:text-slate-200" aria-label="Duplicate"><Copy size={14} /></button>}
+                    {onEdit && <button type="button" onClick={() => onEdit(row)} className="rounded-lg p-2 text-slate-500 hover:bg-white/[0.05] hover:text-slate-200" aria-label="Edit"><Pencil size={14} /></button>}
                     {onDelete && <button type="button" onClick={() => onDelete(row)} className="rounded-lg p-2 text-slate-500 hover:bg-red-400/10 hover:text-red-200" aria-label="Delete"><Trash2 size={14} /></button>}
                   </div>
                 </td>
