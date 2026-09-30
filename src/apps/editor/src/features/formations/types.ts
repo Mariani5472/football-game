@@ -32,6 +32,7 @@ export interface Duty {
 export interface RoleKeyAttribute {
   attributeId: number;
   weight: number;
+  name?: string;
 }
 
 export interface Role {
