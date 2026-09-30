@@ -124,7 +124,6 @@ export function RelationTable({
             ),
           },
         ]}
-        rows={rows}
         loading={loading}
         error={error}
         emptyMessage={emptyMessage}
