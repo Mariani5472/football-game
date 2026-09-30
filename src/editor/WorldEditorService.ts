@@ -22,7 +22,7 @@ export class WorldEditorService {
     return this.database.list<T>(table, options);
   }
 
-  findById<T extends SqlRow = SqlRow>(table: string, id: SqlValue) {
+  findById<T extends SqlRow = SqlRow>(table: string, id: SqlKey) {
     return this.database.findById<T>(table, id);
   }
 
