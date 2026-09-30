@@ -1,8 +1,8 @@
-import { useState } from "react";
 import { ArrowLeft } from "lucide-react";
-
 import { EntityForm, Tabs } from "../../../shared/components";
-import { getDuty, getPosition, getRole, roles } from "../data/formations.data";
+import { FormationPitch } from "./FormationPitch";
+import { FormationPositionList } from "./FormationPositionList";
+import { FormationRolesPanel } from "./FormationRolesPanel";
 import { useFormationEditor } from "../hooks/useFormationEditor";
 import type { Formation } from "../types";
 
@@ -13,7 +13,8 @@ interface FormationEditorProps {
 
 export function FormationEditor({ formation, onBack }: FormationEditorProps) {
   const editor = useFormationEditor(formation);
-  const [activeTab, setActiveTab] = useState<"shape" | "roles">("shape");
+
+  const positionNames = editor.positionNames;
 
   return (
     <div className="space-y-6">
@@ -50,99 +51,31 @@ export function FormationEditor({ formation, onBack }: FormationEditorProps) {
           description: editor.draft.description ?? "",
         }}
         onChange={(name, value) => {
-          if (name === "name" || name === "description") {
-            editor.setValue(name, String(value));
-          }
+          if (name === "name") editor.setValue("name", String(value));
+          if (name === "description") editor.setValue("description", String(value));
         }}
-        onSubmit={() => undefined}
+        onSubmit={() => void editor.save()}
         submitLabel="Save Formation"
       />
 
       <Tabs
-        activeTab={activeTab}
-        onChange={setActiveTab}
+        activeTab="shape"
+        onChange={() => undefined}
         items={[
           {
             id: "shape",
             label: "Positions",
             content: (
               <div className="grid gap-6 xl:grid-cols-[420px_1fr]">
-                <Pitch positions={editor.draft.positions} />
-                <div className="space-y-3">
-                  {editor.draft.positions.map((position) => {
-                    const positionDefinition = getPosition(position.positionId);
-                    const role = getRole(position.roleId);
-                    const duty = getDuty(position.dutyId);
-                    const keyAttributes = editor.getKeyAttributes(position.roleId);
-
-                    return (
-                      <div
-                        key={position.id}
-                        className="rounded-xl border border-white/10 bg-white/[0.02] p-4"
-                      >
-                        <div className="grid gap-3 md:grid-cols-[90px_1fr_160px_130px]">
-                          <div>
-                            <div className="text-sm font-semibold text-white">
-                              {position.label}
-                            </div>
-                            <div className="mt-1 text-[11px] text-slate-600">
-                              {positionDefinition?.name}
-                            </div>
-                          </div>
-
-                          <div className="text-xs text-slate-500">
-                            Slot {position.id}
-                          </div>
-
-                          <select
-                            value={position.roleId}
-                            onChange={(event) =>
-                              editor.setRole(position.id, Number(event.target.value))
-                            }
-                            className="rounded-lg border border-white/10 bg-[#121820] px-3 py-2 text-xs text-slate-300 outline-none"
-                          >
-                            {editor.getAvailableRoles(position.positionId).map((option) => (
-                              <option key={option.id} value={option.id}>
-                                {option.name}
-                              </option>
-                            ))}
-                          </select>
-
-                          <select
-                            value={position.dutyId}
-                            onChange={(event) =>
-                              editor.setDuty(position.id, Number(event.target.value))
-                            }
-                            className="rounded-lg border border-white/10 bg-[#121820] px-3 py-2 text-xs text-slate-300 outline-none"
-                          >
-                            {editor.getAvailableDuties(position.roleId).map((option) => (
-                              <option key={option.id} value={option.id}>
-                                {option.name}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-
-                        <div className="mt-4 border-t border-white/5 pt-3">
-                          <div className="mb-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-600">
-                            Key Attributes
-                          </div>
-                          <div className="flex flex-wrap gap-2">
-                            {keyAttributes.map((entry) => (
-                              <span
-                                key={entry.attributeId}
-                                title={`Weight ${entry.weight}`}
-                                className="rounded-full border border-emerald-400/10 bg-emerald-400/[0.03] px-2.5 py-1 text-[11px] text-emerald-200"
-                              >
-                                {entry.attribute?.name}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
+                <FormationPitch positions={editor.draft.positions} />
+                <FormationPositionList
+                  positions={editor.draft.positions}
+                  roles={editor.roles}
+                  duties={editor.duties}
+                  positionNames={positionNames}
+                  onRoleChange={editor.setRole}
+                  onDutyChange={editor.setDuty}
+                />
               </div>
             ),
           },
@@ -150,95 +83,15 @@ export function FormationEditor({ formation, onBack }: FormationEditorProps) {
             id: "roles",
             label: "Roles & Duties",
             content: (
-              <div className="space-y-4">
-                {roles.map((role) => {
-                  const roleKeyAttributes = editor.getKeyAttributes(role.id);
-                  const roleDuties = editor.getAvailableDuties(role.id);
-
-                  return (
-                    <div
-                      key={role.id}
-                      className="rounded-2xl border border-white/10 bg-white/[0.02] p-5"
-                    >
-                      <div className="flex items-start justify-between gap-4">
-                        <div>
-                          <div className="text-sm font-semibold text-white">{role.name}</div>
-                          <div className="mt-1 text-xs text-slate-500">
-                            {getPosition(role.positionId)?.name}
-                          </div>
-                        </div>
-                      </div>
-
-                      <p className="mt-3 text-xs leading-5 text-slate-500">
-                        {role.description}
-                      </p>
-
-                      <div className="mt-4 grid gap-4 md:grid-cols-2">
-                        <div>
-                          <div className="mb-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-600">
-                            Duties
-                          </div>
-                          <div className="flex flex-wrap gap-2">
-                            {roleDuties.map((duty) => (
-                              <span
-                                key={duty.id}
-                                className="rounded-full border border-white/10 px-2.5 py-1 text-[11px] text-slate-400"
-                              >
-                                {duty.name}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-
-                        <div>
-                          <div className="mb-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-600">
-                            Key Attributes
-                          </div>
-                          <div className="flex flex-wrap gap-2">
-                            {roleKeyAttributes.map((entry) => (
-                              <span
-                                key={entry.attributeId}
-                                title={`Weight ${entry.weight}`}
-                                className="rounded-full border border-emerald-400/10 bg-emerald-400/[0.03] px-2.5 py-1 text-[11px] text-emerald-200"
-                              >
-                                {entry.attribute?.name}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+              <FormationRolesPanel
+                roles={editor.roles}
+                duties={editor.duties}
+                positionNames={positionNames}
+              />
             ),
           },
         ]}
       />
-    </div>
-  );
-}
-
-function Pitch({ positions }: { positions: Formation["positions"] }) {
-  return (
-    <div className="relative aspect-[3/4] overflow-hidden rounded-2xl border border-emerald-300/10 bg-[#10251d]">
-      <div className="absolute inset-4 rounded-xl border border-white/10" />
-      <div className="absolute left-1/2 top-1/2 h-px w-[calc(100%-32px)] -translate-x-1/2 bg-white/10" />
-      <div className="absolute left-1/2 top-1/2 h-24 w-24 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/10" />
-      <div className="absolute left-1/2 top-4 h-16 w-32 -translate-x-1/2 rounded-b-xl border border-t-0 border-white/10" />
-      <div className="absolute bottom-4 left-1/2 h-16 w-32 -translate-x-1/2 rounded-t-xl border border-b-0 border-white/10" />
-
-      {positions.map((position) => (
-        <div
-          key={position.id}
-          className="absolute -translate-x-1/2 -translate-y-1/2"
-          style={{ left: position.x + "%", top: position.y + "%" }}
-        >
-          <div className="flex h-10 w-10 items-center justify-center rounded-full border border-emerald-300/30 bg-[#132b22] text-[11px] font-semibold text-emerald-200 shadow-lg shadow-black/20">
-            {position.label}
-          </div>
-        </div>
-      ))}
     </div>
   );
 }
