@@ -3,6 +3,7 @@ import { useGeography } from "./useGeography";
 import { useGeographyFilters } from "./useGeographyFilters";
 import { useGeographyEditorForm } from "./useGeographyEditorForm";
 import { useGeographyRelations } from "./useGeographyRelations";
+import { useGeographyEntityActions } from "./useGeographyEntityActions";
 
 export function useGeographyEditor() {
   const geography = useGeography();
@@ -13,6 +14,7 @@ export function useGeographyEditor() {
     filters.allRows,
     geography.reload,
   );
+  const actions = useGeographyEntityActions(geography.reload);
 
   const selectedNode = geography.selectedNode;
   const childKind = selectedNode
@@ -32,7 +34,14 @@ export function useGeographyEditor() {
     counts: filters.counts,
     ...form,
     ...relations,
-    error: geography.error ?? form.error ?? relations.error,
+    ...actions,
+    formError: form.error,
+    relationLoading: relations.loading,
+    relationError: relations.error,
+    languages: relations.languages,
+    climateRows: relations.climateRows,
+    error: geography.error ?? form.error ?? relations.error ?? actions.error,
     loading: geography.loading || relations.loading,
+
   };
 }
