@@ -16,3 +16,5 @@ export { DeleteDialog } from "./dialog/DeleteDialog";
 
 export { CrudEntityPage } from "./crud/CrudEntityPage";
 export type { CrudEntityConfig, CrudColumn, CrudField, CrudRelation } from "./crud/CrudEntityPage";
+export { RelationTable, MultiEntityPicker, PercentageEditor, WeightedRelationEditor, OrderedRelationEditor } from "./relation";
+export type { RelationDefinition, RelationColumn, RelationDraft, RelationTableProps } from "./relation";\n

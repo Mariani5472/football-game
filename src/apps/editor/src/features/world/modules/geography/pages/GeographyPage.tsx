@@ -13,7 +13,7 @@ import { useEntityQuery } from "../../../../../shared/hooks/useEntityApi";
 import { GeographyBreadcrumb } from "../components/GeographyBreadcrumb";
 import { GeographyTree } from "../components/GeographyTree";
 import { useGeography } from "../hooks/useGeography";
-import { LanguageRelations, RelationList } from "../components/GeographyRelations";
+import { LanguageRelationshipEditor, RelationList } from "../components/GeographyRelations";
 import type { GeographyTreeNode, GeographyEntityKind } from "../types";
 
 type Field = {
@@ -251,20 +251,6 @@ export function GeographyPage() {
     } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); }
   }
 
-  async function updateLanguage(row: EntityRow, percentage: number) {
-    if (!relationTable) return;
-    try {
-      await editorApi.update(relationTable, row.id as number, { percentage: Math.min(100, Math.max(0, percentage)) });
-      await relationQuery.reload();
-    } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); }
-  }
-
-  async function removeLanguage(row: EntityRow) {
-    if (!relationTable) return;
-    try { await editorApi.remove(relationTable, row.id as number); await relationQuery.reload(); }
-    catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); }
-  }
-
   async function addAlternativeName() {
     if (!selectedNode || selectedNode.kind !== "continent") return;
     const name = window.prompt("Alternative continent name");
@@ -340,7 +326,34 @@ export function GeographyPage() {
 
           {formSpec && (editing || creating) && <section className="rounded-2xl border border-white/10 bg-[#121820] p-6"><div className="mb-5 flex items-start justify-between"><div><div className="text-[10px] uppercase tracking-[0.16em] text-slate-600">{editing?"EDIT":"CREATE"}</div><h2 className="mt-2 text-lg font-semibold text-white">{editing?.label ?? `New ${formSpec.label}`}</h2>{creating?.parent && <p className="mt-1 text-xs text-slate-500">Child of {creating.parent.label}</p>}</div><button type="button" onClick={()=>{setEditing(null);setCreating(null)}} className="rounded-lg border border-white/10 px-3 py-2 text-xs text-slate-400">Back</button></div><EntityForm fields={formSpec.fields.filter(field=>!field.relation).map(field=>({name:field.name,label:field.label,type:field.type,required:field.required,min:field.min,max:field.max,step:field.step}))} values={values} onChange={(name,value)=>setValues(current=>({...current,[name]:value}))} onSubmit={()=>void saveEntity()} submitLabel={editing?"Save changes":"Create"} submitting={saving} error={error}>{formSpec.fields.filter(field=>field.relation).map(field=><EntityPicker key={field.name} label={field.label} table={field.relation} value={values[field.name]==null?"":String(values[field.name])} onChange={value=>setValues(current=>({...current,[field.name]:value}))}/>)}</EntityForm></section>}
 
-          {selectedNode && relationTable && <LanguageRelations rows={relationRows} languages={languageQuery.rows} loading={relationQuery.loading || languageQuery.loading} error={relationQuery.error ?? languageQuery.error} onAdd={()=>void addLanguage()} onUpdate={(row,p)=>void updateLanguage(row,p)} onRemove={row=>void removeLanguage(row)}/>}
+          {selectedNode && relationTable && <LanguageRelationshipEditor
+            title="Languages"
+            table={relationTable}
+            ownerColumn={relationOwner}
+            ownerId={selectedNode.entityId}
+            rows={relationRows}
+            languages={languageQuery.rows}
+            loading={relationQuery.loading || languageQuery.loading}
+            error={relationQuery.error ?? languageQuery.error}
+            onSave={async items => {
+              const next = new Map(items.map(item => [String(item.targetId), item]));
+              for (const row of relationRows) {
+                const item = next.get(String(row.language_id));
+                if (!item) await editorApi.remove(relationTable, row.id as number);
+                else await editorApi.update(relationTable, row.id as number, item.values);
+              }
+              for (const item of items) {
+                if (!relationRows.some(row => String(row.language_id) === String(item.targetId))) {
+                  await editorApi.create(relationTable, {
+                    [relationOwner]: selectedNode.entityId,
+                    language_id: item.targetId,
+                    percentage: item.values.percentage ?? 0,
+                  });
+                }
+              }
+              await relationQuery.reload();
+            }}
+          />
           {selectedNode?.kind === "continent" && <RelationList title="Alternative names" rows={altNames} labels={new Map()} targetKey="name" loading={altNameQuery.loading} error={altNameQuery.error} onAdd={()=>void addAlternativeName()} onRemove={row=>void removeAlternativeName(row)} action="Add name"/>}
           {selectedNode?.kind === "country" && <RelationList title="Native treatment targets" rows={nativeTreatments} labels={new Map(allRows.filter(n=>n.kind==="country").map(n=>[String(n.entityId),n.label]))} targetKey="target_nation_id" loading={nativeTreatmentQuery.loading} error={nativeTreatmentQuery.error} onAdd={()=>void addNativeTreatment()} onRemove={row=>void removeNativeTreatment(row)} action="Add target"/>}
           {selectedNode?.kind === "nation-region" && <RelationList title="Regional climates" rows={regionalClimates} labels={new Map(climateQuery.rows.map(row=>[String(row.id),String(row.name ?? row.id)]))} targetKey="climate_id" loading={regionClimateQuery.loading || climateQuery.loading} error={regionClimateQuery.error ?? climateQuery.error} onAdd={()=>void addRegionalClimate()} onRemove={row=>void removeRegionalClimate(row)} action="Add climate"/>}
