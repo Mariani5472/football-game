@@ -50,7 +50,13 @@ export interface CrudEntityConfig {
   duplicateValues?: (row: EntityRow) => Record<string, EntityFormValue>;
 }
 
-function requireEntityId(row: EntityRow): string | number {\n  const id = row.id;\n  if (id == null || typeof id === "boolean") throw new Error("Entity does not have a valid id.");\n  return id;\n}\n\nfunction normalizeValue(
+function requireEntityId(row: EntityRow): string | number {
+  const id = row.id;
+    if (id == null || typeof id === "boolean") throw new Error("Entity does not have a valid id.");
+      return id;
+    }
+
+function normalizeValue(
   value: EntityFormValue,
   field: CrudField,
 ): string | number | boolean | null {

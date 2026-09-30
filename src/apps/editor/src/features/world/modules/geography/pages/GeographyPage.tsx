@@ -6,6 +6,7 @@ import { GeographyFilteredTable } from "../components/GeographyFilteredTable";
 import { GeographyFilters } from "../components/GeographyFilters";
 import { GeographyRelationsPanel } from "../components/GeographyRelationsPanel";
 import { GeographyTree } from "../components/GeographyTree";
+import { DeleteDialog } from "../../../../../shared/components";
 
 export function GeographyPage() {
   const state = useGeographyEditor();

@@ -1,4 +1,4 @@
-import type { EntityRow } from "../../../../../shared/api/editorApi";
+import { EntityRow } from "../../../../shared/api/editorApi";
 
 export type GeographyEntityKind =
   | "federation"

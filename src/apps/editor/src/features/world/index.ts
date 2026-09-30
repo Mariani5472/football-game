@@ -1,39 +1,20 @@
 export {
+  ClimatesPage as ClimateDomainPage,
+} from "./pages/WorldEntityPages";
+
+export {
   CitiesPage,
   ClimatesPage,
   ContinentsPage,
   CountriesPage,
   LanguagesPage,
   RegionsPage,
-} from "./WorldEntityPages";
+} from "./pages/WorldEntityPages";
 
 export {
   GeographyPage,
-} from "../geography/pages/GeographyPage";
+} from "../world/modules/geography/pages/GeographyPage";
 
 export {
   LanguagesPage as LanguageDomainPage,
-} from "../languages/pages/LanguagesPage";
-
-export {
-  ClimatesPage as ClimateDomainPage,
-} from "../climate/pages/ClimatesPage"; export {
-  CitiesPage,
-  ClimatesPage,
-  ContinentsPage,
-  CountriesPage,
-  LanguagesPage,
-  RegionsPage,
-} from "./WorldEntityPages";
-
-export {
-  GeographyPage,
-} from "../geography/pages/GeographyPage";
-
-export {
-  LanguagesPage as LanguageDomainPage,
-} from "../languages/pages/LanguagesPage";
-
-export {
-  ClimatesPage as ClimateDomainPage,
-} from "../climate/pages/ClimatesPage";
+} from "./pages/WorldEntityPages";

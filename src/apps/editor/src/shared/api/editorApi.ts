@@ -1,7 +1,8 @@
 const API_BASE = import.meta.env.VITE_EDITOR_API_BASE ?? "http://127.0.0.1:4179/api";
 
 export type Scalar = string | number | boolean | null;
-export type EntityRow = Record<string, Scalar>;\nexport type EntityKey = string | number;
+export type EntityRow = Record<string, Scalar>;
+export type EntityKey = string | number;
 
 export interface ListOptions {
   page?: number;

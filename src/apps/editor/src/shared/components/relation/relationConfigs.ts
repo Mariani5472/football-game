@@ -6,7 +6,7 @@ export interface RelationEditorConfig {
   relation: RelationDefinition;
   ownerTable: string;
   targetTable: string;
-  valueColumns?: Array<"percentage" | "weight" | "seed" | "value">;
+  valueColumns?: Array<"percentage" | "weight" | "seed" | "value" | "rating">;
 }
 
 export const relationEditorConfigs: RelationEditorConfig[] = [
