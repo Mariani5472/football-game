@@ -12,6 +12,7 @@ import {
   ClimatesPage,
   ContinentsPage,
   CountriesPage,
+  GeographyPage,
   LanguagesPage,
   RegionsPage,
 } from "../features/world/pages";
@@ -33,6 +34,8 @@ function renderRoute(route: EditorRoute) {
   switch (route) {
     case "dashboard":
       return <DashboardPage />;
+    case "geography":
+      return <GeographyPage />;
     case "continents":
       return <ContinentsPage />;
     case "countries":
