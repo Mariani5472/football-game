@@ -6,6 +6,7 @@ import { editorApi } from "../api/editorApi";
 const routeTitles: Record<EditorRoute, string> = {
   dashboard: "Dashboard",
   geography: "Geography",
+  "reference-data": "Reference Data",
   continents: "Continents",
   countries: "Countries",
   regions: "Regions",
