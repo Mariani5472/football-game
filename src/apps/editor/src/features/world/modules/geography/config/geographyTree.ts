@@ -1,7 +1,7 @@
 import type { EntityRow } from "../../../../../shared/api/editorApi";
 import type { GeographyTreeNode } from "../types";
 
-function buildTree(
+export function buildGeographyTree(
   federations: EntityRow[],
   continents: EntityRow[],
   continentRegions: EntityRow[],
