@@ -76,6 +76,7 @@ export function useGeography() {
     if (!selectedNode) return {};
 
     const result: GeographySelection = {};
+    const node = selectedNode;
     if (node.kind === "federation") {
       result.federation = node.row;
       return result;
