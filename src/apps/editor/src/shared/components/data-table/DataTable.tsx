@@ -1,9 +1,10 @@
 import { Pencil, Trash2 } from "lucide-react";
 import type { DataTableProps } from "./types";
 
-export function DataTable<T extends { id: number | string }>({
+export function DataTable<T>({
   columns,
   rows,
+  rowKey,
   onRowClick,
   onEdit,
   onDelete,
@@ -13,11 +14,7 @@ export function DataTable<T extends { id: number | string }>({
   loadingMessage = "Loading...",
 }: DataTableProps<T>) {
   if (loading) {
-    return (
-      <div className="rounded-2xl border border-white/10 bg-white/[0.02] px-5 py-12 text-center text-sm text-slate-500">
-        {loadingMessage}
-      </div>
-    );
+    return <div className="rounded-2xl border border-white/10 bg-white/[0.02] px-5 py-12 text-center text-sm text-slate-500">{loadingMessage}</div>;
   }
 
   if (error) {
@@ -30,11 +27,7 @@ export function DataTable<T extends { id: number | string }>({
   }
 
   if (rows.length === 0) {
-    return (
-      <div className="rounded-2xl border border-white/10 bg-white/[0.02] px-5 py-12 text-center text-sm text-slate-500">
-        {emptyMessage}
-      </div>
-    );
+    return <div className="rounded-2xl border border-white/10 bg-white/[0.02] px-5 py-12 text-center text-sm text-slate-500">{emptyMessage}</div>;
   }
 
   const hasActions = Boolean(onEdit || onDelete);
@@ -56,30 +49,20 @@ export function DataTable<T extends { id: number | string }>({
           </tr>
         </thead>
         <tbody className="divide-y divide-white/5">
-          {rows.map((row) => (
+          {rows.map((row, index) => (
             <tr
-              key={row.id}
+              key={String(rowKey?.(row, index) ?? ((row as { id?: string | number }).id ?? index))}
               onClick={() => onRowClick?.(row)}
               className={onRowClick ? "cursor-pointer transition hover:bg-white/[0.025]" : undefined}
             >
               {columns.map((column) => (
-                <td key={column.key} className="px-5 py-4 text-sm text-slate-300">
-                  {column.render(row)}
-                </td>
+                <td key={column.key} className="px-5 py-4 text-sm text-slate-300">{column.render(row)}</td>
               ))}
               {hasActions && (
                 <td className="px-4 py-4" onClick={(event) => event.stopPropagation()}>
                   <div className="flex justify-end gap-1">
-                    {onEdit && (
-                      <button type="button" onClick={() => onEdit(row)} className="rounded-lg p-2 text-slate-500 hover:bg-white/[0.05] hover:text-slate-200" aria-label="Edit">
-                        <Pencil size={14} />
-                      </button>
-                    )}
-                    {onDelete && (
-                      <button type="button" onClick={() => onDelete(row)} className="rounded-lg p-2 text-slate-500 hover:bg-red-400/10 hover:text-red-200" aria-label="Delete">
-                        <Trash2 size={14} />
-                      </button>
-                    )}
+                    {onEdit && <button type="button" onClick={() => onEdit(row)} className="rounded-lg p-2 text-slate-500 hover:bg-white/[0.05] hover:text-slate-200" aria-label="Edit"><Pencil size={14} /></button>}
+                    {onDelete && <button type="button" onClick={() => onDelete(row)} className="rounded-lg p-2 text-slate-500 hover:bg-red-400/10 hover:text-red-200" aria-label="Delete"><Trash2 size={14} /></button>}
                   </div>
                 </td>
               )}
