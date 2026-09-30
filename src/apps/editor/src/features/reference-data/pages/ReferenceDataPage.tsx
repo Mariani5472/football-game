@@ -5,7 +5,7 @@ import { editorApi } from "../../../shared/api/editorApi";
 
 const referenceTables = [
   "gender","club_status","club_observation","stadium_owner_type","pitch_type",
-  "grass_deterioration_rate","quality_state","environment_quality",
+  "grass_deterioration_rate","quality_state","environment_quality","stadium_change_type",
   "competition_stage_type","competition_type","referee_category","trophy",
   "ownership_type","ownership_promise","president_title","patron_type",
   "embargo_type","revenue_type","debt_source","money_direction","payment_interval",
