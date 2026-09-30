@@ -1,9 +1,8 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import type { EntityRow } from "../../../../../shared/api/editorApi";
 import type { EntityFormValue } from "../../../../../shared/components";
 import { useEntityQuery } from "../../../../../shared/hooks/useEntityApi";
 import { editorApi } from "../../../../../shared/api/editorApi";
-import { EntityForm } from "../../../../../shared/components";
 import type { GeographyReferenceKey } from "../components/GeographyReferencePanel";
 
 export function useGeographyReferenceData(initialTable: GeographyReferenceKey = "currency") {
