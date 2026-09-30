@@ -84,7 +84,7 @@ export function StadiumEditor({ stadium, onBack }: StadiumEditorProps) {
                     }}
                     onChange={(name, value) => {
                       if (name === "name" || name === "capacity" || name === "seatedCapacity") {
-                        setValue(name, value);
+                        setValue(name, String(value));
                       }
                     }}
                     onSubmit={() => undefined}
