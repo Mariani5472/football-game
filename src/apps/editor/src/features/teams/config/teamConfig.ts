@@ -91,6 +91,22 @@ export const clubConfig = config(
   row => Number(row.team_id),
 );
 
+export const nationalTeamConfig = config(
+  "national_team",
+  "National Team",
+  "National-team subtype linked to a team identity and nation.",
+  [
+    field("team_id", "Team", { relation: rel("team") }),
+    field("nation_id", "Nation", { relation: rel("nation") }),
+  ],
+  [
+    ["team_id", "Team", rel("team")],
+    ["nation_id", "Nation", rel("nation")],
+  ],
+  undefined,
+  row => Number(row.team_id),
+);
+
 export const nationalTeamInfoConfig = config(
   "national_team_info",
   "National Team Info",
