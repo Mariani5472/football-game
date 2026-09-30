@@ -1,6 +1,7 @@
 export type EditorRoute =
   | "dashboard"
   | "geography"
+  | "reference-data"
   | "continents"
   | "countries"
   | "regions"
