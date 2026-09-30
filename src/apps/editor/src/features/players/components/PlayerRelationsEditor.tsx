@@ -102,7 +102,7 @@ export function PlayerRelationsEditor({ playerId, config }: { playerId: number; 
 
       {error && <div className="rounded-lg border border-red-400/20 bg-red-400/5 p-3 text-xs text-red-200">{error}</div>}
 
-      {(editing || Object.keys(values).length > 0) && (
+      {(editing || config.id === "clauses" || Object.keys(values).length > 0) && (
         <div className="rounded-xl border border-white/10 bg-[#10161d] p-4">
           <div className="grid gap-4 md:grid-cols-2">
             {config.fields.map(field => {
