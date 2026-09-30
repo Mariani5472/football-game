@@ -1,7 +1,12 @@
 import type { FormationPosition, Role } from "../types";
 
 export function FormationPositionList({
-  positions, roles, duties, positionNames, onRoleChange, onDutyChange,
+  positions,
+  roles,
+  duties,
+  positionNames,
+  onRoleChange,
+  onDutyChange,
 }: {
   positions: FormationPosition[];
   roles: Role[];
@@ -13,21 +18,55 @@ export function FormationPositionList({
   return (
     <div className="space-y-3">
       {positions.map(position => {
-        const availableRoles = roles.filter(role => role.positionId === position.positionId);
-        const availableDuties = duties;
+        const availableRoles = roles.filter(
+          role => role.positionId === position.positionId,
+        );
+        const activeRole = roles.find(role => role.id === position.roleId);
+        const availableDuties = duties.filter(duty =>
+          activeRole?.dutyIds.includes(duty.id),
+        );
+
         return (
-          <div key={position.id} className="rounded-xl border border-white/10 bg-white/[0.02] p-4">
+          <div
+            key={position.id}
+            className="rounded-xl border border-white/10 bg-white/[0.02] p-4"
+          >
             <div className="grid gap-3 md:grid-cols-[90px_1fr_160px_130px]">
               <div>
-                <div className="text-sm font-semibold text-white">{position.label}</div>
-                <div className="mt-1 text-[11px] text-slate-600">{positionNames.get(position.positionId) ?? "—"}</div>
+                <div className="text-sm font-semibold text-white">
+                  {position.label}
+                </div>
+                <div className="mt-1 text-[11px] text-slate-600">
+                  {positionNames.get(position.positionId) ?? "—"}
+                </div>
               </div>
               <div className="text-xs text-slate-500">Slot {position.id}</div>
-              <select value={position.roleId} onChange={event => onRoleChange(position.id, Number(event.target.value))} className="rounded-lg border border-white/10 bg-[#121820] px-3 py-2 text-xs text-slate-300">
-                {availableRoles.map(role => <option key={role.id} value={role.id}>{role.name}</option>)}
+              <select
+                value={position.roleId}
+                onChange={event =>
+                  onRoleChange(position.id, Number(event.target.value))
+                }
+                className="rounded-lg border border-white/10 bg-[#121820] px-3 py-2 text-xs text-slate-300"
+              >
+                {availableRoles.map(role => (
+                  <option key={role.id} value={role.id}>
+                    {role.name}
+                  </option>
+                ))}
               </select>
-              <select value={position.dutyId} onChange={event => onDutyChange(position.id, Number(event.target.value))} className="rounded-lg border border-white/10 bg-[#121820] px-3 py-2 text-xs text-slate-300">
-                {availableDuties.map(duty => <option key={duty.id} value={duty.id}>{duty.name}</option>)}
+              <select
+                value={position.dutyId}
+                onChange={event =>
+                  onDutyChange(position.id, Number(event.target.value))
+                }
+                disabled={availableDuties.length === 0}
+                className="rounded-lg border border-white/10 bg-[#121820] px-3 py-2 text-xs text-slate-300 disabled:opacity-50"
+              >
+                {availableDuties.map(duty => (
+                  <option key={duty.id} value={duty.id}>
+                    {duty.name}
+                  </option>
+                ))}
               </select>
             </div>
           </div>
