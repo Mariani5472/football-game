@@ -1,46 +1,50 @@
-import { useState } from "react";
-import { Plus } from "lucide-react";
-
-import { DataTable, type DataTableColumn } from "../../../shared/components";
-import { CompetitionEditor } from "../components/CompetitionEditor";
-import { competitions } from "../data/competitions.data";
-import type { Competition } from "../types";
+import { CrudEntityPage } from "../../../shared/components";
 
 export function CompetitionsPage() {
-  const [selectedCompetition, setSelectedCompetition] = useState<Competition | null>(null);
-  const [showCreate, setShowCreate] = useState(false);
-
-  const columns: DataTableColumn<Competition>[] = [
-    { key: "name", header: "Competition", render: (row) => <span className="font-medium text-white">{row.name}</span> },
-    { key: "type", header: "Type", render: (row) => row.type },
-    { key: "seasons", header: "Seasons", render: (row) => String(row.seasons.length) },
-    { key: "stages", header: "Stages", render: (row) => String(row.seasons.reduce((total, season) => total + season.stages.length, 0)) },
-  ];
-
-  if (selectedCompetition) {
-    return <CompetitionEditor competition={selectedCompetition} onBack={() => setSelectedCompetition(null)} />;
-  }
-
   return (
-    <div className="space-y-6">
-      <div className="flex items-end justify-between gap-6">
-        <div>
-          <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-600">COMPETITIONS</div>
-          <h1 className="text-2xl font-semibold tracking-tight text-white">Competitions</h1>
-          <p className="mt-2 text-sm text-slate-500">Define competitions, seasons, participants and stages.</p>
-        </div>
-        <button type="button" onClick={() => setShowCreate(true)} className="inline-flex items-center gap-2 rounded-lg bg-emerald-400/10 px-3.5 py-2.5 text-sm font-medium text-emerald-200 hover:bg-emerald-400/15">
-          <Plus size={15} /> Create Competition
-        </button>
-      </div>
-
-      <DataTable columns={columns} rows={competitions} onRowClick={setSelectedCompetition} />
-
-      {showCreate && (
-        <div className="rounded-2xl border border-white/10 bg-[#121820] p-6">
-          <CompetitionEditor onBack={() => setShowCreate(false)} />
-        </div>
-      )}
-    </div>
+    <CrudEntityPage
+      config={{
+        table: "competition",
+        title: "Competitions",
+        description: "Manage competition roots. Seasons, stages, draws and rules remain linked by foreign keys in the world database.",
+        searchColumns: ["name", "three_letter_name"],
+        columns: [
+          { key: "name", header: "Competition" },
+          { key: "three_letter_name", header: "Code" },
+          { key: "nation_id", header: "Nation", relation: { table: "nation" } },
+          { key: "type_id", header: "Type", relation: { table: "competition_type" } },
+          { key: "level", header: "Level" },
+          { key: "reputation", header: "Reputation" },
+          { key: "extinct", header: "Extinct" },
+        ],
+        fields: [
+          { name: "name", label: "Name", required: true },
+          { name: "three_letter_name", label: "Three Letter Name" },
+          { name: "nation_id", label: "Nation", relation: { table: "nation" } },
+          { name: "gender_id", label: "Gender", relation: { table: "gender" } },
+          { name: "level", label: "Level", type: "number" },
+          { name: "parent_competition_id", label: "Parent Competition", relation: { table: "competition" } },
+          { name: "reputation", label: "Reputation", type: "number" },
+          { name: "trophy_id", label: "Trophy", relation: { table: "trophy" } },
+          { name: "allows_foreign_referees", label: "Foreign Referees", type: "boolean" },
+          { name: "requires_seated_stadiums", label: "Requires Seated Stadiums", type: "boolean" },
+          { name: "extinct", label: "Extinct", type: "boolean" },
+          { name: "type_id", label: "Type", relation: { table: "competition_type" } },
+          { name: "goal_line_tv_only", label: "Goal Line TV Only", type: "boolean" },
+          { name: "goal_line_from_main_stage", label: "Goal Line From Main Stage", type: "boolean" },
+          { name: "goal_line_from_sub_stage", label: "Goal Line From Sub Stage", type: "boolean" },
+          { name: "goal_line_from_date", label: "Goal Line From Date", type: "date" },
+          { name: "minimum_referee_category_id", label: "Minimum Referee Category", relation: { table: "referee_category" } },
+        ],
+        defaultValues: {
+          allows_foreign_referees: false,
+          requires_seated_stadiums: false,
+          extinct: false,
+          goal_line_tv_only: false,
+          goal_line_from_main_stage: false,
+          goal_line_from_sub_stage: false,
+        },
+      }}
+    />
   );
 }
