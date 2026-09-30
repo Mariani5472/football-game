@@ -5,7 +5,6 @@ import { useEntityQuery } from "../../../../../shared/hooks/useEntityApi";
 import { useGeography } from "./useGeography";
 import { geographyChildKind, geographySpecs, getInitialGeographyValues, normalizeGeographyValue } from "../config/geographyConfig";
 import type { GeographyEntityKind, GeographyTreeNode } from "../types";
-import { DeleteDialog } from "../../../../../shared/components";
 
 const referenceConfigs = {
   currency: { title: "Currencies", fields: [{name:"name",label:"Name",required:true},{name:"exchange_rate",label:"Exchange Rate",type:"number" as const}], columns: [] },
