@@ -1,54 +1,61 @@
-import { useState } from "react";
-import { Plus } from "lucide-react";
-import { DataTable } from "../../../shared/components";
-import type { DataTableColumn } from "../../../shared/components";
-import { cities } from "../../world/data/world.data";
-import { teams } from "../../teams/data/teams.data";
-import { stadiums } from "../data/stadiums.data";
-import { StadiumEditor } from "../components/StadiumEditor";
-import type { Stadium } from "../types";
+import { CrudEntityPage } from "../../../shared/components";
 
 export function StadiumsPage() {
-  const [selected, setSelected] = useState<Stadium | null>(null);
-  const [showCreate, setShowCreate] = useState(false);
-
-  const columns: DataTableColumn<Stadium>[] = [
-    { key: "name", header: "Name", render: (row) => <span className="font-medium text-white">{row.name}</span> },
-    { key: "city", header: "City", render: (row) => cities.find((city) => city.id === row.cityId)?.name ?? "—" },
-    { key: "capacity", header: "Capacity", render: (row) => row.capacity?.toLocaleString() ?? "—" },
-    { key: "owner", header: "Owner", render: (row) => teams.find((team) => team.id === row.ownerClubId)?.name ?? "—" },
-  ];
-
-  if (selected) {
-    return <StadiumEditor stadium={selected} onBack={() => setSelected(null)} />;
-  }
-
   return (
-    <div className="space-y-6">
-      <div className="flex items-end justify-between gap-6">
-        <div>
-          <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-600">STADIUMS</div>
-          <h1 className="text-2xl font-semibold tracking-tight text-white">Stadiums</h1>
-          <p className="mt-2 text-sm text-slate-500">Manage stadiums and their match-day infrastructure.</p>
-        </div>
-        <button type="button" onClick={() => setShowCreate(true)} className="inline-flex items-center gap-2 rounded-lg bg-emerald-400/10 px-3.5 py-2.5 text-sm font-medium text-emerald-200 hover:bg-emerald-400/15">
-          <Plus size={15} /> Create Stadium
-        </button>
-      </div>
-
-      <DataTable columns={columns} rows={stadiums} onRowClick={setSelected} />
-
-      {showCreate && (
-        <div className="rounded-2xl border border-white/10 bg-[#121820] p-6">
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-white">New Stadium</h2>
-            <button type="button" onClick={() => setShowCreate(false)} className="text-xs text-slate-500 hover:text-slate-300">Cancel</button>
-          </div>
-          <p className="text-sm text-slate-500">
-            The same StadiumEditor will be used for creation once persistence is connected.
-          </p>
-        </div>
-      )}
-    </div>
+    <CrudEntityPage
+      config={{
+        table: "stadium",
+        title: "Stadiums",
+        description: "Manage stadium identity, location, capacity and match-day infrastructure.",
+        searchColumns: ["name"],
+        columns: [
+          { key: "name", header: "Name" },
+          { key: "city_id", header: "City", relation: { table: "city" } },
+          { key: "capacity", header: "Capacity" },
+          { key: "owner_club_id", header: "Owner", relation: { table: "team" } },
+          { key: "quality_state_id", header: "Quality", relation: { table: "quality_state" } },
+          { key: "extinct", header: "Extinct" },
+        ],
+        fields: [
+          { name: "city_id", label: "City", required: true, relation: { table: "city" } },
+          { name: "name", label: "Name", required: true },
+          { name: "is_training_ground", label: "Training Ground", type: "boolean" },
+          { name: "owner_type_id", label: "Owner Type", relation: { table: "stadium_owner_type" } },
+          { name: "owner_club_id", label: "Owner Club", relation: { table: "team" } },
+          { name: "owner_person_id", label: "Owner Person", relation: { table: "person" } },
+          { name: "capacity", label: "Capacity", type: "number" },
+          { name: "seated_capacity", label: "Seated Capacity", type: "number" },
+          { name: "expansion_capacity", label: "Expansion Capacity", type: "number" },
+          { name: "seats_in_use", label: "Seats In Use", type: "number" },
+          { name: "pitch_type_id", label: "Pitch Type", relation: { table: "pitch_type" } },
+          { name: "grass_deterioration_rate_id", label: "Grass Deterioration", relation: { table: "grass_deterioration_rate" } },
+          { name: "quality_state_id", label: "Quality", relation: { table: "quality_state" } },
+          { name: "environment_quality_id", label: "Environment", relation: { table: "environment_quality" } },
+          { name: "last_pitch_replacement_date", label: "Last Pitch Replacement", type: "date" },
+          { name: "construction_date", label: "Construction Date", type: "date" },
+          { name: "reconstruction_date", label: "Reconstruction Date", type: "date" },
+          { name: "current_ownership_date", label: "Current Ownership Date", type: "date" },
+          { name: "latitude", label: "Latitude", type: "number", step: "0.000001" },
+          { name: "longitude", label: "Longitude", type: "number", step: "0.000001" },
+          { name: "used_by_national_team", label: "Used By National Team", type: "boolean" },
+          { name: "banned_from_continental_final", label: "Banned From Continental Final", type: "boolean" },
+          { name: "extinct", label: "Extinct", type: "boolean" },
+          { name: "has_cover", label: "Cover", type: "boolean" },
+          { name: "has_retractable_roof", label: "Retractable Roof", type: "boolean" },
+          { name: "has_underfloor_heating", label: "Underfloor Heating", type: "boolean" },
+          { name: "has_digital_advertising", label: "Digital Advertising", type: "boolean" },
+        ],
+        defaultValues: {
+          is_training_ground: false,
+          used_by_national_team: false,
+          banned_from_continental_final: false,
+          extinct: false,
+          has_cover: false,
+          has_retractable_roof: false,
+          has_underfloor_heating: false,
+          has_digital_advertising: false,
+        },
+      }}
+    />
   );
 }
