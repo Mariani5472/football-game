@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { CrudEntityPage } from "../../shared/components/crud/CrudEntityPage";
 import type { CrudEntityConfig } from "../../shared/components/crud/CrudEntityPage";
-import { editorApi, type EntityRow } from "../../shared/api/editorApi";
+import { editorApi } from "../../shared/api/editorApi";
 
 const referenceTables = [
   "gender","club_status","club_observation","stadium_owner_type","pitch_type",
@@ -136,13 +136,13 @@ export function ReferenceDataPage() {
 
   const groups = useMemo(() => ({
     Core: referenceTables.slice(0, 8),
-    Competitions: referenceTables.slice(8, 13),
-    Club: referenceTables.slice(13, 22),
+    Competitions: referenceTables.slice(8, 12),
+    Club: referenceTables.slice(12, 22),
     People: referenceTables.slice(22, 32),
-    Gameplay: referenceTables.slice(32, 45),
-    Press: referenceTables.slice(45, 49),
-    Awards: referenceTables.slice(49, 55),
-    Weather: referenceTables.slice(55),
+    Gameplay: referenceTables.slice(32, 46),
+    Press: referenceTables.slice(46, 49),
+    Awards: referenceTables.slice(49, 56),
+    Weather: referenceTables.slice(56),
   }), []);
 
   return (
