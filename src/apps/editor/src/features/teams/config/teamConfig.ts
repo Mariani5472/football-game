@@ -18,6 +18,7 @@ const config = (
   fields: CrudField[],
   visibleColumns: Array<[string, string, CrudColumn["relation"]?]>,
   searchColumns?: string[],
+  getRowId?: (row: Record<string, unknown>) => string | number,
 ): CrudEntityConfig => ({
   table,
   title,
@@ -26,6 +27,7 @@ const config = (
   columns: columns(visibleColumns),
   searchColumns,
   pageSize: 15,
+  ...(getRowId ? { getRowId } : {}),
 });
 
 export const teamConfig = config(
@@ -85,6 +87,8 @@ export const clubConfig = config(
     ["morale", "Morale"],
     ["is_all_star", "All-Star"],
   ],
+  undefined,
+  row => Number(row.team_id),
 );
 
 export const nationalTeamInfoConfig = config(
@@ -108,6 +112,8 @@ export const nationalTeamInfoConfig = config(
     ["federation_power", "Federation Power"],
     ["youth_ranking", "Youth Ranking"],
   ],
+  undefined,
+  row => Number(row.team_id),
 );
 
 export const nationalTeamCoefficientConfig = config(
@@ -149,6 +155,8 @@ export const ownershipConfig = config(
     ["promise_id", "Promise", rel("ownership_promise")],
     ["prevent_external_acquisition", "External Acquisition Blocked"],
   ],
+  undefined,
+  row => Number(row.club_id),
 );
 
 export const reserveTeamConfig = config(
@@ -207,6 +215,8 @@ export const financeConfig = config(
     ["has_transfer_embargo", "Transfer Embargo"],
     ["season_tickets_sold", "Season Tickets"],
   ],
+  undefined,
+  row => Number(row.club_id),
 );
 
 export const embargoConfig = config(
@@ -303,6 +313,8 @@ export const fanProfileConfig = config(
     ["attendance", "Attendance"],
     ["expectations", "Expectations"],
   ],
+  undefined,
+  row => Number(row.club_id),
 );
 
 export const objectivesConfig = config(
