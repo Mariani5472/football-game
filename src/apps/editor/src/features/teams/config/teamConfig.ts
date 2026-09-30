@@ -247,6 +247,8 @@ export const embargoConfig = config(
     ["club_id", "Club Finance", rel("club_finance")],
     ["embargo_type_id", "Embargo Type", rel("embargo_type")],
   ],
+  undefined,
+  row => JSON.stringify({ club_id: row.club_id, embargo_type_id: row.embargo_type_id }),
 );
 
 export const revenueConfig = config(
