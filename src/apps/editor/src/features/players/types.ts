@@ -1,5 +1,3 @@
-import type { AttributeCategory } from "../../attributes/types";
-
 export interface Player {
   personId: number;
   potentialCapacity?: number;
@@ -11,7 +9,7 @@ export interface Player {
 
 export interface PlayerDraft {
   personId: string;
-  attributes: Record<AttributeCategory, Record<string, string>>;
+  attributes: Record<string, Record<string, string>>;
   potentialCapacity: string;
   potential: string;
   estimatedValue: string;
