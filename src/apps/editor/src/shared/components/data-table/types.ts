@@ -14,6 +14,7 @@ export interface DataTableProps<T> {
   onRowClick?: (row: T) => void;
   onEdit?: (row: T) => void;
   onDelete?: (row: T) => void;
+  onDuplicate?: (row: T) => void;
   loading?: boolean;
   error?: string | null;
   emptyMessage?: string;
