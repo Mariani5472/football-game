@@ -1,8 +1,4 @@
-export type AttributeCategory =
-  | "technical"
-  | "physical"
-  | "mental"
-  | "goalkeeping";
+export type AttributeCategory = string;
 
 export interface AttributeScale {
   id: number;
@@ -13,11 +9,11 @@ export interface AttributeScale {
 
 export interface AttributeDefinition {
   id: number;
-  key: string;
+  attribute_key: string;
   name: string;
   category: AttributeCategory;
-  scaleId: number;
-  hidden: boolean;
+  scale_id: number | null;
+  is_hidden: number;
 }
 
 export interface PositionAttributeWeight {
