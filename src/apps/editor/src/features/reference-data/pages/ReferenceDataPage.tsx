@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { CrudEntityPage } from "../../../shared/components/crud/CrudEntityPage";
-import type { CrudEntityConfig } from "../../shared/components/crud/CrudEntityPage";
+import type { CrudEntityConfig } from "../../../shared/components/crud/CrudEntityPage";
 import { editorApi } from "../../../shared/api/editorApi";
 
 const referenceTables = [
