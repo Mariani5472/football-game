@@ -29,9 +29,7 @@ export function useFormationEditor(formation?: Formation) {
   const [roles, setRoles] = useState<Role[]>([]);
   const [duties, setDuties] = useState<ReferenceEntity[]>([]);
   const [positions, setPositions] = useState<ReferenceEntity[]>([]);
-  const [positionNames, setPositionNames] = useState<Map<number, string>>(
-    new Map(),
-  );
+  const [positionNames, setPositionNames] = useState<Map<number, string>>(new Map());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -43,14 +41,7 @@ export function useFormationEditor(formation?: Formation) {
       setError(null);
 
       try {
-        const [
-          roleResult,
-          dutyResult,
-          positionResult,
-          roleDutyResult,
-          keyAttributeResult,
-          attributeResult,
-        ] = await Promise.all([
+        const [roleResult, dutyResult, positionResult] = await Promise.all([
           editorApi.list("player_role", {
             page: 1,
             pageSize: 1000,
@@ -69,56 +60,9 @@ export function useFormationEditor(formation?: Formation) {
             orderBy: "name",
             orderDirection: "ASC",
           }),
-          editorApi.list("player_role_duty", { page: 1, pageSize: 5000 }),
-          editorApi.list("player_role_key_attribute", { page: 1, pageSize: 5000 }),
-          editorApi.list("player_attribute_definition", {
-            page: 1,
-            pageSize: 5000,
-            orderBy: "name",
-            orderDirection: "ASC",
-          }),
         ]);
 
         if (!active) return;
-
-        const roleDutyMap = new Map<number, number[]>();
-        for (const row of roleDutyResult.rows) {
-          const roleId = toId(row.role_id);
-          const dutyId = toId(row.duty_id);
-          if (roleId == null || dutyId == null) continue;
-          roleDutyMap.set(roleId, [
-            ...(roleDutyMap.get(roleId) ?? []),
-            dutyId,
-          ]);
-        }
-
-        const attributeNames = new Map<number, string>();
-        for (const row of attributeResult.rows) {
-          const id = toId(row.id);
-          if (id == null) continue;
-          attributeNames.set(
-            id,
-            toText(row.name, toText(row.attribute_key, `#${id}`)),
-          );
-        }
-
-        const keyAttributeMap = new Map<number, RoleKeyAttribute[]>();
-        for (const row of keyAttributeResult.rows) {
-          const roleId = toId(row.role_id);
-          const attributeId = toId(row.attribute_id);
-          if (roleId == null || attributeId == null) continue;
-
-          const entry: RoleKeyAttribute = {
-            attributeId,
-            weight: toNumber(row.weight),
-            name: attributeNames.get(attributeId),
-          };
-
-          keyAttributeMap.set(roleId, [
-            ...(keyAttributeMap.get(roleId) ?? []),
-            entry,
-          ]);
-        }
 
         const nextRoles = roleResult.rows
           .map(row => {
@@ -131,11 +75,9 @@ export function useFormationEditor(formation?: Formation) {
               positionId,
               name: toText(row.name, `#${id}`),
               description:
-                row.description == null
-                  ? undefined
-                  : String(row.description),
-              dutyIds: roleDutyMap.get(id) ?? [],
-              keyAttributes: keyAttributeMap.get(id) ?? [],
+                row.description == null ? undefined : String(row.description),
+              dutyIds: [],
+              keyAttributes: [] satisfies RoleKeyAttribute[],
             } satisfies Role;
           })
           .filter((role): role is Role => role !== null);
@@ -143,18 +85,14 @@ export function useFormationEditor(formation?: Formation) {
         const nextDuties = dutyResult.rows
           .map(row => {
             const id = toId(row.id);
-            return id == null
-              ? null
-              : { id, name: toText(row.name, `#${id}`) };
+            return id == null ? null : { id, name: toText(row.name, `#${id}`) };
           })
           .filter((row): row is ReferenceEntity => row !== null);
 
         const nextPositions = positionResult.rows
           .map(row => {
             const id = toId(row.id);
-            return id == null
-              ? null
-              : { id, name: toText(row.name, `#${id}`) };
+            return id == null ? null : { id, name: toText(row.name, `#${id}`) };
           })
           .filter((row): row is ReferenceEntity => row !== null);
 
@@ -166,24 +104,17 @@ export function useFormationEditor(formation?: Formation) {
         );
 
         if (formation?.id) {
-          const [formationPositionResult, assignmentResult] =
-            await Promise.all([
-              editorApi.list("formation_position", {
-                page: 1,
-                pageSize: 1000,
-              }),
-              editorApi.list("formation_position_assignment", {
-                page: 1,
-                pageSize: 1000,
-              }),
-            ]);
+          const [formationPositionResult, assignmentResult] = await Promise.all([
+            editorApi.list("formation_position", { page: 1, pageSize: 1000 }),
+            editorApi.list("formation_position_assignment", {
+              page: 1,
+              pageSize: 1000,
+            }),
+          ]);
 
           if (!active) return;
 
-          const assignments = new Map<
-            number,
-            { roleId: number; dutyId: number }
-          >();
+          const assignments = new Map<number, { roleId: number; dutyId: number }>();
 
           for (const row of assignmentResult.rows) {
             const formationPositionId = toId(row.formation_position_id);
@@ -262,7 +193,7 @@ export function useFormationEditor(formation?: Formation) {
   function getAvailableDuties(roleId: number) {
     const role = roles.find(item => item.id === roleId);
     if (!role) return [];
-    return duties.filter(duty => role.dutyIds.includes(duty.id));
+    return duties;
   }
 
   function getKeyAttributes(roleId: number) {
@@ -270,29 +201,18 @@ export function useFormationEditor(formation?: Formation) {
   }
 
   function setDuty(positionId: number, dutyId: number) {
-    const role = draft.positions.find(position => position.id === positionId);
-    const available = role ? getAvailableDuties(role.roleId) : [];
-    if (available.length && !available.some(duty => duty.id === dutyId)) return;
     updatePosition(positionId, { dutyId });
   }
 
   function setRole(positionId: number, roleId: number) {
-    const availableRoles = draft.positions
-      .filter(position => position.id === positionId)
-      .flatMap(position => getAvailableRoles(position.positionId));
-
-    const selectedRole = availableRoles.find(role => role.id === roleId);
-    if (!selectedRole) return;
-
     const current = draft.positions.find(position => position.id === positionId);
-    const availableDuties = getAvailableDuties(roleId);
+    if (!getAvailableRoles(current?.positionId ?? 0).some(role => role.id === roleId)) {
+      return;
+    }
 
     updatePosition(positionId, {
       roleId,
-      dutyId:
-        current && availableDuties.some(duty => duty.id === current.dutyId)
-          ? current.dutyId
-          : availableDuties[0]?.id ?? 0,
+      dutyId: current?.dutyId ?? 0,
     });
   }
 
@@ -305,10 +225,7 @@ export function useFormationEditor(formation?: Formation) {
     if (draft.id) {
       await editorApi.update("formation", draft.id, payload);
     } else {
-      const created = await editorApi.create<{ id: number }>(
-        "formation",
-        payload,
-      );
+      const created = await editorApi.create<{ id: number }>("formation", payload);
       setDraft(current => ({ ...current, id: Number(created.id) }));
     }
   }
