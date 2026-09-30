@@ -3,8 +3,6 @@ import { useEntityQuery } from "../../../../../shared/hooks/useEntityApi";
 import type { EntityRow } from "../../../../../shared/api/editorApi";
 import type { GeographySelection, GeographyTreeNode } from "../types";
 
-const pageSize = 100;
-
 import { buildGeographyTree, flattenGeographyTree, findGeographyRow } from "../config/geographyTree";
 
 export function useGeography() {
