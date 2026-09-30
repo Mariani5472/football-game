@@ -251,20 +251,6 @@ export function GeographyPage() {
     } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); }
   }
 
-  async function updateLanguage(row: EntityRow, percentage: number) {
-    if (!relationTable) return;
-    try {
-      await editorApi.update(relationTable, row.id as number, { percentage: Math.min(100, Math.max(0, percentage)) });
-      await relationQuery.reload();
-    } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); }
-  }
-
-  async function removeLanguage(row: EntityRow) {
-    if (!relationTable) return;
-    try { await editorApi.remove(relationTable, row.id as number); await relationQuery.reload(); }
-    catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); }
-  }
-
   async function addAlternativeName() {
     if (!selectedNode || selectedNode.kind !== "continent") return;
     const name = window.prompt("Alternative continent name");
