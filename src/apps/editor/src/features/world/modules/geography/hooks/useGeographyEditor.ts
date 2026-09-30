@@ -42,6 +42,5 @@ export function useGeographyEditor() {
     climateRows: relations.climateRows,
     error: geography.error ?? form.error ?? relations.error ?? actions.error,
     loading: geography.loading || relations.loading,
-
   };
 }
