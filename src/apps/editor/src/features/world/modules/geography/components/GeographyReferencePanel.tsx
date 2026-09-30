@@ -125,6 +125,8 @@ const configs: Record<GeographyReferenceKey, CrudEntityConfig> = {
   },
 };
 
+export const geographyReferenceConfigs = configs;
+
 export function GeographyReferencePanel({
   table,
   onTableChange,
