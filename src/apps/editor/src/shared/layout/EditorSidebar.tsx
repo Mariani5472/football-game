@@ -93,8 +93,8 @@ export function EditorSidebar({
         <div className="flex items-center gap-3">
           <div className="h-8 w-8 rounded-full bg-gradient-to-br from-emerald-400/60 to-cyan-400/20" />
           <div className="min-w-0">
-            <div className="truncate text-xs font-medium text-slate-200">Brazil 2026</div>
-            <div className="truncate text-[11px] text-slate-500">world.db · schema v2</div>
+            <div className="truncate text-xs font-medium text-slate-200">World Studio</div>
+            <div className="truncate text-[11px] text-slate-500">SQLite · schema v2</div>
           </div>
         </div>
       </div>
