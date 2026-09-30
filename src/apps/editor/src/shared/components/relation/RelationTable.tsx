@@ -75,7 +75,33 @@ export function RelationTable({
             key: column.key,
             header: column.header,
             render: (row: EntityRow) => {
-              if (column.type === "percentage") return <PercentageEditor value={Number(valueFor(row, column.key) ?? 0)} onChange={value => setValue(row, column.key, value)} />;
+              if (column.type === "percentage") {
+                return <PercentageEditor value={Number(valueFor(row, column.key) ?? 0)} onChange={value => setValue(row, column.key, value)} />;
+              }
+              if (column.type === "weight" || column.type === "number") {
+                return (
+                  <input
+                    type="number"
+                    min={column.type === "weight" ? 0 : undefined}
+                    step={column.type === "weight" ? "0.01" : "1"}
+                    value={Number(valueFor(row, column.key) ?? 0)}
+                    onChange={event => setValue(row, column.key, Number(event.target.value))}
+                    className="w-24 rounded-lg border border-white/10 bg-white/[0.03] px-2 py-1.5 text-sm text-white outline-none"
+                  />
+                );
+              }
+              if (column.type === "seed") {
+                return (
+                  <input
+                    type="number"
+                    min={0}
+                    step={1}
+                    value={Number(valueFor(row, column.key) ?? 0)}
+                    onChange={event => setValue(row, column.key, Number(event.target.value))}
+                    className="w-20 rounded-lg border border-white/10 bg-white/[0.03] px-2 py-1.5 text-sm text-white outline-none"
+                  />
+                );
+              }
               if (column.key === relation.targetColumn) {
                 const target = targetRows.find(item => String(item.id) === String(row[column.key]));
                 return labelFor(target ?? row, relation.targetLabelColumn);
