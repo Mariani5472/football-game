@@ -1,194 +1,309 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useEntityQuery } from "../../../../../shared/hooks/useEntityApi";
 import type { EntityRow } from "../../../../../shared/api/editorApi";
 import type { GeographySelection, GeographyTreeNode } from "../types";
 
-function toTree(
+const pageSize = 100;
+
+function buildTree(
+  federations: EntityRow[],
   continents: EntityRow[],
+  continentRegions: EntityRow[],
   countries: EntityRow[],
-  regions: EntityRow[],
+  nationRegions: EntityRow[],
   cities: EntityRow[],
 ): GeographyTreeNode[] {
-  return continents.map((continent) => ({
-    id: `continent-${continent.id}`,
-    label: String(continent.name ?? continent.id),
+  const federationToContinents = new Map<number, EntityRow[]>();
+  const continentToRegions = new Map<number, EntityRow[]>();
+  const regionToCountries = new Map<number, EntityRow[]>();
+  const countryToNationRegions = new Map<number, EntityRow[]>();
+  const nationRegionToCities = new Map<number, EntityRow[]>();
+
+  for (const row of continents) {
+    if (row.federation_id == null) continue;
+    const list = federationToContinents.get(Number(row.federation_id)) ?? [];
+    list.push(row);
+    federationToContinents.set(Number(row.federation_id), list);
+  }
+
+  for (const row of continentRegions) {
+    const list = continentToRegions.get(Number(row.continent_id)) ?? [];
+    list.push(row);
+    continentToRegions.set(Number(row.continent_id), list);
+  }
+
+  for (const row of countries) {
+    if (row.continent_region_id == null) continue;
+    const list = regionToCountries.get(Number(row.continent_region_id)) ?? [];
+    list.push(row);
+    regionToCountries.set(Number(row.continent_region_id), list);
+  }
+
+  for (const row of nationRegions) {
+    const list = countryToNationRegions.get(Number(row.nation_id)) ?? [];
+    list.push(row);
+    countryToNationRegions.set(Number(row.nation_id), list);
+  }
+
+  for (const row of cities) {
+    if (row.nation_region_id == null) continue;
+    const list = nationRegionToCities.get(Number(row.nation_region_id)) ?? [];
+    list.push(row);
+    nationRegionToCities.set(Number(row.nation_region_id), list);
+  }
+
+  const sortRows = (rows: EntityRow[]) =>
+    [...rows].sort((a, b) =>
+      String(a.name ?? "").localeCompare(String(b.name ?? "")),
+    );
+
+  const cityNode = (row: EntityRow): GeographyTreeNode => ({
+    id: `city-${row.id}`,
+    entityId: Number(row.id),
+    table: "city",
+    kind: "city",
+    label: String(row.name ?? row.id),
+    children: [],
+    row,
+  });
+
+  const nationRegionNode = (row: EntityRow): GeographyTreeNode => ({
+    id: `nation-region-${row.id}`,
+    entityId: Number(row.id),
+    table: "nation_region",
+    kind: "nation-region",
+    label: String(row.name ?? row.id),
+    children: sortRows(nationRegionToCities.get(Number(row.id)) ?? []).map(cityNode),
+    row,
+  });
+
+  const countryNode = (row: EntityRow): GeographyTreeNode => ({
+    id: `country-${row.id}`,
+    entityId: Number(row.id),
+    table: "nation",
+    kind: "country",
+    label: String(row.name ?? row.id),
+    children: sortRows(countryToNationRegions.get(Number(row.id)) ?? []).map(nationRegionNode),
+    row,
+  });
+
+  const continentRegionNode = (row: EntityRow): GeographyTreeNode => ({
+    id: `continent-region-${row.id}`,
+    entityId: Number(row.id),
+    table: "continent_region",
+    kind: "continent-region",
+    label: String(row.name ?? row.id),
+    children: sortRows(regionToCountries.get(Number(row.id)) ?? []).map(countryNode),
+    row,
+  });
+
+  const continentNode = (row: EntityRow): GeographyTreeNode => ({
+    id: `continent-${row.id}`,
+    entityId: Number(row.id),
+    table: "continent",
     kind: "continent",
-    entityId: Number(continent.id),
-    children: countries
-      .filter((country) => Number(country.continent_region_id) === Number(continent.id))
-      .map((country) => ({
-        id: `country-${country.id}`,
-        label: String(country.name ?? country.id),
-        kind: "country",
-        entityId: Number(country.id),
-        children: regions
-          .filter((region) => Number(region.nation_id) === Number(country.id))
-          .map((region) => ({
-            id: `region-${region.id}`,
-            label: String(region.name ?? region.id),
-            kind: "region",
-            entityId: Number(region.id),
-            children: cities
-              .filter(
-                (city) =>
-                  Number(city.nation_id) === Number(country.id) &&
-                  Number(city.nation_region_id) === Number(region.id),
-              )
-              .map((city) => ({
-                id: `city-${city.id}`,
-                label: String(city.name ?? city.id),
-                kind: "city",
-                entityId: Number(city.id),
-              })),
-          })),
-      })),
+    label: String(row.name ?? row.id),
+    children: sortRows(continentToRegions.get(Number(row.id)) ?? []).map(continentRegionNode),
+    row,
+  });
+
+  const roots = sortRows(federations).map((federation): GeographyTreeNode => ({
+    id: `federation-${federation.id}`,
+    entityId: Number(federation.id),
+    table: "federation",
+    kind: "federation",
+    label: String(federation.name ?? federation.id),
+    children: sortRows(federationToContinents.get(Number(federation.id)) ?? []).map(continentNode),
+    row: federation,
   }));
+
+  const attachedContinentIds = new Set(
+    roots.flatMap(root => root.children.map(child => child.entityId)),
+  );
+
+  const orphanContinents = sortRows(continents)
+    .filter(row => !attachedContinentIds.has(Number(row.id)))
+    .map(continentNode);
+
+  return [...roots, ...orphanContinents];
+}
+
+function flattenTree(nodes: GeographyTreeNode[]): GeographyTreeNode[] {
+  return nodes.flatMap(node => [node, ...flattenTree(node.children)]);
+}
+
+function findById(rows: EntityRow[], id: unknown) {
+  if (id == null) return undefined;
+  return rows.find(row => Number(row.id) === Number(id));
 }
 
 export function useGeography() {
-  const [selection, setSelection] = useState<GeographySelection>({});
+  const [selectedId, setSelectedId] = useState<string>();
 
-  const continents = useEntityQuery("continent", { page: 1, pageSize: 100, orderBy: "name", orderDirection: "ASC" });
-  const countries = useEntityQuery("nation", { page: 1, pageSize: 100, orderBy: "name", orderDirection: "ASC" });
-  const regions = useEntityQuery("nation_region", { page: 1, pageSize: 100, orderBy: "name", orderDirection: "ASC" });
-  const cities = useEntityQuery("city", { page: 1, pageSize: 100, orderBy: "name", orderDirection: "ASC" });
+  const federations = useEntityQuery("federation", {
+    page: 1, pageSize, orderBy: "name", orderDirection: "ASC",
+  });
+  const continents = useEntityQuery("continent", {
+    page: 1, pageSize, orderBy: "name", orderDirection: "ASC",
+  });
+  const continentRegions = useEntityQuery("continent_region", {
+    page: 1, pageSize, orderBy: "name", orderDirection: "ASC",
+  });
+  const countries = useEntityQuery("nation", {
+    page: 1, pageSize, orderBy: "name", orderDirection: "ASC",
+  });
+  const nationRegions = useEntityQuery("nation_region", {
+    page: 1, pageSize, orderBy: "name", orderDirection: "ASC",
+  });
+  const cities = useEntityQuery("city", {
+    page: 1, pageSize, orderBy: "name", orderDirection: "ASC",
+  });
 
   const tree = useMemo(
-    () => toTree(continents.rows, countries.rows, regions.rows, cities.rows),
-    [continents.rows, countries.rows, regions.rows, cities.rows],
+    () => buildTree(
+      federations.rows,
+      continents.rows,
+      continentRegions.rows,
+      countries.rows,
+      nationRegions.rows,
+      cities.rows,
+    ),
+    [
+      federations.rows,
+      continents.rows,
+      continentRegions.rows,
+      countries.rows,
+      nationRegions.rows,
+      cities.rows,
+    ],
   );
 
-  useEffect(() => {
-    if (!selection.city && !selection.region && !selection.country && !selection.continent) return;
-    const continent = selection.continent
-      ? continents.rows.find((row) => Number(row.id) === selection.continent?.id)
-      : undefined;
-    const country = selection.country
-      ? countries.rows.find((row) => Number(row.id) === selection.country?.id)
-      : undefined;
-    const region = selection.region
-      ? regions.rows.find((row) => Number(row.id) === selection.region?.id)
-      : undefined;
-    const city = selection.city
-      ? cities.rows.find((row) => Number(row.id) === selection.city?.id)
-      : undefined;
+  const rowsByTable = useMemo(
+    () => ({
+      federation: federations.rows,
+      continent: continents.rows,
+      continentRegion: continentRegions.rows,
+      country: countries.rows,
+      nationRegion: nationRegions.rows,
+      city: cities.rows,
+    }),
+    [
+      federations.rows,
+      continents.rows,
+      continentRegions.rows,
+      countries.rows,
+      nationRegions.rows,
+      cities.rows,
+    ],
+  );
 
-    setSelection({
-      continent: continent
-        ? { id: Number(continent.id), name: String(continent.name ?? continent.id), shortName: String(continent.short_name ?? "") }
-        : undefined,
-      country: country
-        ? {
-            id: Number(country.id),
-            name: String(country.name ?? country.id),
-            shortName: String(country.short_name ?? ""),
-            continentId: country.continent_region_id == null ? undefined : Number(country.continent_region_id),
-          }
-        : undefined,
-      region: region
-        ? {
-            id: Number(region.id),
-            name: String(region.name ?? region.id),
-            shortName: String(region.short_name ?? ""),
-            countryId: Number(region.nation_id),
-          }
-        : undefined,
-      city: city
-        ? {
-            id: Number(city.id),
-            name: String(city.name ?? city.id),
-            shortName: String(city.short_name ?? ""),
-            countryId: Number(city.nation_id),
-            regionId: city.nation_region_id == null ? undefined : Number(city.nation_region_id),
-            climateId: city.climate_id == null ? undefined : Number(city.climate_id),
-          }
-        : undefined,
-    });
-  }, [continents.rows, countries.rows, regions.rows, cities.rows]);
+  const selectedNode = useMemo(
+    () => flattenTree(tree).find(node => node.id === selectedId),
+    [tree, selectedId],
+  );
 
-  function selectNode(node: GeographyTreeNode) {
+  const selection = useMemo<GeographySelection>(() => {
+    if (!selectedNode) return {};
+
+    const result: GeographySelection = {};
+    let node: GeographyTreeNode | undefined = selectedNode;
+
+    if (node.kind === "federation") {
+      result.federation = node.row;
+      return result;
+    }
+
     if (node.kind === "continent") {
-      setSelection({
-        continent: {
-          id: node.entityId,
-          name: node.label,
-        },
-      });
-      return;
+      result.continent = node.row;
+      result.federation = findById(rowsByTable.federation, node.row.federation_id);
+      return result;
+    }
+
+    if (node.kind === "continent-region") {
+      result.continent = findById(rowsByTable.continent, node.row.continent_id);
+      result.continentRegion = node.row;
+      if (result.continent) {
+        result.federation = findById(rowsByTable.federation, result.continent.federation_id);
+      }
+      return result;
     }
 
     if (node.kind === "country") {
-      const country = countries.rows.find((row) => Number(row.id) === node.entityId);
-      const continent = country
-        ? continents.rows.find((row) => Number(row.id) === Number(country.continent_region_id))
-        : undefined;
-      setSelection({
-        continent: continent ? { id: Number(continent.id), name: String(continent.name ?? continent.id) } : undefined,
-        country: country
-          ? {
-              id: Number(country.id),
-              name: String(country.name ?? country.id),
-              shortName: String(country.short_name ?? ""),
-              continentId: country.continent_region_id == null ? undefined : Number(country.continent_region_id),
-            }
-          : undefined,
-      });
-      return;
+      result.country = node.row;
+      result.continentRegion = findById(rowsByTable.continentRegion, node.row.continent_region_id);
+      if (result.continentRegion) {
+        result.continent = findById(rowsByTable.continent, result.continentRegion.continent_id);
+      }
+      if (result.continent) {
+        result.federation = findById(rowsByTable.federation, result.continent.federation_id);
+      }
+      return result;
     }
 
-    if (node.kind === "region") {
-      const region = regions.rows.find((row) => Number(row.id) === node.entityId);
-      const country = region
-        ? countries.rows.find((row) => Number(row.id) === Number(region.nation_id))
-        : undefined;
-      const continent = country
-        ? continents.rows.find((row) => Number(row.id) === Number(country.continent_region_id))
-        : undefined;
-      setSelection({
-        continent: continent ? { id: Number(continent.id), name: String(continent.name ?? continent.id) } : undefined,
-        country: country ? { id: Number(country.id), name: String(country.name ?? country.id), shortName: String(country.short_name ?? "") } : undefined,
-        region: region ? { id: Number(region.id), name: String(region.name ?? region.id), shortName: String(region.short_name ?? ""), countryId: Number(region.nation_id) } : undefined,
-      });
-      return;
+    if (node.kind === "nation-region") {
+      result.nationRegion = node.row;
+      result.country = findById(rowsByTable.country, node.row.nation_id);
+      if (result.country) {
+        result.continentRegion = findById(rowsByTable.continentRegion, result.country.continent_region_id);
+      }
+      if (result.continentRegion) {
+        result.continent = findById(rowsByTable.continent, result.continentRegion.continent_id);
+      }
+      if (result.continent) {
+        result.federation = findById(rowsByTable.federation, result.continent.federation_id);
+      }
+      return result;
     }
 
     if (node.kind === "city") {
-      const city = cities.rows.find((row) => Number(row.id) === node.entityId);
-      if (!city) return;
-      const region = city.nation_region_id == null
-        ? undefined
-        : regions.rows.find((row) => Number(row.id) === Number(city.nation_region_id));
-      const country = countries.rows.find((row) => Number(row.id) === Number(city.nation_id));
-      const continent = country
-        ? continents.rows.find((row) => Number(row.id) === Number(country.continent_region_id))
-        : undefined;
-      setSelection({
-        continent: continent ? { id: Number(continent.id), name: String(continent.name ?? continent.id) } : undefined,
-        country: country ? { id: Number(country.id), name: String(country.name ?? country.id), shortName: String(country.short_name ?? "") } : undefined,
-        region: region ? { id: Number(region.id), name: String(region.name ?? region.id), shortName: String(region.short_name ?? ""), countryId: Number(region.nation_id) } : undefined,
-        city: {
-          id: Number(city.id),
-          name: String(city.name ?? city.id),
-          shortName: String(city.short_name ?? ""),
-          countryId: Number(city.nation_id),
-          regionId: city.nation_region_id == null ? undefined : Number(city.nation_region_id),
-          climateId: city.climate_id == null ? undefined : Number(city.climate_id),
-        },
-      });
+      result.city = node.row;
+      result.nationRegion = findById(rowsByTable.nationRegion, node.row.nation_region_id);
+      result.country = findById(rowsByTable.country, node.row.nation_id);
+      if (result.nationRegion?.nation_id != null && !result.country) {
+        result.country = findById(rowsByTable.country, result.nationRegion.nation_id);
+      }
+      if (result.country) {
+        result.continentRegion = findById(rowsByTable.continentRegion, result.country.continent_region_id);
+      }
+      if (result.continentRegion) {
+        result.continent = findById(rowsByTable.continent, result.continentRegion.continent_id);
+      }
+      if (result.continent) {
+        result.federation = findById(rowsByTable.federation, result.continent.federation_id);
+      }
     }
-  }
+
+    void node;
+    return result;
+  }, [selectedNode, rowsByTable]);
 
   return {
     tree,
+    selectedNode,
+    selectedId,
+    setSelectedId,
     selection,
-    selectNode,
-    loading: continents.loading || countries.loading || regions.loading || cities.loading,
-    error: continents.error ?? countries.error ?? regions.error ?? cities.error,
+    loading:
+      federations.loading ||
+      continents.loading ||
+      continentRegions.loading ||
+      countries.loading ||
+      nationRegions.loading ||
+      cities.loading,
+    error:
+      federations.error ??
+      continents.error ??
+      continentRegions.error ??
+      countries.error ??
+      nationRegions.error ??
+      cities.error,
     reload: async () => {
       await Promise.all([
+        federations.reload(),
         continents.reload(),
+        continentRegions.reload(),
         countries.reload(),
-        regions.reload(),
+        nationRegions.reload(),
         cities.reload(),
       ]);
     },
