@@ -38,14 +38,29 @@ export function EntityForm({
   children,
 }: EntityFormProps) {
   return (
-    <form onSubmit={(event) => { event.preventDefault(); onSubmit(); }} className="space-y-5">
+    <form
+      onSubmit={(event) => {
+        event.preventDefault();
+        onSubmit();
+      }}
+      className="space-y-5"
+    >
       <div className="grid gap-5 md:grid-cols-2">
         {fields.map((field) => {
           const value = values[field.name];
 
           return (
-            <label key={field.name} className={field.type === "textarea" ? "space-y-2 md:col-span-2" : "space-y-2"}>
-              <span className="block text-xs font-medium text-slate-400">{field.label}</span>
+            <label
+              key={field.name}
+              className={
+                field.type === "textarea"
+                  ? "space-y-2 md:col-span-2"
+                  : "space-y-2"
+              }
+            >
+              <span className="block text-xs font-medium text-slate-400">
+                {field.label}
+              </span>
 
               {field.type === "textarea" ? (
                 <textarea
@@ -58,11 +73,15 @@ export function EntityForm({
                 />
               ) : field.type === "boolean" ? (
                 <div className="flex items-center justify-between rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3">
-                  <span className="text-sm text-slate-300">{field.placeholder ?? "Enabled"}</span>
+                  <span className="text-sm text-slate-300">
+                    {field.placeholder ?? "Enabled"}
+                  </span>
                   <input
                     type="checkbox"
                     checked={Boolean(value)}
-                    onChange={(event) => onChange(field.name, event.target.checked)}
+                    onChange={(event) =>
+                      onChange(field.name, event.target.checked)
+                    }
                     disabled={field.disabled || submitting}
                   />
                 </div>
