@@ -1,4 +1,4 @@
-import type { RelationDefinition } from "../../../shared/components";
+import type { RelationDefinition } from "./RelationTypes";
 
 export interface RelationEditorConfig {
   key: string;
@@ -66,11 +66,9 @@ export const relationEditorConfigs: RelationEditorConfig[] = [
       keyColumns: ["player_id", "position_id"],
       targetTable: "position_definition",
       targetLabelColumn: "name",
-      valueColumns: ["value"],
     },
     ownerTable: "player",
     targetTable: "position_definition",
-    valueColumns: ["value"],
   },
   {
     key: "player-role-duty",
@@ -172,11 +170,9 @@ export const relationEditorConfigs: RelationEditorConfig[] = [
       keyColumns: ["formation_id", "instruction_id"],
       targetTable: "tactical_instruction",
       targetLabelColumn: "name",
-      valueColumns: ["value"],
     },
     ownerTable: "formation",
     targetTable: "tactical_instruction",
-    valueColumns: ["value"],
   },
   {
     key: "formation-position-role-duty",
@@ -188,11 +184,9 @@ export const relationEditorConfigs: RelationEditorConfig[] = [
       keyColumns: ["formation_position_id"],
       targetTable: "player_role",
       targetLabelColumn: "name",
-      valueColumns: ["value"],
     },
     ownerTable: "formation_position",
     targetTable: "player_role",
-    valueColumns: ["value"],
   },
   {
     key: "club-affiliation",
@@ -203,11 +197,9 @@ export const relationEditorConfigs: RelationEditorConfig[] = [
       targetColumn: "target_club_id",
       keyColumns: ["root_club_id", "target_club_id", "start_date"],
       targetTable: "club",
-      valueColumns: ["value"],
     },
     ownerTable: "club",
     targetTable: "club",
-    valueColumns: ["value"],
   },
   {
     key: "nationality-eligibility",
@@ -219,11 +211,9 @@ export const relationEditorConfigs: RelationEditorConfig[] = [
       keyColumns: ["nation_id", "required_nation_id"],
       targetTable: "nation",
       targetLabelColumn: "name",
-      valueColumns: ["value"],
     },
     ownerTable: "nation",
     targetTable: "nation",
-    valueColumns: ["value"],
   },
 ];
 
