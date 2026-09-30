@@ -1,26 +1,28 @@
-import { City, Continent, Country, Region } from "../../types";
+import type { EntityRow } from "../../../../../shared/api/editorApi";
 
-
-export interface GeographyTreeNode {
-  id: string;
-  label: string;
-
-  kind:
+export type GeographyEntityKind =
+  | "federation"
   | "continent"
-  | "region"
+  | "continent-region"
   | "country"
   | "nation-region"
   | "city";
 
+export interface GeographyTreeNode {
+  id: string;
   entityId: number;
-
-  children?: GeographyTreeNode[];
+  table: string;
+  kind: GeographyEntityKind;
+  label: string;
+  children: GeographyTreeNode[];
+  row: EntityRow;
 }
 
 export interface GeographySelection {
-  continent?: Continent;
-  region?: Region;
-  country?: Country;
-  nationRegion?: Region;
-  city?: City;
+  federation?: EntityRow;
+  continent?: EntityRow;
+  continentRegion?: EntityRow;
+  country?: EntityRow;
+  nationRegion?: EntityRow;
+  city?: EntityRow;
 }
