@@ -2,6 +2,7 @@ import DatabaseConnection from "better-sqlite3";
 
 export type TransactionCallback<T> = () => T;
 export type SqlValue = string | number | bigint | null | Buffer | Uint8Array;
+export type SqlKey = SqlValue | Record<string, SqlValue>;
 export type SqlRow = Record<string, unknown>;
 
 export interface TableColumn {
@@ -250,21 +251,17 @@ export abstract class Database {
 
   findById<T extends SqlRow = SqlRow>(
     table: string,
-    id: SqlValue,
+    id: SqlKey,
   ): T | undefined {
     const schema = this.tableSchema(table);
 
-    if (schema.primaryKey.length !== 1) {
-      throw new Error(
-        `findById exige chave primária simples: ${table}`,
-      );
-    }
+    const primaryKey = this.buildPrimaryKeyWhere(schema, id);
 
     return this.db
       .prepare(
-        `SELECT * FROM "${this.quoteIdentifier(table)}" WHERE "${this.quoteIdentifier(schema.primaryKey[0])}" = ? LIMIT 1`,
+        `SELECT * FROM "${this.quoteIdentifier(table)}" WHERE ${primaryKey.where} LIMIT 1`,
       )
-      .get(id) as T | undefined;
+      .get(...primaryKey.values) as T | undefined;
   }
 
   count(
@@ -325,18 +322,13 @@ export abstract class Database {
 
   update<T extends SqlRow = SqlRow>(
     table: string,
-    id: SqlValue,
+    id: SqlKey,
     values: Record<string, SqlValue | undefined>,
   ): T {
     const schema = this.tableSchema(table);
 
-    if (schema.primaryKey.length !== 1) {
-      throw new Error(
-        `update exige chave primária simples: ${table}`,
-      );
-    }
-
-    const key = schema.primaryKey[0];
+    const primaryKey = this.buildPrimaryKeyWhere(schema, id);
+    const key = schema.primaryKey.length === 1 ? schema.primaryKey[0] : undefined;
     const normalized = this.normalizeWriteValues(table, values, key);
     const columns = Object.keys(normalized);
 
@@ -356,7 +348,7 @@ export abstract class Database {
       )
       .run(
         ...columns.map((column) => normalized[column] ?? null),
-        id,
+        ...primaryKey.values,
       );
 
     const updated = this.findById<T>(table, id);
@@ -370,22 +362,34 @@ export abstract class Database {
     return updated;
   }
 
-  delete(table: string, id: SqlValue): boolean {
+  delete(table: string, id: SqlKey): boolean {
     const schema = this.tableSchema(table);
-
-    if (schema.primaryKey.length !== 1) {
-      throw new Error(
-        `delete exige chave primária simples: ${table}`,
-      );
-    }
+    const primaryKey = this.buildPrimaryKeyWhere(schema, id);
 
     const result = this.db
       .prepare(
-        `DELETE FROM "${this.quoteIdentifier(table)}" WHERE "${this.quoteIdentifier(schema.primaryKey[0])}" = ?`,
+        `DELETE FROM "${this.quoteIdentifier(table)}" WHERE ${primaryKey.where}`,
       )
-      .run(id);
+      .run(...primaryKey.values);
 
     return result.changes > 0;
+  }
+
+  private buildPrimaryKeyWhere(schema: TableSchema, id: SqlKey): { where: string; values: SqlValue[] } {
+    if (schema.primaryKey.length === 1 && (typeof id !== "object" || id === null || Buffer.isBuffer(id) || id instanceof Uint8Array)) {
+      return { where: `"${this.quoteIdentifier(schema.primaryKey[0])}" = ?`, values: [id as SqlValue] };
+    }
+    if (typeof id !== "object" || id === null || Buffer.isBuffer(id) || id instanceof Uint8Array) {
+      throw new Error(`Chave composta exige objeto: ${schema.name}`);
+    }
+    const keys = Object.keys(id);
+    if (keys.length !== schema.primaryKey.length || schema.primaryKey.some(column => !keys.includes(column))) {
+      throw new Error(`Chave primária inválida: ${schema.name}`);
+    }
+    return {
+      where: schema.primaryKey.map(column => `"${this.quoteIdentifier(column)}" = ?`).join(" AND "),
+      values: schema.primaryKey.map(column => id[column]),
+    };
   }
 
   private normalizeWriteValues(
