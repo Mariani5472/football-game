@@ -44,9 +44,8 @@ export function PlayerRelationsEditor({ playerId, config }: { playerId: number; 
 
   function openCreate() {
     const next: Record<string, unknown> = { ...(config.defaults ?? {}) };
-    if (config.fields.some(field => field.name === "player_id")) next.player_id = playerId;
-    if (config.fields.some(field => field.name === "person_id")) next.person_id = playerId;
-    if (config.fields.some(field => field.name === "person_id_1")) next.person_id_1 = playerId;
+    if (config.playerField) next[config.playerField] = playerId;
+    else if (config.table !== "player_contract_clause") next.player_id = playerId;
     setEditing(null);
     setValues(next);
   }
@@ -65,8 +64,8 @@ export function PlayerRelationsEditor({ playerId, config }: { playerId: number; 
       if (editing) {
         await editorApi.update(config.table, keyOf(editing, config.primaryKey), payload);
       } else {
-        if (config.fields.some(field => field.name === "player_id")) payload.player_id = playerId;
-        if (config.fields.some(field => field.name === "person_id")) payload.person_id = playerId;
+        if (config.playerField) payload[config.playerField] = playerId;
+        else if (config.table !== "player_contract_clause") payload.player_id = playerId;
         await editorApi.create(config.table, payload);
       }
       setEditing(null);
@@ -103,7 +102,7 @@ export function PlayerRelationsEditor({ playerId, config }: { playerId: number; 
 
       {error && <div className="rounded-lg border border-red-400/20 bg-red-400/5 p-3 text-xs text-red-200">{error}</div>}
 
-      {(editing || values.player_id || values.person_id || values.person_id_1) && (
+      {(editing || Object.keys(values).length > 0) && (
         <div className="rounded-xl border border-white/10 bg-[#10161d] p-4">
           <div className="grid gap-4 md:grid-cols-2">
             {config.fields.map(field => {
