@@ -37,7 +37,7 @@ export function EntityPicker({
   const [remoteError, setRemoteError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!table) return;
+    if (!table || options) return;
 
     let active = true;
     setRemoteLoading(true);
@@ -49,30 +49,23 @@ export function EntityPicker({
         pageSize: 100,
         orderBy: labelColumn,
         orderDirection: "ASC",
-        search: undefined,
         searchColumns: searchColumn ? [searchColumn] : undefined,
       })
-      .then((result) => {
+      .then(result => {
         if (!active) return;
 
         setRemoteOptions(
           result.rows
-            .filter((row) => row.id != null)
-            .map((row) => ({
+            .filter(row => row.id != null)
+            .map(row => ({
               id: row.id as number | string,
-              label: String(
-                row[labelColumn] ?? row.name ?? row.id,
-              ),
+              label: String(row[labelColumn] ?? row.name ?? row.short_name ?? row.id),
             })),
         );
       })
-      .catch((cause) => {
+      .catch(cause => {
         if (active) {
-          setRemoteError(
-            cause instanceof Error
-              ? cause.message
-              : String(cause),
-          );
+          setRemoteError(cause instanceof Error ? cause.message : String(cause));
         }
       })
       .finally(() => {
@@ -82,7 +75,7 @@ export function EntityPicker({
     return () => {
       active = false;
     };
-  }, [table, labelColumn, searchColumn]);
+  }, [table, options, labelColumn, searchColumn]);
 
   const resolvedOptions = options ?? remoteOptions;
   const isLoading = loading ?? remoteLoading;
@@ -91,31 +84,22 @@ export function EntityPicker({
   return (
     <label className="space-y-2">
       {label && (
-        <span className="block text-xs font-medium text-slate-400">
-          {label}
-        </span>
+        <span className="block text-xs font-medium text-slate-400">{label}</span>
       )}
 
       <div className="relative">
         <select
           value={value}
-          onChange={(event) => onChange(event.target.value)}
+          onChange={event => onChange(event.target.value)}
           disabled={isLoading || Boolean(resolvedError)}
           className="w-full appearance-none rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5 pr-9 text-sm text-slate-200 outline-none focus:border-emerald-400/30 disabled:opacity-50"
         >
-          <option
-            value=""
-            className="bg-[#121820]"
-          >
+          <option value="" className="bg-[#121820]">
             {isLoading ? "Loading..." : placeholder}
           </option>
 
-          {resolvedOptions.map((option) => (
-            <option
-              key={String(option.id)}
-              value={String(option.id)}
-              className="bg-[#121820]"
-            >
+          {resolvedOptions.map(option => (
+            <option key={String(option.id)} value={String(option.id)} className="bg-[#121820]">
               {option.label}
             </option>
           ))}
@@ -128,9 +112,7 @@ export function EntityPicker({
       </div>
 
       {resolvedError && (
-        <span className="block text-xs text-red-300">
-          {resolvedError}
-        </span>
+        <span className="block text-xs text-red-300">{resolvedError}</span>
       )}
     </label>
   );
