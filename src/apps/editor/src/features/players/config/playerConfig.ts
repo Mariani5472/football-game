@@ -10,6 +10,7 @@ export interface PlayerRelationConfig {
   columns: { key: string; label: string }[];
   fields: PlayerRelationField[];
   primaryKey: string[];
+  playerField?: string;
   loadRows?: (playerId: number) => Promise<EntityRow[]>;
   defaults?: Record<string, string | number | boolean | null>;
 }
@@ -66,7 +67,7 @@ export const playerRelationConfigs: PlayerRelationConfig[] = [
       { name: "start_date", label: "Start Date", type: "date" }, { name: "end_date", label: "End Date", type: "date" },
       { name: "contract_type", label: "Contract Type" }, { name: "salary", label: "Salary", type: "number" }, { name: "squad_number", label: "Squad Number", type: "number" },
     ],
-    primaryKey: ["id"],
+    primaryKey: ["id"], playerField: "person_id",
     loadRows: async playerId => (await listAll("person_contract")).rows.filter(row => Number(row.person_id) === playerId),
   },
   {
@@ -147,7 +148,7 @@ export const playerRelationConfigs: PlayerRelationConfig[] = [
       { name: "club_id", label: "Club", relation: { table: "team", labelColumn: "name" } }, { name: "competition_id", label: "Competition", relation: { table: "competition" } },
       { name: "placement_id", label: "Placement", relation: { table: "placement" } }, { name: "employment_id", label: "Employment", relation: { table: "employment" } },
     ],
-    primaryKey: ["id"], loadRows: async playerId => (await listAll("person_title")).rows.filter(row => Number(row.person_id) === playerId),
+    primaryKey: ["id"], playerField: "person_id", loadRows: async playerId => (await listAll("person_title")).rows.filter(row => Number(row.person_id) === playerId),
   },
   {
     id: "relationships", title: "Person Relationships", table: "person_person_relationship",
