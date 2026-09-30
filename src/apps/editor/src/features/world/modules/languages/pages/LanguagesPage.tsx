@@ -28,9 +28,9 @@ export function LanguagesPage() {
     const subgroupMap = new Map(subgroups.rows.map(row => [String(row.id), String(row.name ?? row.id)]));
     return languages.rows.map(row => ({
       ...row,
-      family_name: familyMap.get(String(row.family_id)),
-      group_name: groupMap.get(String(row.group_id)),
-      subgroup_name: subgroupMap.get(String(row.subgroup_id)),
+      family_name: familyMap.get(String(row.family_id)) ?? null,
+      group_name: groupMap.get(String(row.group_id)) ?? null,
+      subgroup_name: subgroupMap.get(String(row.subgroup_id)) ?? null,
     }));
   }, [languages.rows, families.rows, groups.rows, subgroups.rows]);
 
@@ -54,7 +54,7 @@ export function LanguagesPage() {
                 rows={rows}
                 loading={languages.loading || families.loading || groups.loading || subgroups.loading}
                 error={languages.error ?? families.error ?? groups.error ?? subgroups.error}
-                onRowClick={setSelected}
+                onRowClick={row => setSelected(row)}
               />
               {selected && (
                 <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-5">
@@ -98,11 +98,24 @@ export function LanguagesPage() {
                 groupId: row.group_id == null ? undefined : Number(row.group_id),
                 subgroupId: row.subgroup_id == null ? undefined : Number(row.subgroup_id),
               }))}
-              onSelectLanguage={setSelected}
+              onSelectLanguage={language => setSelected({ ...language, family_name: language.familyId == null ? null : familyMapForSelected(families.rows, language.familyId), group_name: language.groupId == null ? null : groupMapForSelected(groups.rows, language.groupId), subgroup_name: language.subgroupId == null ? null : subgroupMapForSelected(subgroups.rows, language.subgroupId) })}
             />
           ),
         },
       ]}
     />
   );
+}
+
+
+function familyMapForSelected(rows: EntityRow[], id: number) {
+  return rows.find(row => Number(row.id) === id)?.name ?? null;
+}
+
+function groupMapForSelected(rows: EntityRow[], id: number) {
+  return rows.find(row => Number(row.id) === id)?.name ?? null;
+}
+
+function subgroupMapForSelected(rows: EntityRow[], id: number) {
+  return rows.find(row => Number(row.id) === id)?.name ?? null;
 }
