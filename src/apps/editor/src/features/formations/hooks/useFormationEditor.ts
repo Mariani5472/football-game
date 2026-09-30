@@ -1,30 +1,36 @@
-import { useState } from "react";
-
-import type { Formation, FormationPosition } from "../types";
-import {
-  duties,
-  getDuty,
-  getPosition,
-  getRole,
-  roles,
-} from "../data/formations.data";
+import { useEffect, useState } from "react";
+import { editorApi, type EntityRow } from "../../../shared/api/editorApi";
+import type { Formation, FormationPosition, Role } from "../types";
 
 export function useFormationEditor(formation?: Formation) {
   const [draft, setDraft] = useState<Formation>(
     formation ?? { id: 0, name: "", description: "", positions: [] },
   );
+  const [roles, setRoles] = useState<Role[]>([]);
+  const [duties, setDuties] = useState<EntityRow[]>([]);
+  const [positions, setPositions] = useState<EntityRow[]>([]);
+
+  useEffect(() => {
+    let active = true;
+    void Promise.all([
+      editorApi.list("player_role", { page: 1, pageSize: 1000, orderBy: "name", orderDirection: "ASC" }),
+      editorApi.list("role_duty", { page: 1, pageSize: 1000, orderBy: "name", orderDirection: "ASC" }),
+      editorApi.list("position_definition", { page: 1, pageSize: 1000, orderBy: "name", orderDirection: "ASC" }),
+    ]).then(([roleResult, dutyResult, positionResult]) => {
+      if (!active) return;
+      setRoles(roleResult.rows.map(row => ({ id: Number(row.id), positionId: Number(row.position_id), name: String(row.name), description: row.description == null ? undefined : String(row.description), dutyIds: [], keyAttributes: [] })));
+      setDuties(dutyResult.rows);
+      setPositions(positionResult.rows);
+    });
+    return () => { active = false; };
+  }, []);
 
   function setValue<K extends keyof Formation>(key: K, value: Formation[K]) {
     setDraft(current => ({ ...current, [key]: value }));
   }
 
   function updatePosition(id: number, patch: Partial<FormationPosition>) {
-    setDraft(current => ({
-      ...current,
-      positions: current.positions.map(position =>
-        position.id === id ? { ...position, ...patch } : position,
-      ),
-    }));
+    setDraft(current => ({ ...current, positions: current.positions.map(position => position.id === id ? { ...position, ...patch } : position) }));
   }
 
   function getAvailableRoles(positionId: number) {
@@ -32,8 +38,10 @@ export function useFormationEditor(formation?: Formation) {
   }
 
   function getAvailableDuties(roleId: number) {
-    const role = getRole(roleId);
-    return duties.filter(duty => role?.dutyIds.includes(duty.id));
+    const role = roles.find(item => item.id === roleId);
+    if (!role) return [];
+    const ids = role.dutyIds;
+    return duties.filter(duty => ids.length === 0 || ids.includes(Number(duty.id)));
   }
 
   function setDuty(positionId: number, dutyId: number) {
@@ -41,27 +49,15 @@ export function useFormationEditor(formation?: Formation) {
   }
 
   function setRole(positionId: number, roleId: number) {
-    const availableDuties = getAvailableDuties(roleId);
     const current = draft.positions.find(position => position.id === positionId);
+    const availableDuties = getAvailableDuties(roleId);
     updatePosition(positionId, {
       roleId,
-      dutyId:
-        current && availableDuties.some(duty => duty.id === current.dutyId)
-          ? current.dutyId
-          : availableDuties[0]?.id ?? 1,
+      dutyId: current && availableDuties.some(duty => Number(duty.id) === current.dutyId)
+        ? current.dutyId
+        : availableDuties.length ? Number(availableDuties[0].id) : current?.dutyId ?? 0,
     });
   }
 
-  return {
-    draft,
-    setValue,
-    updatePosition,
-    setRole,
-    getAvailableRoles,
-    getAvailableDuties,
-    setDuty,
-    getPosition,
-    getRole,
-    getDuty,
-  };
+  return { draft, roles, duties, positions, setValue, updatePosition, setRole, getAvailableRoles, getAvailableDuties, setDuty };
 }
