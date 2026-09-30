@@ -109,4 +109,6 @@ export interface StageDraw {
   groupCount: number;
   teamsPerGroup: number;
   seedCount: number;
+  orderMode?: "RANDOM" | "SEEDED";
+  type?: "NONE" | "RANDOM" | "SEEDED" | "CONDITIONAL";
 }
