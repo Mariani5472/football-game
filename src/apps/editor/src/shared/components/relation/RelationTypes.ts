@@ -3,7 +3,7 @@ import type { EntityRow, Scalar } from "../../api/editorApi";
 export interface RelationColumn {
   key: string;
   header: string;
-  type?: "text" | "number" | "percentage" | "weight";
+  type?: "text" | "number" | "percentage" | "weight" | "seed";
   editable?: boolean;
 }
 
