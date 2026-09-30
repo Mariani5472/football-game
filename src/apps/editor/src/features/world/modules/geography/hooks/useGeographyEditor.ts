@@ -14,16 +14,25 @@ export function useGeographyEditor() {
     geography.reload,
   );
 
+  const selectedNode = geography.selectedNode;
+  const childKind = selectedNode
+    ? geographyChildKind[selectedNode.kind]
+    : undefined;
+
   return {
     geography,
-    ...filters,
+    selectedNode,
+    childKind,
+    query: filters.query,
+    filter: filters.filter,
+    setQuery: filters.setQuery,
+    setFilter: filters.setFilter,
+    allRows: filters.allRows,
+    filteredRows: filters.filteredRows,
+    counts: filters.counts,
     ...form,
     ...relations,
-    selectedNode: geography.selectedNode,
-    childKind: geography.selectedNode
-      ? geographyChildKind[geography.selectedNode.kind]
-      : undefined,
     error: geography.error ?? form.error ?? relations.error,
-    loading: geography.loading || form.saving || relations.loading,
+    loading: geography.loading || relations.loading,
   };
 }
