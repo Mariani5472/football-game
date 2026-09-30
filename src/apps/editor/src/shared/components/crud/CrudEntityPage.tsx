@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import type { ReactNode } from "react";
 import { Plus, RefreshCw } from "lucide-react";
 import {
   DataTable,
@@ -21,7 +22,7 @@ export interface CrudColumn {
   key: string;
   header: string;
   relation?: CrudRelation;
-  render?: (row: EntityRow) => React.ReactNode;
+  render?: (row: EntityRow) => ReactNode;
 }
 
 export type CrudField = EntityFormField & { relation?: CrudRelation };
