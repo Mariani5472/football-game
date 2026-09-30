@@ -1,6 +1,7 @@
 import { useState } from "react";
 
 import { FormationsPage } from "../features/formations/pages";
+import { ReferenceDataPage } from "../features/reference-data/pages/ReferenceDataPage";
 import { CompetitionsPage } from "../features/competitions/pages";
 import { DashboardPage } from "../features/dashboard/pages/DashboardPage";
 import { PeoplePage } from "../features/people/pages";
@@ -36,6 +37,8 @@ function renderRoute(route: EditorRoute) {
       return <DashboardPage />;
     case "geography":
       return <GeographyPage />;
+    case "reference-data":
+      return <ReferenceDataPage />;
     case "continents":
       return <ContinentsPage />;
     case "countries":
