@@ -1,6 +1,5 @@
 import http from "node:http";
 import fs from "node:fs";
-
 import { WorldEditorService } from "./WorldEditorService.js";
 import type { ListOptions, SqlValue } from "../database/Database.js";
 
@@ -9,44 +8,41 @@ export interface EditorApiServerOptions {
   port?: number;
 }
 
-function jsonResponse(
-  response: http.ServerResponse,
-  status: number,
-  body: unknown,
-) {
-  const payload = JSON.stringify(body);
+function jsonResponse(response: http.ServerResponse, status: number, body: unknown) {
   response.writeHead(status, {
     "content-type": "application/json; charset=utf-8",
     "access-control-allow-origin": "*",
     "access-control-allow-methods": "GET,POST,PATCH,DELETE,OPTIONS",
     "access-control-allow-headers": "content-type",
   });
-  response.end(payload);
+  response.end(status === 204 ? "" : JSON.stringify(body));
 }
 
 async function readBody(request: http.IncomingMessage): Promise<unknown> {
   const chunks: Buffer[] = [];
-
   for await (const chunk of request) chunks.push(Buffer.from(chunk));
-
   if (!chunks.length) return {};
-
-  return JSON.parse(Buffer.concat(chunks).toString("utf8"));
-}
-
-function pathname(request: http.IncomingMessage): string {
-  return new URL(request.url ?? "/", "http://localhost").pathname;
+  try {
+    return JSON.parse(Buffer.concat(chunks).toString("utf8"));
+  } catch {
+    throw new Error("Invalid JSON request body.");
+  }
 }
 
 function routeParts(request: http.IncomingMessage): string[] {
-  return pathname(request)
-    .split("/")
-    .filter(Boolean);
+  return new URL(request.url ?? "/", "http://localhost").pathname.split("/").filter(Boolean);
 }
 
-export function createEditorApiServer(
-  options: EditorApiServerOptions,
-): http.Server {
+function friendlyDatabaseError(error: unknown): { status: number; message: string } {
+  const raw = error instanceof Error ? error.message : String(error);
+  if (/UNIQUE constraint failed/i.test(raw)) return { status: 409, message: "This value already exists and must be unique." };
+  if (/FOREIGN KEY constraint failed/i.test(raw)) return { status: 409, message: "This record is referenced by another record and cannot be changed or deleted." };
+  if (/NOT NULL constraint failed/i.test(raw)) return { status: 422, message: "A required field is missing." };
+  if (/CHECK constraint failed/i.test(raw)) return { status: 422, message: "One or more values violate a database rule." };
+  return { status: 400, message: raw };
+}
+
+export function createEditorApiServer(options: EditorApiServerOptions): http.Server {
   const service = new WorldEditorService({
     filePath: options.databasePath,
     createIfMissing: false,
@@ -60,7 +56,6 @@ export function createEditorApiServer(
       }
 
       const parts = routeParts(request);
-
       if (parts[0] !== "api") {
         jsonResponse(response, 404, { error: "Not found" });
         return;
@@ -91,23 +86,21 @@ export function createEditorApiServer(
 
         if (request.method === "GET" && id === undefined) {
           const url = new URL(request.url ?? "/", "http://localhost");
-          const options: ListOptions = {
+          const rawSearchColumns = url.searchParams.get("searchColumns");
+          const listOptions: ListOptions = {
             page: Number(url.searchParams.get("page") ?? "1"),
             pageSize: Number(url.searchParams.get("pageSize") ?? "25"),
             search: url.searchParams.get("search") ?? undefined,
+            searchColumns: rawSearchColumns ? rawSearchColumns.split(",").filter(Boolean) : undefined,
             orderBy: url.searchParams.get("orderBy") ?? undefined,
-            orderDirection:
-              url.searchParams.get("orderDirection") === "DESC"
-                ? "DESC"
-                : "ASC",
+            orderDirection: url.searchParams.get("orderDirection") === "DESC" ? "DESC" : "ASC",
           };
-
-          jsonResponse(response, 200, service.list(table, options));
+          jsonResponse(response, 200, service.list(table, listOptions));
           return;
         }
 
         if (request.method === "GET" && id !== undefined) {
-          jsonResponse(response, 200, service.findById(table, id));
+          jsonResponse(response, 200, service.findById(table, id) ?? null);
           return;
         }
 
@@ -124,23 +117,18 @@ export function createEditorApiServer(
         }
 
         if (request.method === "DELETE" && id !== undefined) {
-          jsonResponse(response, 200, {
-            deleted: service.delete(table, id),
-          });
+          jsonResponse(response, 200, { deleted: service.delete(table, id) });
           return;
         }
       }
 
       jsonResponse(response, 404, { error: "Not found" });
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      jsonResponse(response, 400, {
-        error: message,
-      });
+      const friendly = friendlyDatabaseError(error);
+      jsonResponse(response, friendly.status, { error: friendly.message });
     }
   });
 
   server.on("close", () => service.close());
-
   return server;
 }
