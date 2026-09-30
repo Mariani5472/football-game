@@ -206,8 +206,6 @@ export function useGeography() {
     if (!selectedNode) return {};
 
     const result: GeographySelection = {};
-    let node: GeographyTreeNode | undefined = selectedNode;
-
     if (node.kind === "federation") {
       result.federation = node.row;
       return result;
@@ -273,7 +271,6 @@ export function useGeography() {
       }
     }
 
-    void node;
     return result;
   }, [selectedNode, rowsByTable]);
 
