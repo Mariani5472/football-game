@@ -344,7 +344,7 @@ export abstract class Database {
       .prepare(
         `UPDATE "${this.quoteIdentifier(table)}" SET ${columns
           .map((column) => `"${this.quoteIdentifier(column)}" = ?`)
-          .join(", ")} WHERE "${this.quoteIdentifier(key)}" = ?`,
+          .join(", ")} WHERE ${primaryKey.where}`,
       )
       .run(
         ...columns.map((column) => normalized[column] ?? null),
