@@ -89,56 +89,56 @@ export function useGeography() {
     }
 
     if (node.kind === "continent-region") {
-      result.continent = findById(rowsByTable.continent, node.row.continent_id);
+      result.continent = findGeographyRow(rowsByTable.continent, node.row.continent_id);
       result.continentRegion = node.row;
       if (result.continent) {
-        result.federation = findById(rowsByTable.federation, result.continent.federation_id);
+        result.federation = findGeographyRow(rowsByTable.federation, result.continent.federation_id);
       }
       return result;
     }
 
     if (node.kind === "country") {
       result.country = node.row;
-      result.continentRegion = findById(rowsByTable.continentRegion, node.row.continent_region_id);
+      result.continentRegion = findGeographyRow(rowsByTable.continentRegion, node.row.continent_region_id);
       if (result.continentRegion) {
-        result.continent = findById(rowsByTable.continent, result.continentRegion.continent_id);
+        result.continent = findGeographyRow(rowsByTable.continent, result.continentRegion.continent_id);
       }
       if (result.continent) {
-        result.federation = findById(rowsByTable.federation, result.continent.federation_id);
+        result.federation = findGeographyRow(rowsByTable.federation, result.continent.federation_id);
       }
       return result;
     }
 
     if (node.kind === "nation-region") {
       result.nationRegion = node.row;
-      result.country = findById(rowsByTable.country, node.row.nation_id);
+      result.country = findGeographyRow(rowsByTable.country, node.row.nation_id);
       if (result.country) {
-        result.continentRegion = findById(rowsByTable.continentRegion, result.country.continent_region_id);
+        result.continentRegion = findGeographyRow(rowsByTable.continentRegion, result.country.continent_region_id);
       }
       if (result.continentRegion) {
-        result.continent = findById(rowsByTable.continent, result.continentRegion.continent_id);
+        result.continent = findGeographyRow(rowsByTable.continent, result.continentRegion.continent_id);
       }
       if (result.continent) {
-        result.federation = findById(rowsByTable.federation, result.continent.federation_id);
+        result.federation = findGeographyRow(rowsByTable.federation, result.continent.federation_id);
       }
       return result;
     }
 
     if (node.kind === "city") {
       result.city = node.row;
-      result.nationRegion = findById(rowsByTable.nationRegion, node.row.nation_region_id);
-      result.country = findById(rowsByTable.country, node.row.nation_id);
+      result.nationRegion = findGeographyRow(rowsByTable.nationRegion, node.row.nation_region_id);
+      result.country = findGeographyRow(rowsByTable.country, node.row.nation_id);
       if (result.nationRegion?.nation_id != null && !result.country) {
-        result.country = findById(rowsByTable.country, result.nationRegion.nation_id);
+        result.country = findGeographyRow(rowsByTable.country, result.nationRegion.nation_id);
       }
       if (result.country) {
-        result.continentRegion = findById(rowsByTable.continentRegion, result.country.continent_region_id);
+        result.continentRegion = findGeographyRow(rowsByTable.continentRegion, result.country.continent_region_id);
       }
       if (result.continentRegion) {
-        result.continent = findById(rowsByTable.continent, result.continentRegion.continent_id);
+        result.continent = findGeographyRow(rowsByTable.continent, result.continentRegion.continent_id);
       }
       if (result.continent) {
-        result.federation = findById(rowsByTable.federation, result.continent.federation_id);
+        result.federation = findGeographyRow(rowsByTable.federation, result.continent.federation_id);
       }
     }
 
