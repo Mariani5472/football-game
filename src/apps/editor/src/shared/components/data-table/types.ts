@@ -11,5 +11,10 @@ export interface DataTableProps<T extends { id: number | string }> {
   columns: DataTableColumn<T>[];
   rows: T[];
   onRowClick?: (row: T) => void;
+  onEdit?: (row: T) => void;
+  onDelete?: (row: T) => void;
+  loading?: boolean;
+  error?: string | null;
   emptyMessage?: string;
+  loadingMessage?: string;
 }
