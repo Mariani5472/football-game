@@ -5,6 +5,8 @@ import type { GeographySelection, GeographyTreeNode } from "../types";
 
 import { buildGeographyTree, flattenGeographyTree, findGeographyRow } from "../config/geographyTree";
 
+const pageSize = 100;
+
 export function useGeography() {
   const [selectedId, setSelectedId] = useState<string>();
 
