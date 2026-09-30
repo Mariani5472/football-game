@@ -22,7 +22,7 @@ export function GeneralTab({
         }}
         onChange={(name, value) => {
           if (name === "name" || name === "shortName" || name === "type") {
-            editor.setCompetitionValue(name, value);
+            editor.setCompetitionValue(name, String(value));
           }
         }}
         onSubmit={() => undefined}
