@@ -12,6 +12,8 @@ export function useFormationEditor(formation?: Formation) {
 
   useEffect(() => {
     let active = true;
+    setLoading(true);
+    setError(null);
     void Promise.all([
       editorApi.list("player_role", { page: 1, pageSize: 1000, orderBy: "name", orderDirection: "ASC" }),
       editorApi.list("role_duty", { page: 1, pageSize: 1000, orderBy: "name", orderDirection: "ASC" }),
