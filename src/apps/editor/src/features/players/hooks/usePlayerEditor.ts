@@ -45,8 +45,16 @@ export function usePlayerEditor(playerId?: number) {
       setScales(scaleRows as AttributeScale[]);
       setPositions(positionRows);
       setRoles(roleRows);
-      setPositionWeights(pWeights as PositionAttributeWeight[]);
-      setRoleWeights(rWeights as RoleAttributeWeight[]);
+      setPositionWeights(pWeights.map(row => ({
+        positionId: Number(row.position_id),
+        attributeId: Number(row.attribute_id),
+        weight: Number(row.weight),
+      })));
+      setRoleWeights(rWeights.map(row => ({
+        roleId: Number(row.role_id),
+        attributeId: Number(row.attribute_id),
+        weight: Number(row.weight),
+      })));
 
       if (!playerId) {
         setPlayer(null); setSelectedPositions([]); setPositionRatings({}); setRoleRatings({}); setAttributes(emptyAttributes()); return;
