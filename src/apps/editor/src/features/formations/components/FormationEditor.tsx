@@ -51,7 +51,7 @@ export function FormationEditor({ formation, onBack }: FormationEditorProps) {
         }}
         onChange={(name, value) => {
           if (name === "name" || name === "description") {
-            editor.setValue(name, value);
+            editor.setValue(name, String(value));
           }
         }}
         onSubmit={() => undefined}
