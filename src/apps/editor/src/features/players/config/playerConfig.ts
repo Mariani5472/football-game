@@ -1,4 +1,6 @@
 import type { EntityFormField } from "../../../shared/components";
+
+type PlayerRelationField = EntityFormField & { relation?: { table: string; labelColumn?: string } };
 import type { EntityRow } from "../../../shared/api/editorApi";
 
 export interface PlayerRelationConfig {
@@ -6,7 +8,7 @@ export interface PlayerRelationConfig {
   title: string;
   table: string;
   columns: { key: string; label: string }[];
-  fields: EntityFormField[];
+  fields: PlayerRelationField[];
   primaryKey: string[];
   loadRows?: (playerId: number) => Promise<EntityRow[]>;
   defaults?: Record<string, string | number | boolean | null>;
