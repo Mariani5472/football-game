@@ -33,11 +33,11 @@ export function PlayersPage() {
   }
 
   const columns: DataTableColumn<EntityRow>[] = [
-    { key: "person_id", header: "Person" },
-    { key: "potential", header: "Potential" },
-    { key: "estimated_value", header: "Estimated Value" },
-    { key: "left_foot", header: "Left Foot" },
-    { key: "right_foot", header: "Right Foot" },
+    { key: "person_id", header: "Person", render: row => String(row.person_id ?? "—") },
+    { key: "potential", header: "Potential", render: row => String(row.potential ?? "—") },
+    { key: "estimated_value", header: "Estimated Value", render: row => String(row.estimated_value ?? "—") },
+    { key: "left_foot", header: "Left Foot", render: row => String(row.left_foot ?? "—") },
+    { key: "right_foot", header: "Right Foot", render: row => String(row.right_foot ?? "—") },
   ];
 
   async function remove(row: EntityRow) {
