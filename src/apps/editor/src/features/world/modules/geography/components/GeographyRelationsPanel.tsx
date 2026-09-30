@@ -1,7 +1,5 @@
 import type { EntityRow } from "../../../../../shared/api/editorApi";
-import type { GeographySpec } from "../config/geographyConfig";
-import type { GeographyEntityKind, GeographyTreeNode } from "../types";
-import { useEntityQuery } from "../../../../../shared/hooks/useEntityApi";
+import type { GeographyTreeNode } from "../types";
 
 interface Props { selectedNode: GeographyTreeNode; relation?: { table: string; ownerColumn: string }; relationRows: EntityRow[]; languages: EntityRow[]; altNames: EntityRow[]; nativeTreatments: EntityRow[]; regionalClimates: EntityRow[]; climateRows: EntityRow[]; allRows: GeographyTreeNode[]; loading: boolean; error: string | null; onSaveLanguages: (items: { targetId: number|string; values: Record<string,string|number|boolean|null> }[]) => Promise<void>; onAddAlternativeName: () => Promise<void>; onRemoveAlternativeName: (row: EntityRow)=>Promise<void>; onAddNativeTreatment:()=>Promise<void>; onRemoveNativeTreatment:(row:EntityRow)=>Promise<void>; onAddRegionalClimate:()=>Promise<void>; onRemoveRegionalClimate:(row:EntityRow)=>Promise<void>; onCityClimateChange:(value:number|string)=>Promise<void>; }
 import { LanguageRelationshipEditor, RelationList } from "./GeographyRelations";
