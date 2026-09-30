@@ -1,7 +1,7 @@
 const API_BASE = import.meta.env.VITE_EDITOR_API_BASE ?? "http://127.0.0.1:4179/api";
 
 export type Scalar = string | number | boolean | null;
-export type EntityRow = Record<string, Scalar>;
+export type EntityRow = Record<string, Scalar>;\nexport type EntityKey = string | number;
 
 export interface ListOptions {
   page?: number;
@@ -57,12 +57,12 @@ export const editorApi = {
   schema: (table: string) => request<unknown>("/schema/" + encodeURIComponent(table)),
   list: <T extends EntityRow = EntityRow>(table: string, options: ListOptions = {}) =>
     request<ListResult<T>>("/entities/" + encodeURIComponent(table) + queryString(options)),
-  get: <T extends EntityRow = EntityRow>(table: string, id: string | number) =>
+  get: <T extends EntityRow = EntityRow>(table: string, id: EntityKey) =>
     request<T | null>("/entities/" + encodeURIComponent(table) + "/" + encodeURIComponent(String(id))),
   create: <T extends EntityRow = EntityRow>(table: string, values: Record<string, Scalar>) =>
     request<T>("/entities/" + encodeURIComponent(table), { method: "POST", body: JSON.stringify(values) }),
-  update: <T extends EntityRow = EntityRow>(table: string, id: string | number, values: Record<string, Scalar>) =>
+  update: <T extends EntityRow = EntityRow>(table: string, id: EntityKey, values: Record<string, Scalar>) =>
     request<T>("/entities/" + encodeURIComponent(table) + "/" + encodeURIComponent(String(id)), { method: "PATCH", body: JSON.stringify(values) }),
-  remove: (table: string, id: string | number) =>
+  remove: (table: string, id: EntityKey) =>
     request<{ deleted: boolean }>("/entities/" + encodeURIComponent(table) + "/" + encodeURIComponent(String(id)), { method: "DELETE" }),
 };
