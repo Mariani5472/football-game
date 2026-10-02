@@ -92,6 +92,14 @@ export class WorldEditorService {
   createCompetitionHistory(input: Parameters<WorldDomainService["createCompetitionHistory"]>[0]) { return this.domainService.createCompetitionHistory(input); }
   createAwardHistory(input: Parameters<WorldDomainService["createAwardHistory"]>[0]) { return this.domainService.createAwardHistory(input); }
   createPressSource(input: Parameters<WorldDomainService["createPressSource"]>[0]) { return this.domainService.createPressSource(input); }
+  createAward(input: Parameters<WorldDomainService["createAward"]>[0]) { return this.domainService.createAward(input); }
+  createPlayerCareerHistory(input: Record<string, SqlValue | undefined>) { return this.domainService.createPlayerCareerHistory(input); }
+  createStaffCareerHistory(input: Record<string, SqlValue | undefined>) { return this.domainService.createStaffCareerHistory(input); }
+  createPlayerAchievement(input: Parameters<WorldDomainService["createPlayerAchievement"]>[0]) { return this.domainService.createPlayerAchievement(input); }
+  createRecord(input: Parameters<WorldDomainService["createRecord"]>[0]) { return this.domainService.createRecord(input); }
+  createDerby(input: Parameters<WorldDomainService["createDerby"]>[0]) { return this.domainService.createDerby(input); }
+  mapClimateToRegion(nationRegionId: number, climateId: number) { return this.domainService.mapClimateToRegion(nationRegionId, climateId); }
+  createWeatherSeason(name: string) { return this.domainService.createWeatherSeason(name); }
   createClimateProfile(input: Parameters<WorldDomainService["createClimateProfile"]>[0]) { return this.domainService.createClimateProfile(input); }
   createNationalityRule(input: Parameters<WorldDomainService["createNationalityRule"]>[0]) { return this.domainService.createNationalityRule(input); }
   validate(profileId?: number): ValidationIssue[] { return this.validator.validate(profileId); }
