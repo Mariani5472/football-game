@@ -170,7 +170,6 @@ describe("P5 world composition", () => {
       filePath: worldPath,
       createIfMissing: true,
     });
-    const database = (editor as unknown as { database: WorldDatabase }).database;
     editor.create("nation", {
       name: "Brazil",
       short_name: "BRA",
@@ -180,13 +179,16 @@ describe("P5 world composition", () => {
       editor.rebuildWorld(),
     ).toThrow(/direct editor changes/i);
 
+    editor.close();
+
+    const database = WorldDatabase.open(worldPath);
     expect(
       (database.connection
         .prepare("SELECT COUNT(*) AS count FROM nation")
         .get() as { count: number }).count,
     ).toBe(1);
 
-    editor.close();
+    database.close();
   });
 
   it("imports package content with UUID identity and remaps foreign keys", () => {
