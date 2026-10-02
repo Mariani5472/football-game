@@ -123,6 +123,10 @@ export class WorldDatabase extends Database {
     if (this.metadata("world_build_status") == null) {
       this.setMetadata("world_build_status", "DIRTY");
     }
+
+    if (this.metadata("world_dirty_reason") == null) {
+      this.setMetadata("world_dirty_reason", "INITIAL");
+    }
   }
 
   private initialize(): void {
