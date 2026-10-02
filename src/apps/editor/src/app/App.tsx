@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { FormationsPage } from "../features/formations/pages";
 import { ReferenceDataPage } from "../features/reference-data/pages/ReferenceDataPage";
@@ -25,6 +25,29 @@ import type { EditorRoute } from "./routes";
 import { QuickCreateModal } from "../features/quick-create";
 
 function ComingSoon({ title }: { title: string }) {
+  useEffect(() => {
+    const handleEntityNavigation = (event: Event) => {
+      const detail = (event as CustomEvent<{ table?: string }>).detail;
+      const routeByTable: Record<string, EditorRoute> = {
+        team: "clubs",
+        club: "clubs",
+        stadium: "stadiums",
+        person: "people",
+        player: "players",
+        competition: "competitions",
+        competition_season: "competitions",
+        competition_stage: "competitions",
+        formation: "formations",
+        nation: "countries",
+        city: "cities",
+      };
+      const next = detail.table ? routeByTable[detail.table] : undefined;
+      if (next) setRoute(next);
+    };
+    window.addEventListener("editor:navigate-entity", handleEntityNavigation);
+    return () => window.removeEventListener("editor:navigate-entity", handleEntityNavigation);
+  }, []);
+
   return (
     <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-8">
       <h1 className="text-xl font-semibold text-white">{title}</h1>
