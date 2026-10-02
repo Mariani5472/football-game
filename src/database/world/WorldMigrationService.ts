@@ -23,7 +23,6 @@ const IDENTITY_TABLES = [
   "language_subgroup",
   "language",
   "gender",
-  "language",
   "nation",
   "nation_region",
   "city",
@@ -107,29 +106,55 @@ function ensureLegacyPackageRegistry(database: WorldDatabase): void {
   );
 }
 
-function addUuidColumn(database: WorldDatabase, table: string): void {
+function addUuidColumn(
+  database: WorldDatabase,
+  table: string,
+): void {
   const columns = database.connection
-    .prepare('PRAGMA table_info("' + table + '")')
+    .prepare(
+      'PRAGMA table_info("' + table + '")',
+    )
     .all() as Array<{ name: string }>;
 
-  if (!columns.some(column => column.name === "uuid")) {
-    database.connection.exec('ALTER TABLE "' + table + '" ADD COLUMN uuid TEXT');
+  if (
+    !columns.some(
+      column => column.name === "uuid",
+    )
+  ) {
+    database.connection.exec(
+      'ALTER TABLE "' +
+        table +
+        '" ADD COLUMN uuid TEXT',
+    );
   }
 
   const missing = database.connection
-    .prepare('SELECT rowid FROM "' + table + '" WHERE uuid IS NULL OR uuid = ""')
+    .prepare(
+      'SELECT rowid FROM "' +
+        table +
+        '" WHERE uuid IS NULL OR uuid = ""',
+    )
     .all() as Array<{ rowid: number }>;
 
   const update = database.connection.prepare(
-    'UPDATE "' + table + '" SET uuid = ? WHERE rowid = ?',
+    'UPDATE "' +
+      table +
+      '" SET uuid = ? WHERE rowid = ?',
   );
 
   for (const row of missing) {
-    update.run(crypto.randomUUID(), row.rowid);
+    update.run(
+      crypto.randomUUID(),
+      row.rowid,
+    );
   }
 
   database.connection.exec(
-    'CREATE UNIQUE INDEX IF NOT EXISTS "ux_' + table + '_uuid" ON "' + table + '"(uuid)',
+    'CREATE UNIQUE INDEX IF NOT EXISTS "ux_' +
+      table +
+      '_uuid" ON "' +
+      table +
+      '"(uuid)',
   );
 }
 
@@ -139,21 +164,38 @@ function addColumnIfMissing(
   name: string,
   definition: string,
 ): void {
-  if (!currentColumns.some(column => column.name === name)) {
-    database.connection.exec("ALTER TABLE world_package ADD COLUMN " + definition);
+  if (
+    !currentColumns.some(
+      column => column.name === name,
+    )
+  ) {
+    database.connection.exec(
+      "ALTER TABLE world_package ADD COLUMN " +
+        definition,
+    );
   }
 }
 
 export class WorldMigrationService {
-  static readonly currentVersion = WORLD_SCHEMA_VERSION;
+  static readonly currentVersion =
+    WORLD_SCHEMA_VERSION;
 
-  static getVersion(database: WorldDatabase): number | null {
-    const value = database.metadata("schema_version");
-    return value == null ? null : Number(value);
+  static getVersion(
+    database: WorldDatabase,
+  ): number | null {
+    const value = database.metadata(
+      "schema_version",
+    );
+    return value == null
+      ? null
+      : Number(value);
   }
 
-  static ensureCompatible(database: WorldDatabase): void {
-    const version = this.getVersion(database);
+  static ensureCompatible(
+    database: WorldDatabase,
+  ): void {
+    const version =
+      this.getVersion(database);
 
     if (version == null) {
       throw new Error(
@@ -164,7 +206,9 @@ export class WorldMigrationService {
     }
 
     if (!Number.isInteger(version)) {
-      throw new Error("Unsupported world database: schema_version is invalid.");
+      throw new Error(
+        "Unsupported world database: schema_version is invalid.",
+      );
     }
 
     if (version > this.currentVersion) {
@@ -179,8 +223,14 @@ export class WorldMigrationService {
 
     let current = version;
 
-    while (current < this.currentVersion) {
-      const migration = MIGRATIONS.find(item => item.from === current);
+    while (
+      current < this.currentVersion
+    ) {
+      const migration =
+        MIGRATIONS.find(
+          item =>
+            item.from === current,
+        );
 
       if (!migration) {
         throw new Error(
@@ -192,10 +242,20 @@ export class WorldMigrationService {
         );
       }
 
-      database.transaction(() => migration.migrate(database));
+      database.transaction(
+        () => migration.migrate(database),
+      );
+
       current = migration.to;
-      database.setMetadata("schema_version", String(current));
-      database.setMetadata("last_migration_at", new Date().toISOString());
+
+      database.setMetadata(
+        "schema_version",
+        String(current),
+      );
+      database.setMetadata(
+        "last_migration_at",
+        new Date().toISOString(),
+      );
     }
   }
 }
