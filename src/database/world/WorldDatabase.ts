@@ -40,7 +40,7 @@ export class WorldDatabase extends Database {
     const database = new WorldDatabase(new DatabaseConnection(filePath));
     WorldMigrationService.ensureCompatible(database);
     database.initializeEditorTemplates();
-    database.initializeEditorWorkspace();
+    database.initializeWorldComposition();
     return database;
   }
 
@@ -68,6 +68,10 @@ export class WorldDatabase extends Database {
 
   deleteEntity(table: string, id: SqlValue): boolean {
     return this.delete(table, id);
+  }
+
+  private initializeWorldComposition(): void {
+    initializeWorldCompositionSchema(this.connection);
   }
 
   private initializeEditorWorkspace(): void {
