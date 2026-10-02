@@ -824,7 +824,7 @@ export class WorldPackageService {
       packageVersion:
         this.database.metadata(
           "package_version",
-        ) ?? "0.3.0",
+        ) ?? "0.4.0",
       schemaVersion:
         Number(
           this.database.metadata(
