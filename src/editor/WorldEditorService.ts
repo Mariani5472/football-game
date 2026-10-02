@@ -126,14 +126,7 @@ export class WorldEditorService {
         normalized,
       );
 
-    this.database.setMetadata(
-      "world_build_status",
-      "DIRTY",
-    );
-    this.database.setMetadata(
-      "world_dirty_reason",
-      "DIRECT_EDIT",
-    );
+    this.markDirectEdit();
 
     return result;
   }
@@ -153,14 +146,7 @@ export class WorldEditorService {
         values,
       );
 
-    this.database.setMetadata(
-      "world_build_status",
-      "DIRTY",
-    );
-    this.database.setMetadata(
-      "world_dirty_reason",
-      "DIRECT_EDIT",
-    );
+    this.markDirectEdit();
 
     return result;
   }
@@ -176,10 +162,7 @@ export class WorldEditorService {
       );
 
     if (deleted) {
-      this.database.setMetadata(
-        "world_build_status",
-        "DIRTY",
-      );
+      this.markDirectEdit();
     }
 
     return deleted;
@@ -224,155 +207,155 @@ export class WorldEditorService {
     rootKey: SqlKey,
     relations: string[],
   ) {
-    return this.templatesService.duplicateFromSource(
+    const result = this.templatesService.duplicateFromSource(
       rootTable,
       rootKey,
       relations,
     );
+    this.markDirectEdit();
+    return result;
   }
 
   duplicateFromTemplate(
     templateId: number,
   ) {
-    return this.templatesService.duplicateFromTemplate(
+    const result = this.templatesService.duplicateFromTemplate(
       templateId,
     );
+    this.markDirectEdit();
+    return result;
   }
 
   createTransfer(
     input: Parameters<WorldDomainService["createTransfer"]>[0],
   ) {
-    return this.domainService.createTransfer(
-      input,
-    );
+    const result = this.domainService.createTransfer(input);
+    this.markDirectEdit();
+    return result;
   }
 
   createContract(
     input: Parameters<WorldDomainService["createContract"]>[0],
   ) {
-    return this.domainService.createContract(
-      input,
-    );
+    const result = this.domainService.createContract(input);
+    this.markDirectEdit();
+    return result;
   }
 
   saveClubFinance(
     input: Parameters<WorldDomainService["saveClubFinance"]>[0],
   ) {
-    return this.domainService.saveClubFinance(
-      input,
-    );
+    const result = this.domainService.saveClubFinance(input);
+    this.markDirectEdit();
+    return result;
   }
 
   createCompetitionHistory(
     input: Parameters<WorldDomainService["createCompetitionHistory"]>[0],
   ) {
-    return this.domainService.createCompetitionHistory(
-      input,
-    );
+    const result = this.domainService.createCompetitionHistory(input);
+    this.markDirectEdit();
+    return result;
   }
 
   createAwardHistory(
     input: Parameters<WorldDomainService["createAwardHistory"]>[0],
   ) {
-    return this.domainService.createAwardHistory(
-      input,
-    );
+    const result = this.domainService.createAwardHistory(input);
+    this.markDirectEdit();
+    return result;
   }
 
   createPressSource(
     input: Parameters<WorldDomainService["createPressSource"]>[0],
   ) {
-    return this.domainService.createPressSource(
-      input,
-    );
+    const result = this.domainService.createPressSource(input);
+    this.markDirectEdit();
+    return result;
   }
 
   createAward(
     input: Parameters<WorldDomainService["createAward"]>[0],
   ) {
-    return this.domainService.createAward(
-      input,
-    );
+    const result = this.domainService.createAward(input);
+    this.markDirectEdit();
+    return result;
   }
 
   createPlayerCareerHistory(
-    input: Record<
-      string,
-      SqlValue | undefined
-    >,
+    input: Record<string, SqlValue | undefined>,
   ) {
-    return this.domainService.createPlayerCareerHistory(
-      input,
-    );
+    const result = this.domainService.createPlayerCareerHistory(input);
+    this.markDirectEdit();
+    return result;
   }
 
   createStaffCareerHistory(
-    input: Record<
-      string,
-      SqlValue | undefined
-    >,
+    input: Record<string, SqlValue | undefined>,
   ) {
-    return this.domainService.createStaffCareerHistory(
-      input,
-    );
+    const result = this.domainService.createStaffCareerHistory(input);
+    this.markDirectEdit();
+    return result;
   }
 
   createPlayerAchievement(
     input: Parameters<WorldDomainService["createPlayerAchievement"]>[0],
   ) {
-    return this.domainService.createPlayerAchievement(
-      input,
-    );
+    const result = this.domainService.createPlayerAchievement(input);
+    this.markDirectEdit();
+    return result;
   }
 
   createRecord(
     input: Parameters<WorldDomainService["createRecord"]>[0],
   ) {
-    return this.domainService.createRecord(
-      input,
-    );
+    const result = this.domainService.createRecord(input);
+    this.markDirectEdit();
+    return result;
   }
 
   createDerby(
     input: Parameters<WorldDomainService["createDerby"]>[0],
   ) {
-    return this.domainService.createDerby(
-      input,
-    );
+    const result = this.domainService.createDerby(input);
+    this.markDirectEdit();
+    return result;
   }
 
   mapClimateToRegion(
     nationRegionId: number,
     climateId: number,
   ) {
-    return this.domainService.mapClimateToRegion(
+    const result = this.domainService.mapClimateToRegion(
       nationRegionId,
       climateId,
     );
+    this.markDirectEdit();
+    return result;
   }
 
   createWeatherSeason(
     name: string,
   ) {
-    return this.domainService.createWeatherSeason(
-      name,
-    );
+    const result = this.domainService.createWeatherSeason(name);
+    this.markDirectEdit();
+    return result;
   }
 
   createClimateProfile(
     input: Parameters<WorldDomainService["createClimateProfile"]>[0],
   ) {
-    return this.domainService.createClimateProfile(
-      input,
-    );
+    const result = this.domainService.createClimateProfile(input);
+    this.markDirectEdit();
+    return result;
   }
 
   createNationalityRule(
     input: Parameters<WorldDomainService["createNationalityRule"]>[0],
   ) {
-    return this.domainService.createNationalityRule(
-      input,
-    );
+    const result = this.domainService.createNationalityRule(input);
+    this.markDirectEdit();
+    return result;
   }
 
   validate(
@@ -497,14 +480,7 @@ export class WorldEditorService {
       "world_year",
       String(year),
     );
-    this.database.setMetadata(
-      "world_build_status",
-      "DIRTY",
-    );
-    this.database.setMetadata(
-      "world_dirty_reason",
-      "DIRECT_EDIT",
-    );
+    this.markDirectEdit();
 
     return this.worldSettings();
   }
@@ -626,6 +602,17 @@ export class WorldEditorService {
     this.validator.setRuleEnabled(
       ruleKey,
       enabled,
+    );
+  }
+
+  private markDirectEdit(): void {
+    this.database.setMetadata(
+      "world_build_status",
+      "DIRTY",
+    );
+    this.database.setMetadata(
+      "world_dirty_reason",
+      "DIRECT_EDIT",
     );
   }
 
