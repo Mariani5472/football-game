@@ -4,6 +4,7 @@ import {
   FolderOpen,
   Rocket,
   Send,
+  Plus,
 } from "lucide-react";
 
 interface QuickActionsProps {
@@ -11,44 +12,32 @@ interface QuickActionsProps {
 }
 
 const actions = [
-  {
-    id: "new-world",
-    label: "New World",
-    icon: FilePlus2,
-  },
-  {
-    id: "open-world",
-    label: "Open World",
-    icon: FolderOpen,
-  },
-  {
-    id: "fast-start",
-    label: "Fast Start",
-    icon: Rocket,
-  },
-  {
-    id: "validate",
-    label: "Validate",
-    icon: CheckCircle2,
-  },
-  {
-    id: "export",
-    label: "Export",
-    icon: Send,
-  },
+  { id: "new-world", label: "New World", icon: FilePlus2 },
+  { id: "open-world", label: "Open World", icon: FolderOpen },
+  { id: "fast-start", label: "Fast Start", icon: Rocket },
+  { id: "validate", label: "Validate", icon: CheckCircle2 },
+  { id: "export", label: "Export", icon: Send },
 ];
 
-export function QuickActions({
-  onAction,
-}: QuickActionsProps) {
+export function QuickActions({ onAction }: QuickActionsProps) {
   return (
-    <section>
-      <div className="mb-3 text-[11px] font-semibold tracking-[0.2em] text-slate-600">
-        QUICK ACTIONS
+    <section className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div className="text-[11px] font-semibold tracking-[0.2em] text-slate-600">
+          QUICK ACTIONS
+        </div>
+        <button
+          type="button"
+          onClick={() => onAction?.("create")}
+          className="inline-flex items-center gap-2 rounded-lg bg-emerald-400/10 px-3 py-2 text-xs font-semibold text-emerald-200 hover:bg-emerald-400/15"
+        >
+          <Plus size={14} />
+          Criar
+        </button>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-        {actions.map((action) => {
+        {actions.map(action => {
           const Icon = action.icon;
 
           return (
@@ -58,14 +47,8 @@ export function QuickActions({
               onClick={() => onAction?.(action.id)}
               className="flex min-h-24 flex-col justify-between rounded-2xl border border-white/10 bg-white/[0.02] p-4 text-left transition hover:border-emerald-400/20 hover:bg-white/[0.04]"
             >
-              <Icon
-                size={18}
-                className="text-slate-500"
-              />
-
-              <span className="text-sm font-medium text-slate-200">
-                {action.label}
-              </span>
+              <Icon size={18} className="text-slate-500" />
+              <span className="text-sm font-medium text-slate-200">{action.label}</span>
             </button>
           );
         })}
