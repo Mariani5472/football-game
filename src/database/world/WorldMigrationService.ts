@@ -132,7 +132,7 @@ function addUuidColumn(
     .prepare(
       'SELECT rowid FROM "' +
         table +
-        '" WHERE uuid IS NULL OR uuid = ""',
+        '" WHERE uuid IS NULL OR uuid = ''',
     )
     .all() as Array<{ rowid: number }>;
 
