@@ -207,6 +207,40 @@ export function createEditorApiServer(options: EditorApiServerOptions): http.Ser
           jsonResponse(response, 201, service.createClimateProfile(await readBody(request) as Parameters<WorldEditorService["createClimateProfile"]>[0]));
           return;
         }
+        if (request.method === "POST" && parts[2] === "award") {
+          jsonResponse(response, 201, service.createAward(await readBody(request) as Parameters<WorldEditorService["createAward"]>[0]));
+          return;
+        }
+        if (request.method === "POST" && parts[2] === "player-career") {
+          jsonResponse(response, 201, service.createPlayerCareerHistory(await readBody(request) as Record<string, SqlValue | undefined>));
+          return;
+        }
+        if (request.method === "POST" && parts[2] === "staff-career") {
+          jsonResponse(response, 201, service.createStaffCareerHistory(await readBody(request) as Record<string, SqlValue | undefined>));
+          return;
+        }
+        if (request.method === "POST" && parts[2] === "achievement") {
+          jsonResponse(response, 201, service.createPlayerAchievement(await readBody(request) as Parameters<WorldEditorService["createPlayerAchievement"]>[0]));
+          return;
+        }
+        if (request.method === "POST" && parts[2] === "record") {
+          jsonResponse(response, 201, service.createRecord(await readBody(request) as Parameters<WorldEditorService["createRecord"]>[0]));
+          return;
+        }
+        if (request.method === "POST" && parts[2] === "derby") {
+          jsonResponse(response, 201, service.createDerby(await readBody(request) as Parameters<WorldEditorService["createDerby"]>[0]));
+          return;
+        }
+        if (request.method === "POST" && parts[2] === "climate-region") {
+          const body = await readBody(request) as { nationRegionId: number; climateId: number };
+          jsonResponse(response, 201, service.mapClimateToRegion(body.nationRegionId, body.climateId));
+          return;
+        }
+        if (request.method === "POST" && parts[2] === "weather-season") {
+          const body = await readBody(request) as { name: string };
+          jsonResponse(response, 201, service.createWeatherSeason(body.name));
+          return;
+        }
         if (request.method === "POST" && parts[2] === "nationality-rule") {
           jsonResponse(response, 201, service.createNationalityRule(await readBody(request) as Parameters<WorldEditorService["createNationalityRule"]>[0]));
           return;
