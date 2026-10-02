@@ -319,10 +319,7 @@ export class WorldPackageService {
       input.conflicts ?? [],
     );
 
-    this.database.setMetadata(
-      "world_build_status",
-      "DIRTY",
-    );
+    this.setBuildDirty();
 
     return this.getPackage(packageId);
   }
@@ -502,6 +499,15 @@ export class WorldPackageService {
   }
 
   rebuild(): RebuildResult {
+    if (
+      this.database.metadata("world_dirty_reason") ===
+      "DIRECT_EDIT"
+    ) {
+      throw new Error(
+        "World has direct editor changes that are not represented by a package. Export or convert those changes to a package before rebuilding.",
+      );
+    }
+
     return new WorldPackageImportService(
       this.database,
     ).rebuild();
