@@ -19,6 +19,7 @@ const routeTitles: Record<EditorRoute, string> = {
   stadiums: "Stadiums",
   formations: "Formations",
   competitions: "Competitions",
+  "world-systems": "World Systems",
   "fast-start": "Fast Start",
   validation: "Validation",
   export: "Export",
