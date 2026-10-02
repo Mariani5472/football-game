@@ -78,7 +78,15 @@ export class WorldPackageImportService {
           if (resolved.worldId == null) newRows++;
           else {
             existingRows++;
-            if (this.rowHasChanged(table.name, resolved.worldId, row)) conflicts++;
+            if (this.rowHasChanged(table.name, resolved.worldId, row)) {
+              conflicts++;
+              this.recordConflict(
+                sessionId,
+                table.name,
+                row,
+                resolved.worldId,
+              );
+            }
           }
         }
       }
@@ -424,6 +432,31 @@ export class WorldPackageImportService {
       }
     }
     this.world.connection.prepare(`INSERT OR REPLACE INTO world_entity_identity(table_name,row_id,entity_uuid,natural_key) VALUES(?,?,?,?)`).run(tableName,rowId,uuid,naturalKey);
+  }
+
+  private recordConflict(sessionId: number, tableName: string, row: Record<string, unknown>, worldId: number): void {
+    const current = this.world.connection.prepare(`SELECT * FROM "${quote(tableName)}" WHERE id=? LIMIT 1`).get(worldId) as Record<string, unknown> | undefined;
+    if (!current) return;
+
+    for (const [column, value] of Object.entries(row)) {
+      if (column === "id" || ["created_at","updated_at"].includes(column)) continue;
+      const existingValue = current[column];
+      if (String(existingValue ?? "") === String(value ?? "")) continue;
+      this.world.connection.prepare(`
+        INSERT INTO world_import_conflict(
+          import_session_id, table_name, incoming_id, world_id, conflict_type,
+          column_name, existing_value, incoming_value
+        ) VALUES (?, ?, ?, ?, 'ATTRIBUTE', ?, ?, ?)
+      `).run(
+        sessionId,
+        tableName,
+        row.id == null ? null : Number(row.id),
+        worldId,
+        column,
+        existingValue == null ? null : String(existingValue),
+        value == null ? null : String(value),
+      );
+    }
   }
 
   private recordProvenance(tableName: string, rowId: number, packageId: number, resolution: string, row: Record<string, unknown>): void {
