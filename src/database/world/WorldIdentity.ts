@@ -2,58 +2,140 @@ import crypto from "node:crypto";
 
 export type IdentityMatchMode = "UUID" | "NATURAL_KEY" | "NEW" | "NONE";
 
+export interface IdentityContext {
+  token(table: string, key: Record<string, unknown>): string | null;
+}
+
 export interface IdentityPolicy {
   table: string;
   uuidColumn: string | null;
-  naturalKey: (row: Record<string, unknown>, resolver: (table: string, id: number) => Record<string, unknown> | undefined) => string | null;
-  fallback: IdentityMatchMode | "NATURAL_KEY" | "NONE";
+  fallback: "NATURAL_KEY" | "NONE";
+  naturalKey: (row: Record<string, unknown>, context: IdentityContext) => string | null;
+}
+
+function natural(
+  table: string,
+  naturalKey: IdentityPolicy["naturalKey"],
+): IdentityPolicy {
+  return {
+    table,
+    uuidColumn: "uuid",
+    fallback: "NATURAL_KEY",
+    naturalKey,
+  };
 }
 
 export const IDENTITY_POLICIES: Record<string, IdentityPolicy> = {
-  federation: policy("federation", row => key("federation", row.name)),
-  continent: policy("continent", row => key("continent", row.name)),
-  continent_region: policy("continent_region", row => key("continent_region", row.continent_id, row.name)),
-  currency: policy("currency", row => key("currency", row.name)),
-  language_family: policy("language_family", row => key("language_family", row.name)),
-  language_group: policy("language_group", row => key("language_group", row.family_id, row.name)),
-  language_subgroup: policy("language_subgroup", row => key("language_subgroup", row.group_id, row.name)),
-  language: policy("language", row => key("language", row.name)),
-  nation: policy("nation", row => key("nation", row.name)),
-  nation_region: policy("nation_region", row => key("nation_region", row.nation_id, row.name)),
-  city: policy("city", row => key("city", row.nation_id, row.name)),
-  team: policy("team", row => key("team", row.name, row.gender_id)),
-  stadium: policy("stadium", row => key("stadium", row.city_id, row.name)),
-  competition: policy("competition", row => key("competition", row.name, row.gender_id)),
-  person: {
-    table: "person",
-    uuidColumn: "uuid",
-    fallback: "NATURAL_KEY",
-    naturalKey: row => key("person", row.full_name, row.birth_date, row.birth_city_id),
-  },
-  player: { table: "player", uuidColumn: null, fallback: "NONE", naturalKey: () => null },
+  federation: natural("federation", row => key("federation", row.name)),
+  continent: natural("continent", row => key("continent", row.name)),
+  continent_region: natural("continent_region", (row, context) =>
+    key("continent_region", context.token("continent", { id: row.continent_id }), row.name),
+  ),
+  currency: natural("currency", row => key("currency", row.name)),
+  language_family: natural("language_family", row => key("language_family", row.name)),
+  language_group: natural("language_group", (row, context) =>
+    key("language_group", context.token("language_family", { id: row.family_id }), row.name),
+  ),
+  language_subgroup: natural("language_subgroup", (row, context) =>
+    key("language_subgroup", context.token("language_group", { id: row.group_id }), row.name),
+  ),
+  language: natural("language", row => key("language", row.name)),
+  nation: natural("nation", row => key("nation", row.name)),
+  nation_region: natural("nation_region", (row, context) =>
+    key("nation_region", context.token("nation", { id: row.nation_id }), row.name),
+  ),
+  city: natural("city", (row, context) =>
+    key("city", context.token("nation", { id: row.nation_id }), row.name),
+  ),
+  team: natural("team", (row, context) =>
+    key(
+      "team",
+      row.name,
+      context.token("gender", { id: row.gender_id }),
+      context.token("nation", { id: row.nation_id }),
+    ),
+  ),
+  stadium: natural("stadium", (row, context) =>
+    key("stadium", context.token("city", { id: row.city_id }), row.name),
+  ),
+  competition: natural("competition", (row, context) =>
+    key(
+      "competition",
+      row.name,
+      context.token("gender", { id: row.gender_id }),
+      context.token("nation", { id: row.nation_id }),
+    ),
+  ),
+  person: natural("person", (row, context) =>
+    key(
+      "person",
+      row.full_name,
+      row.birth_date,
+      context.token("city", { id: row.birth_city_id }),
+    ),
+  ),
   competition_season: {
-    table: "competition_season", uuidColumn: null, fallback: "NATURAL_KEY",
-    naturalKey: (row, resolve) => key("competition_season", row.competition_id, row.year, resolve("competition", Number(row.competition_id))?.name),
+    table: "competition_season",
+    uuidColumn: null,
+    fallback: "NATURAL_KEY",
+    naturalKey: (row, context) =>
+      key("competition_season", context.token("competition", { id: row.competition_id }), row.year),
   },
   competition_stage: {
-    table: "competition_stage", uuidColumn: null, fallback: "NATURAL_KEY",
-    naturalKey: (row, resolve) => key("competition_stage", row.competition_season_id, row.stage_order, row.name, resolve("competition_season", Number(row.competition_season_id))?.year),
+    table: "competition_stage",
+    uuidColumn: null,
+    fallback: "NATURAL_KEY",
+    naturalKey: (row, context) =>
+      key("competition_stage", context.token("competition_season", { id: row.competition_season_id }), row.stage_order),
   },
-  fixture: { table: "fixture", uuidColumn: null, fallback: "NONE", naturalKey: () => null },
-  player_transfer: { table: "player_transfer", uuidColumn: null, fallback: "NONE", naturalKey: () => null },
+  competition_round: {
+    table: "competition_round",
+    uuidColumn: null,
+    fallback: "NATURAL_KEY",
+    naturalKey: (row, context) =>
+      key("competition_round", context.token("competition_stage", { id: row.stage_id }), row.round_number),
+  },
+  fixture: {
+    table: "fixture",
+    uuidColumn: null,
+    fallback: "NONE",
+    naturalKey: () => null,
+  },
+  transfer: {
+    table: "transfer",
+    uuidColumn: null,
+    fallback: "NONE",
+    naturalKey: () => null,
+  },
+  player_transfer: {
+    table: "player_transfer",
+    uuidColumn: null,
+    fallback: "NONE",
+    naturalKey: () => null,
+  },
 };
 
-function policy(table: string, naturalKey: IdentityPolicy["naturalKey"]): IdentityPolicy {
-  return { table, uuidColumn: "uuid", fallback: "NATURAL_KEY", naturalKey };
+export function generateUuid(): string {
+  return crypto.randomUUID();
 }
 
-export function generateUuid(): string { return crypto.randomUUID(); }
-
 export function normalizeIdentityPart(value: unknown): string {
-  return String(value ?? "").normalize("NFKD").replace(/[\u0300-\u036f]/g, "").trim().toLowerCase().replace(/\s+/g, " ");
+  return String(value ?? "")
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ");
 }
 
 export function key(namespace: string, ...values: unknown[]): string {
   const payload = values.map(normalizeIdentityPart).join("|");
-  return crypto.createHash("sha256").update(`${namespace}|${payload}`).digest("hex");
+  return crypto
+    .createHash("sha256")
+    .update(namespace + "|" + payload)
+    .digest("hex");
+}
+
+export function identityPolicy(table: string): IdentityPolicy | undefined {
+  return IDENTITY_POLICIES[table];
 }
