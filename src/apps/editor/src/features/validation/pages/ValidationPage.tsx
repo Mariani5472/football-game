@@ -79,8 +79,8 @@ export function ValidationPage() {
               {profiles.map(profile => <option key={profile.id} value={profile.id}>{profile.name}</option>)}
             </select>
           </label>
-          <div className="text-xs text-slate-500">
-            {profiles.find(profile => profile.id === profileId)?.description ?? "Executa todas as regras habilitadas."}
+          <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
+            <span>{profiles.find(profile => profile.id === profileId)?.description ?? "Executa todas as regras habilitadas."}</span>\n            {profileId && <button type="button" onClick={() => void (async () => { const current = profiles.find(p => p.id === profileId); if (!current) return; const updated = await editorApi.setValidationProfileEnabled(profileId, !current.enabled); setProfiles(list => list.map(p => p.id === updated.id ? updated : p)); })()} className="rounded border border-white/10 px-2 py-1 text-[10px] text-slate-400">{profiles.find(p => p.id === profileId)?.enabled ? "Desabilitar perfil" : "Habilitar perfil"}</button>}
           </div>
         </div>
       </section>
