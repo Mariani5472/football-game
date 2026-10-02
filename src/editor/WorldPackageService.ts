@@ -4,6 +4,36 @@ import path from "node:path";
 
 import { WorldDatabase } from "../database/world/WorldDatabase.js";
 
+export type WorldPackageStatus = "ACTIVE" | "CONFLICT" | "ERROR";
+
+export interface WorldPackageRecord {
+  id: number;
+  packageKey: string;
+  name: string;
+  version: string;
+  status: WorldPackageStatus;
+  icon: string | null;
+  sourceFile: string | null;
+  sourceSha256: string | null;
+  categories: string[];
+  description: string | null;
+  schemaVersion: number;
+  importedAt: string;
+  updatedAt: string;
+}
+
+export interface RegisterWorldPackageInput {
+  packageKey: string;
+  name: string;
+  version?: string;
+  status?: WorldPackageStatus;
+  icon?: string | null;
+  sourceFile?: string | null;
+  sourceSha256?: string | null;
+  categories?: string[];
+  description?: string | null;
+}
+
 export interface WorldPackageMetadata {
   format: "world.db";
   packageVersion: string;
@@ -31,7 +61,91 @@ export interface WorldExportResult {
 }
 
 export class WorldPackageService {
-  constructor(private readonly database: WorldDatabase) {}
+  constructor(private readonly database: WorldDatabase) {
+    this.ensurePackageRegistry();
+  }
+
+  listPackages(): WorldPackageRecord[] {
+    const rows = this.database.connection.prepare(`
+      SELECT id, package_key AS packageKey, name, version, status, icon,
+             source_file AS sourceFile, source_sha256 AS sourceSha256,
+             categories_json AS categoriesJson, description,
+             schema_version AS schemaVersion, imported_at AS importedAt,
+             updated_at AS updatedAt
+      FROM world_package
+      ORDER BY imported_at ASC, id ASC
+    `).all() as Array<Record<string, unknown>>;
+
+    return rows.map(row => ({
+      id: Number(row.id),
+      packageKey: String(row.packageKey),
+      name: String(row.name),
+      version: String(row.version),
+      status: String(row.status) as WorldPackageStatus,
+      icon: row.icon == null ? null : String(row.icon),
+      sourceFile: row.sourceFile == null ? null : String(row.sourceFile),
+      sourceSha256: row.sourceSha256 == null ? null : String(row.sourceSha256),
+      categories: JSON.parse(String(row.categoriesJson ?? "[]")) as string[],
+      description: row.description == null ? null : String(row.description),
+      schemaVersion: Number(row.schemaVersion ?? 0),
+      importedAt: String(row.importedAt),
+      updatedAt: String(row.updatedAt),
+    }));
+  }
+
+  registerPackage(input: RegisterWorldPackageInput): WorldPackageRecord {
+    const packageKey = input.packageKey.trim();
+    const name = input.name.trim();
+    if (!packageKey) throw new Error("Package key is required.");
+    if (!name) throw new Error("Package name is required.");
+
+    const now = new Date().toISOString();
+    this.database.connection.prepare(`
+      INSERT INTO world_package (
+        package_key, name, version, status, icon, source_file, source_sha256,
+        categories_json, description, schema_version, imported_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      packageKey,
+      name,
+      input.version?.trim() || "1.0.0",
+      input.status ?? "ACTIVE",
+      input.icon ?? null,
+      input.sourceFile ?? null,
+      input.sourceSha256 ?? null,
+      JSON.stringify(input.categories ?? []),
+      input.description ?? null,
+      Number(this.database.metadata("schema_version") ?? 0),
+      now,
+      now,
+    );
+
+    return this.listPackages().find(item => item.packageKey === packageKey)!;
+  }
+
+  removePackage(id: number): boolean {
+    return this.database.connection.prepare("DELETE FROM world_package WHERE id = ?").run(id).changes > 0;
+  }
+
+  private ensurePackageRegistry(): void {
+    this.database.execute(`
+      CREATE TABLE IF NOT EXISTS world_package (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        package_key TEXT NOT NULL UNIQUE,
+        name TEXT NOT NULL,
+        version TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE', 'CONFLICT', 'ERROR')),
+        icon TEXT,
+        source_file TEXT,
+        source_sha256 TEXT,
+        categories_json TEXT NOT NULL DEFAULT '[]',
+        description TEXT,
+        schema_version INTEGER NOT NULL,
+        imported_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      )
+    `);
+  }
 
   exportWorld(
     outputPath: string,
