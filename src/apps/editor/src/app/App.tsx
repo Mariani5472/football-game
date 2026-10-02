@@ -10,6 +10,7 @@ import { TeamsPage } from "../features/teams/pages";
 import { TemplatesPage } from "../features/templates/pages/TemplatesPage";
 import { P3WorkbenchPage } from "../features/p3/pages/P3WorkbenchPage";
 import { ValidationPage } from "../features/validation/pages/ValidationPage";
+import { ExportGatePage } from "../features/validation/pages/ExportGatePage";
 import { StadiumsPage } from "../features/stadiums/pages";
 import {
   CitiesPage,
@@ -103,7 +104,7 @@ function renderRoute(route: EditorRoute) {
     case "validation":
       return <ComingSoon title="Validation" />;
     case "export":
-      return <ComingSoon title="Export" />;
+      return <ExportGatePage />;
   }
 }
 
