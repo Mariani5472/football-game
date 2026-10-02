@@ -19,28 +19,28 @@ type Preset = {
 };
 
 const presets: Preset[] = [
-  { id: "federation", title: "Federation", group: "Geography", table: "federation", fields: ["name","short_name"] },
-  { id: "continent", title: "Continent", group: "Geography", table: "continent", fields: ["name","short_name","federation_id"] },
-  { id: "region", title: "Region", group: "Geography", table: "continent_region", fields: ["continent_id","name","short_name"] },
-  { id: "nation", title: "Nation", group: "Geography", table: "nation", fields: ["name","short_name","continent_region_id"] },
-  { id: "city", title: "City", group: "Geography", table: "city", fields: ["nation_id","nation_region_id","name","population"] },
-  { id: "person", title: "Person", group: "People", table: "person", fields: ["full_name","common_name","birth_date","nationality_id","person_type_id","gender_id"] },
+  { id: "federation", title: "Federation", group: "Geography", table: "federation", fields: ["name", "short_name"] },
+  { id: "continent", title: "Continent", group: "Geography", table: "continent", fields: ["name", "short_name", "federation_id"] },
+  { id: "region", title: "Region", group: "Geography", table: "continent_region", fields: ["continent_id", "name", "short_name"] },
+  { id: "nation", title: "Nation", group: "Geography", table: "nation", fields: ["name", "short_name", "continent_region_id"] },
+  { id: "city", title: "City", group: "Geography", table: "city", fields: ["nation_id", "nation_region_id", "name", "population"] },
+  { id: "person", title: "Person", group: "People", table: "person", fields: ["full_name", "common_name", "birth_date", "nationality_id", "person_type_id", "gender_id"] },
   { id: "player", title: "Player", group: "People", table: "player", fields: ["person_id"] },
-  { id: "staff", title: "Staff", group: "People", table: "team_person_relationship", fields: ["team_id","person_id","level","reason"] },
-  { id: "team", title: "Team", group: "Teams", table: "team", fields: ["name","short_name","nation_id","gender_id"] },
-  { id: "club", title: "Club", group: "Teams", table: "club", fields: ["team_id","city_id","base_nation_id"] },
-  { id: "national-team", title: "National Team", group: "Teams", table: "national_team", fields: ["team_id","nation_id"] },
-  { id: "stadium", title: "Stadium", group: "Stadium", table: "stadium", fields: ["city_id","name","capacity"] },
-  { id: "competition", title: "Competition", group: "Competitions", table: "competition", fields: ["name","nation_id","type_id","level"] },
-  { id: "season", title: "Season", group: "Competitions", table: "competition_season", fields: ["competition_id","year","start_date","end_date"] },
-  { id: "league", title: "League", group: "Competitions", table: "competition_stage", fields: ["competition_season_id","name","stage_order"] },
-  { id: "group-stage", title: "Group Stage", group: "Competitions", table: "competition_stage", fields: ["competition_season_id","name","stage_order"] },
-  { id: "knockout-stage", title: "Knockout Stage", group: "Competitions", table: "competition_stage", fields: ["competition_season_id","name","stage_order"] },
-  { id: "formation", title: "Formation", group: "Tactics", table: "formation", fields: ["name","description"] },
-  { id: "role", title: "Role", group: "Tactics", table: "player_role", fields: ["position_id","name","description"] },
-  { id: "new-league", title: "New League", group: "Composite", fields: ["name","country_id","team_ids","year","turns","win_points","draw_points","loss_points","start_date","end_date"] },
-  { id: "new-club", title: "New Club", group: "Composite", fields: ["name","short_name","nation_id","city_id","stadium_name"] },
-  { id: "new-player", title: "New Player", group: "Composite", fields: ["full_name","common_name","birth_date","nationality_id","person_type_id","position_id","position_rating"] },
+  { id: "staff", title: "Staff", group: "People", table: "team_person_relationship", fields: ["team_id", "person_id", "level", "reason"] },
+  { id: "team", title: "Team", group: "Teams", table: "team", fields: ["name", "short_name", "nation_id", "gender_id"] },
+  { id: "club", title: "Club", group: "Teams", table: "club", fields: ["team_id", "city_id", "base_nation_id"] },
+  { id: "national-team", title: "National Team", group: "Teams", table: "national_team", fields: ["team_id", "nation_id"] },
+  { id: "stadium", title: "Stadium", group: "Stadium", table: "stadium", fields: ["city_id", "name", "capacity"] },
+  { id: "competition", title: "Competition", group: "Competitions", table: "competition", fields: ["name", "nation_id", "type_id", "level"] },
+  { id: "season", title: "Season", group: "Competitions", table: "competition_season", fields: ["competition_id", "year", "start_date", "end_date"] },
+  { id: "league", title: "League", group: "Competitions", table: "competition_stage", fields: ["competition_season_id", "name", "stage_order"] },
+  { id: "group-stage", title: "Group Stage", group: "Competitions", table: "competition_stage", fields: ["competition_season_id", "name", "stage_order"] },
+  { id: "knockout-stage", title: "Knockout Stage", group: "Competitions", table: "competition_stage", fields: ["competition_season_id", "name", "stage_order"] },
+  { id: "formation", title: "Formation", group: "Tactics", table: "formation", fields: ["name", "description"] },
+  { id: "role", title: "Role", group: "Tactics", table: "player_role", fields: ["position_id", "name", "description"] },
+  { id: "new-league", title: "New League", group: "Composite", fields: ["name", "country_id", "team_ids", "year", "turns", "win_points", "draw_points", "loss_points", "start_date", "end_date"] },
+  { id: "new-club", title: "New Club", group: "Composite", fields: ["name", "short_name", "nation_id", "city_id", "stadium_name"] },
+  { id: "new-player", title: "New Player", group: "Composite", fields: ["full_name", "common_name", "birth_date", "nationality_id", "person_type_id", "position_id", "position_rating"] },
 ];
 
 function toNumber(value: Scalar, fallback = 0) {
@@ -254,4 +254,4 @@ export function QuickCreateModal({ open, onClose }: { open: boolean; onClose: ()
       setSaving(false);
     }
   }
-
+}

@@ -19,6 +19,7 @@ import {
 } from "../features/world/pages";
 import { EditorLayout } from "../shared/layout/EditorLayout";
 import type { EditorRoute } from "./routes";
+import { QuickCreateModal } from "../features/quick-create";
 
 function ComingSoon({ title }: { title: string }) {
   return (
