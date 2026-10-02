@@ -177,7 +177,7 @@ export class WorldEditorService {
 
   listPackages() { return this.packageService.listPackages(); }
   registerPackage(input: Parameters<WorldPackageService["registerPackage"]>[0]) { return this.packageService.registerPackage(input); }
-  removePackage(id: number) { return this.packageService.removePackage(id); }
+  removePackage(id: number) { return this.packageService.removePackage(id); }\n  inspectPackage(sourceFile: string) { return this.packageService.inspectPackage(sourceFile); }\n  importPackage(sessionId: number, resolutions: Record<string, "REPLACE"|"MERGE"|"KEEP_EXISTING"|"KEEP_INCOMING"|"MANUAL"> = {}) { return this.packageService.importPackage(sessionId, resolutions); }
   exportWorld(outputPath: string): WorldExportResult {
     const validationIssues = this.validator.validate().map(issue => ({
       severity: issue.severity === "ERROR" ? "ERROR" as const : "WARNING" as const,
