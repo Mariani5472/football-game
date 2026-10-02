@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
+import DatabaseConnection from "better-sqlite3";
 import { WorldDatabase } from "../database/world/WorldDatabase.js";
 import {
   generateUuid,
@@ -48,7 +49,7 @@ export class WorldPackageImportService {
   inspect(sourceFile: string): ImportPreview {
     const absolute = this.resolveSource(sourceFile);
     const sourceSha256 = sha256File(absolute);
-    const incoming = new (require("better-sqlite3"))(absolute, { readonly: true }) as import("better-sqlite3").Database;
+    const incoming = new DatabaseConnection(absolute, { readonly: true });
     const alias = this.attach(incoming, absolute);
     try {
       const manifest = this.readManifest(incoming);
@@ -107,7 +108,7 @@ export class WorldPackageImportService {
 
     const absolute = session.source_file;
     if (!fs.existsSync(absolute)) throw new Error(`Package file not found: ${absolute}`);
-    const incoming = new (require("better-sqlite3"))(absolute, { readonly: true }) as import("better-sqlite3").Database;
+    const incoming = new DatabaseConnection(absolute, { readonly: true });
     const alias = this.attach(incoming, absolute);
 
     try {
@@ -198,7 +199,7 @@ export class WorldPackageImportService {
     return absolute;
   }
 
-  private attach(incoming: import("better-sqlite3").Database, sourceFile: string): string {
+  private attach(_incoming: DatabaseConnection.Database, sourceFile: string): string {
     const alias = "incoming_package";
     this.world.connection.exec(`ATTACH DATABASE ? AS ${alias}`.replace("?", quoteString(sourceFile)));
     return alias;
@@ -208,7 +209,7 @@ export class WorldPackageImportService {
     this.world.connection.exec(`DETACH DATABASE ${quote(alias)}`);
   }
 
-  private readManifest(db: import("better-sqlite3").Database): PackageManifest {
+  private readManifest(db: DatabaseConnection.Database): PackageManifest {
     const hasTable = Boolean(db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='package_manifest'").get());
     if (hasTable) {
       const row = db.prepare("SELECT manifest_json FROM package_manifest LIMIT 1").get() as { manifest_json?: string } | undefined;
@@ -282,7 +283,7 @@ export class WorldPackageImportService {
       .run(status, JSON.stringify(summary ?? {}), error ?? null, ["COMPLETED","FAILED"].includes(status) ? new Date().toISOString() : null, id);
   }
 
-  private listIncomingTables(db: import("better-sqlite3").Database): TableInfo[] {
+  private listIncomingTables(db: DatabaseConnection.Database): TableInfo[] {
     return (db.prepare(`SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name NOT IN ('database_metadata','package_manifest','world_package','world_package_load_order','world_package_provides','world_package_dependency','world_package_conflict','world_entity_identity','world_entity_provenance','world_attribute_provenance','world_import_session','world_import_id_map','world_import_conflict') ORDER BY name`).all() as Array<{ name: string }>).map(({name}) => {
       const columns = db.prepare(`PRAGMA table_info("${quote(name)}")`).all() as Array<{ name: string }>;
       const primaryKey = db.prepare(`PRAGMA table_info("${quote(name)}")`).all().filter((x: any)=>x.pk).sort((a:any,b:any)=>a.pk-b.pk).map((x:any)=>x.name);
