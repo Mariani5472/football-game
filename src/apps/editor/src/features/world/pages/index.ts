@@ -1,5 +1,6 @@
 export {
   CitiesPage,
+  ConfederationsPage,
   ClimatesPage,
   ContinentsPage,
   CountriesPage,
