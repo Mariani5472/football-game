@@ -80,6 +80,22 @@ export function createEditorApiServer(options: EditorApiServerOptions): http.Ser
         return;
       }
 
+      if (parts[1] === "world-import-sessions" && parts[2]) {
+        const session = service.getImportSession(Number(parts[2]));
+        if (!session) {
+          jsonResponse(response, 404, { error: "Import session not found." });
+          return;
+        }
+        if (request.method === "GET" && parts[3] === "conflicts") {
+          jsonResponse(response, 200, { conflicts: service.importConflicts(Number(parts[2])) });
+          return;
+        }
+        if (request.method === "GET") {
+          jsonResponse(response, 200, session);
+          return;
+        }
+      }
+
       if (parts[1] === "world") {
         if (request.method === "GET" && parts[2] === undefined) {
           jsonResponse(response, 200, service.dashboard());
@@ -154,34 +170,6 @@ export function createEditorApiServer(options: EditorApiServerOptions): http.Ser
 
         if (request.method === "DELETE" && parts[2] === "packages" && parts[3]) {
           jsonResponse(response, 200, { deleted: service.removePackage(Number(parts[3])) });
-          return;
-        }
-
-        if (request.method === "GET" && parts[1] === "world-import-sessions" && parts[2]) {
-          const session = service.getImportSession(Number(parts[2]));
-          if (!session) {
-            jsonResponse(response, 404, { error: "Import session not found." });
-            return;
-          }
-          if (request.method === "GET" && parts[3] === "conflicts") {
-            jsonResponse(response, 200, { conflicts: service.importConflicts(Number(parts[2])) });
-            return;
-          }
-          jsonResponse(response, 200, session);
-          return;
-        }
-
-        if (request.method === "GET" && parts[2] === "packages" && parts[3] === "sessions" && parts[4]) {
-          const session = service.getImportSession(Number(parts[4]));
-          if (!session) {
-            jsonResponse(response, 404, { error: "Import session not found." });
-            return;
-          }
-          if (parts[5] === "conflicts") {
-            jsonResponse(response, 200, { conflicts: service.importConflicts(Number(parts[4])) });
-            return;
-          }
-          jsonResponse(response, 200, session);
           return;
         }
 
