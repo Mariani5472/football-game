@@ -63,24 +63,6 @@ function groupedForeignKeys(schema: TableSchema) {
   return [...groups.values()].map(group => group.sort((a, b) => a.sequence - b.sequence));
 }
 
-function rowReferences(row: SqlRow, schema: TableSchema, targetTable: string, targetKey: SqlKey): boolean {
-  for (const group of groupedForeignKeys(schema)) {
-    if (group[0]?.table !== targetTable) continue;
-    const targetSchema = schemaDatabaseSchema(schema, targetTable);
-    const targetColumns = group.map(fk => fk.to);
-    const targetValues = targetSchema.primaryKey.length === 1
-      ? [targetKey as SqlValue]
-      : targetSchema.primaryKey.map(column => (targetKey as Record<string, SqlValue>)[column]);
-
-    if (group.every((fk, index) => row[fk.from] === targetValues[index])) return true;
-  }
-  return false;
-}
-
-function schemaDatabaseSchema(current: TableSchema, targetTable: string): TableSchema {
-  throw new Error(`Internal schema lookup unavailable for ${current.name} -> ${targetTable}`);
-}
-
 export class WorldTemplateService {
   constructor(private readonly database: WorldDatabase) {}
 
@@ -174,7 +156,8 @@ export class WorldTemplateService {
       const capturedSchema = schemas.get(capturedTable)!;
       for (const capturedRow of rows.values()) {
         const capturedKey = keyFromRow(capturedSchema, capturedRow);
-        if (rowReferencesWithSchemas(capturedRow, capturedSchema, table, capturedKey, schemas)) return true;
+        const currentKey = keyFromRow(schemas.get(table)!, row);
+        if (rowReferencesWithSchemas(capturedRow, capturedSchema, table, currentKey, schemas)) return true;
       }
     }
 
@@ -332,13 +315,18 @@ export class WorldTemplateService {
       const token = keyToken(table, oldKey);
       if (schema.primaryKey.length === 1 && newKeys.has(token)) {
         mappings.set(token, newKeys.get(token)!);
-      } else if (!mappings.has(token)) {
-        const mappedPk = this.remapKey(schema, oldKey, mappings, schemas);
-        if (mappedPk === null) {
-          throw new Error(`Não foi possível gerar uma nova PK para ${table}.`);
-        }
-        mappings.set(token, mappedPk);
       }
+    }
+
+    for (const { table, row } of rows) {
+      const schema = schemas.get(table)!;
+      const oldKey = keyFromRow(schema, row);
+      const token = keyToken(table, oldKey);
+      const mappedPk = this.remapKey(schema, oldKey, mappings, schemas);
+      if (mappedPk === null) {
+        throw new Error(`Não foi possível gerar uma nova PK para ${table}.`);
+      }
+      mappings.set(token, mappedPk);
     }
 
     const insertRows = rows.map(({ table, row }) => {
@@ -481,20 +469,17 @@ function rowReferencesWithSchemas(
   row: SqlRow,
   schema: TableSchema,
   targetTable: string,
-  _targetKey: SqlKey,
+  targetKey: SqlKey,
   schemas: Map<string, TableSchema>,
 ): boolean {
+  const targetSchema = schemas.get(targetTable)!;
   for (const group of groupedForeignKeys(schema)) {
     if (group[0]?.table !== targetTable) continue;
-    const targetSchema = schemas.get(targetTable)!;
-    const values = targetSchema.primaryKey.length === 1
-      ? [row[group[0].from] as SqlValue]
-      : group.map(fk => row[fk.from] as SqlValue);
-
-    const targetKey = targetSchema.primaryKey.length === 1
+    const values = group.map(fk => row[fk.from] as SqlValue);
+    const candidate: SqlKey = targetSchema.primaryKey.length === 1
       ? values[0]
-      : Object.fromEntries(group.map((fk, index) => [targetSchema.primaryKey[index], values[index]]));
-    if (JSON.stringify(targetKey) === JSON.stringify(_targetKey)) return true;
+      : Object.fromEntries(group.map((fk, index) => [fk.to, values[index]]));
+    if (JSON.stringify(candidate) === JSON.stringify(targetKey)) return true;
   }
   return false;
 }
