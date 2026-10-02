@@ -26,6 +26,7 @@ export class WorldDatabase extends Database {
 
     const database = new WorldDatabase(new DatabaseConnection(filePath));
     database.initialize();
+    database.initializeEditorTemplates();
     return database;
   }
 
@@ -34,7 +35,9 @@ export class WorldDatabase extends Database {
       throw new Error(`Database não encontrada: ${filePath}`);
     }
 
-    return new WorldDatabase(new DatabaseConnection(filePath));
+    const database = new WorldDatabase(new DatabaseConnection(filePath));
+    database.initializeEditorTemplates();
+    return database;
   }
 
   list<T extends SqlRow = SqlRow>(
@@ -61,6 +64,21 @@ export class WorldDatabase extends Database {
 
   deleteEntity(table: string, id: SqlValue): boolean {
     return this.delete(table, id);
+  }
+
+  private initializeEditorTemplates(): void {
+    this.execute(`
+      CREATE TABLE IF NOT EXISTS editor_template (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL UNIQUE,
+        root_table TEXT NOT NULL,
+        source_key TEXT NOT NULL,
+        relations_json TEXT NOT NULL,
+        snapshot_json TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      )
+    `);
   }
 
   private initialize(): void {
