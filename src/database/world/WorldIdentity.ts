@@ -40,6 +40,7 @@ export const IDENTITY_POLICIES: Record<string, IdentityPolicy> = {
     key("language_subgroup", context.token("language_group", { id: row.group_id }), row.name),
   ),
   language: natural("language", row => key("language", row.name)),
+  gender: natural("gender", row => key("gender", row.name)),
   nation: natural("nation", row => key("nation", row.name)),
   nation_region: natural("nation_region", (row, context) =>
     key("nation_region", context.token("nation", { id: row.nation_id }), row.name),
