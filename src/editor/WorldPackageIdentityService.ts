@@ -245,6 +245,37 @@ export function validatePackageIdentity(
     }
   }
 
+  for (const scope of [packageKey, ...provides]) {
+    const reverseConflict = database.connection
+      .prepare(
+        `SELECT p.package_key AS packageKey,p.version,pc.conflict_key AS conflictKey
+         FROM world_package_conflict pc
+         JOIN world_package p ON p.id=pc.package_id
+         WHERE p.enabled=1
+           AND p.id<>?
+           AND lower(pc.conflict_key)=?
+         LIMIT 1`,
+      )
+      .get(
+        installed?.id ?? -1,
+        scope,
+      ) as
+      | { packageKey: string; version: string; conflictKey: string }
+      | undefined;
+
+    if (reverseConflict) {
+      issues.push({
+        code: "EXPLICIT_CONFLICT",
+        packageKey,
+        relatedPackageKey: reverseConflict.packageKey,
+        capabilityKey: reverseConflict.conflictKey,
+        currentVersion: reverseConflict.version,
+        message:
+          `Package ${reverseConflict.packageKey} explicitly conflicts with ${reverseConflict.conflictKey}, which is part of ${packageKey}'s identity scope.`,
+      });
+    }
+  }
+
   for (const conflict of manifest.conflicts ?? []) {
     const conflictKey = normalizeCapabilityKey(conflict);
     if (!conflictKey) continue;
