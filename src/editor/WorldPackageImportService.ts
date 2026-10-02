@@ -1980,12 +1980,17 @@ export class WorldPackageImportService {
         this.world.tableSchema(tableName),
       );
 
-      for (const row of this.world.connection
+      // Materialize the result set before issuing UPDATE/INSERT statements
+      // on the same SQLite connection. better-sqlite3 keeps an active iterator
+      // statement busy while it is being consumed.
+      const rows = this.world.connection
         .prepare(
           "SELECT * FROM " +
             quoteIdentifier(table.name),
         )
-        .iterate() as Iterable<Row>) {
+        .all() as Row[];
+
+      for (const row of rows) {
         const worldKey = pickKey(
           table,
           row,
