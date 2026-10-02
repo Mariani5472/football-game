@@ -206,6 +206,26 @@ const CLIMATES = [
   "Subtropical",
 ] as const;
 
+const REFERENCE_LISTS = {
+  genders: ["Male", "Female"],
+  weekdays: [
+    ["Monday", 1, 0],
+    ["Tuesday", 2, 0],
+    ["Wednesday", 3, 0],
+    ["Thursday", 4, 0],
+    ["Friday", 5, 0],
+    ["Saturday", 6, 1],
+    ["Sunday", 7, 1],
+  ],
+  nationalityMethods: ["Birth", "Descent", "Naturalization", "Marriage"],
+  developmentStates: ["Developed", "Emerging", "Developing"],
+  clubStatuses: ["Active", "Reserve", "Inactive"],
+  competitionTypes: ["League", "Cup", "Tournament"],
+  competitionStageTypes: ["League", "Group", "Knockout"],
+  pitchTypes: ["Natural Grass", "Artificial Turf", "Hybrid"],
+  stadiumOwnerTypes: ["Club", "Municipal", "Private", "National"],
+} as const;
+
 export class WorldBasePackageService {
   static ensureInstalled(world: WorldDatabase, worldPath: string): void {
     const database = world.connection;
@@ -430,6 +450,69 @@ export class WorldBasePackageService {
       );
       for (const name of CLIMATES) {
         insertClimate.run(crypto.randomUUID(), name);
+      }
+
+      const insertGender = db.prepare(
+        "INSERT INTO gender(uuid,name) VALUES(?,?)",
+      );
+      for (const name of REFERENCE_LISTS.genders) {
+        insertGender.run(crypto.randomUUID(), name);
+      }
+
+      const insertWeekday = db.prepare(
+        "INSERT INTO weekday(uuid,name,index_value,is_weekend) VALUES(?,?,?,?)",
+      );
+      for (const [name,index,isWeekend] of REFERENCE_LISTS.weekdays) {
+        insertWeekday.run(crypto.randomUUID(), name, index, isWeekend);
+      }
+
+      const insertNationalityMethod = db.prepare(
+        "INSERT INTO nationality_method(uuid,name) VALUES(?,?)",
+      );
+      for (const name of REFERENCE_LISTS.nationalityMethods) {
+        insertNationalityMethod.run(crypto.randomUUID(), name);
+      }
+
+      const insertDevelopmentState = db.prepare(
+        "INSERT INTO nation_development_state(uuid,name,index_value) VALUES(?,?,?)",
+      );
+      for (const [index,name] of REFERENCE_LISTS.developmentStates.entries()) {
+        insertDevelopmentState.run(crypto.randomUUID(), name, index + 1);
+      }
+
+      const insertClubStatus = db.prepare(
+        "INSERT INTO club_status(uuid,name,is_reserve_team) VALUES(?,?,?)",
+      );
+      for (const name of REFERENCE_LISTS.clubStatuses) {
+        insertClubStatus.run(crypto.randomUUID(), name, name === "Reserve" ? 1 : 0);
+      }
+
+      const insertCompetitionType = db.prepare(
+        "INSERT INTO competition_type(uuid,name) VALUES(?,?)",
+      );
+      for (const name of REFERENCE_LISTS.competitionTypes) {
+        insertCompetitionType.run(crypto.randomUUID(), name);
+      }
+
+      const insertStageType = db.prepare(
+        "INSERT INTO competition_stage_type(uuid,name) VALUES(?,?)",
+      );
+      for (const name of REFERENCE_LISTS.competitionStageTypes) {
+        insertStageType.run(crypto.randomUUID(), name);
+      }
+
+      const insertPitchType = db.prepare(
+        "INSERT INTO pitch_type(uuid,name) VALUES(?,?)",
+      );
+      for (const name of REFERENCE_LISTS.pitchTypes) {
+        insertPitchType.run(crypto.randomUUID(), name);
+      }
+
+      const insertOwnerType = db.prepare(
+        "INSERT INTO stadium_owner_type(uuid,name) VALUES(?,?)",
+      );
+      for (const name of REFERENCE_LISTS.stadiumOwnerTypes) {
+        insertOwnerType.run(crypto.randomUUID(), name);
       }
 
       const nationByName = new Map<string, number>();
