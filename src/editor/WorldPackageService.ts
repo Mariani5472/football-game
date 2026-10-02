@@ -369,10 +369,7 @@ export class WorldPackageService {
       },
     );
 
-    this.database.setMetadata(
-      "world_build_status",
-      "DIRTY",
-    );
+    this.setBuildDirty();
 
     return this.getPackage(id);
   }
@@ -560,6 +557,17 @@ export class WorldPackageService {
       blocked: false,
       issues,
     };
+  }
+
+  private setBuildDirty(): void {
+    this.database.setMetadata(
+      "world_build_status",
+      "DIRTY",
+    );
+    this.database.setMetadata(
+      "world_dirty_reason",
+      "PACKAGE_COMPOSITION",
+    );
   }
 
   private getPackage(
