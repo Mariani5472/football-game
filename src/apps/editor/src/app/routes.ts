@@ -15,6 +15,7 @@ export type EditorRoute =
   | "formations"
   | "fast-create"
   | "templates"
+  | "rules"
   | "competitions"
   | "fast-start"
   | "validation"
