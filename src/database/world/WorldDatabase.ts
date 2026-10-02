@@ -10,6 +10,7 @@ import {
   type SqlValue,
 } from "../Database.js";
 import { SchemaRunner } from "../SchemaRunner.js";
+import { WorldMigrationService } from "./WorldMigrationService.js";
 
 export interface WorldListOptions extends ListOptions {
   searchColumns?: string[];
@@ -36,6 +37,7 @@ export class WorldDatabase extends Database {
     }
 
     const database = new WorldDatabase(new DatabaseConnection(filePath));
+    WorldMigrationService.ensureCompatible(database);
     database.initializeEditorTemplates();
     return database;
   }
@@ -90,9 +92,11 @@ export class WorldDatabase extends Database {
     const runner = new SchemaRunner(this);
     runner.run(schemaPath);
     runner.initializeMetadata({
-      schemaVersion: 2,
+      schemaVersion: WorldMigrationService.currentVersion,
       databaseType: "world",
     });
+    this.setMetadata("package_version", "0.2.0");
+    this.setMetadata("schema_id", "world-v2");
   }
 }
 
