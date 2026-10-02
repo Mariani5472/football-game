@@ -205,7 +205,7 @@ export class WorldPackageService {
     input: RegisterWorldPackageInput,
   ): WorldPackageRecord {
     const packageKey =
-      input.packageKey.trim();
+      input.packageKey.trim().toLowerCase();
     const name =
       input.name.trim();
 
