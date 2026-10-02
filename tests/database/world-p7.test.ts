@@ -40,6 +40,15 @@ describe("P7 Base World", () => {
     const nations = world.connection
       .prepare("SELECT COUNT(*) AS count FROM nation")
       .get() as { count: number };
+    const languages = world.connection
+      .prepare("SELECT COUNT(*) AS count FROM language")
+      .get() as { count: number };
+    const climates = world.connection
+      .prepare("SELECT COUNT(*) AS count FROM climate")
+      .get() as { count: number };
+    const genders = world.connection
+      .prepare("SELECT COUNT(*) AS count FROM gender")
+      .get() as { count: number };
     const confederations = world.connection
       .prepare("SELECT COUNT(*) AS count FROM confederation")
       .get() as { count: number };
@@ -50,6 +59,9 @@ describe("P7 Base World", () => {
     expect(continents.count).toBeGreaterThanOrEqual(5);
     expect(regions.count).toBeGreaterThanOrEqual(15);
     expect(nations.count).toBeGreaterThanOrEqual(50);
+    expect(languages.count).toBeGreaterThanOrEqual(10);
+    expect(climates.count).toBeGreaterThanOrEqual(5);
+    expect(genders.count).toBe(2);
     expect(confederations.count).toBe(6);
     expect(members.count).toBeGreaterThan(50);
 
