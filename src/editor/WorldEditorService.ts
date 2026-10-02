@@ -1,4 +1,5 @@
 import path from "node:path";
+import crypto from "node:crypto";
 import fs from "node:fs";
 
 import {
@@ -511,6 +512,38 @@ export class WorldEditorService {
     return this.packageService.removePackage(
       id,
     );
+  }
+
+  uploadPackage(
+    fileName: string,
+    contentBase64: string,
+  ): { sourceFile: string; fileName: string; sizeBytes: number; sha256: string } {
+    const safeName = path.basename(fileName).trim();
+    if (!safeName || safeName === "." || safeName === "..") {
+      throw new Error("Package file name is required.");
+    }
+    if (!/\.(db|sqlite|sqlite3)$/i.test(safeName)) {
+      throw new Error("Package file must be a SQLite database (.db, .sqlite or .sqlite3).");
+    }
+    if (!contentBase64) {
+      throw new Error("Package file content is required.");
+    }
+
+    const destinationDirectory = path.join(path.dirname(this.filePath), ".packages");
+    fs.mkdirSync(destinationDirectory, { recursive: true });
+    const destination = path.join(destinationDirectory, safeName);
+    const content = Buffer.from(contentBase64, "base64");
+    if (content.length === 0) {
+      throw new Error("Package file is empty.");
+    }
+    fs.writeFileSync(destination, content);
+
+    return {
+      sourceFile: destination,
+      fileName: safeName,
+      sizeBytes: content.length,
+      sha256: crypto.createHash("sha256").update(content).digest("hex"),
+    };
   }
 
   inspectPackage(
