@@ -36,7 +36,7 @@ export class WorldDatabase extends Database {
     database.initializeEditorTemplates();
     database.initializeWorldComposition();
     database.ensureEditorMetadata();
-    WorldBasePackageService.ensureInstalled(database);
+    WorldBasePackageService.ensureInstalled(database, filePath);
     database.ensureEditorMetadata();
     WorldBasePackageService.ensureInstalled(database);
     database.ensureEditorMetadata();
