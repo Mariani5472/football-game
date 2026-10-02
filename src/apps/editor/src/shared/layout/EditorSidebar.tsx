@@ -58,7 +58,7 @@ const tacticsItems: NavItem[] = [
 ];
 
 const toolItems: NavItem[] = [
-  { id: "rules", label: "Transfers / Finance / Rules", icon: ArrowRightLeft },
+  { id: "world-systems", label: "World Systems", icon: ArrowRightLeft },
   { id: "templates", label: "Templates", icon: Copy },
   { id: "fast-start", label: "Fast Start", icon: CircleDot },
   { id: "validation", label: "Validation", icon: CheckCircle2 },
