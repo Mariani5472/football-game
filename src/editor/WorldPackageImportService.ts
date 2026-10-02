@@ -84,7 +84,10 @@ export class WorldPackageImportService {
       }
 
       const status = conflicts > 0 ? "CONFLICTS_FOUND" : "READY";
-      this.setSession(sessionId, status, { tables: tables.length, rows, newRows, existingRows, conflicts });
+      this.setSessionStatus(sessionId, status, { tables: tables.length, rows, newRows, existingRows, conflicts });
+      if (conflicts > 0) {
+        this.world.connection.prepare("UPDATE world_package SET status='CONFLICT', updated_at=? WHERE id=?").run(new Date().toISOString(), packageId);
+      }
       return {
         sessionId,
         packageKey: manifest.packageKey,
@@ -116,6 +119,11 @@ export class WorldPackageImportService {
       const manifest = this.readManifest(incoming);
       const packageRow = this.world.connection.prepare("SELECT id FROM world_package WHERE package_key = ?").get(manifest.packageKey) as { id: number } | undefined;
       if (!packageRow) throw new Error("Package registry entry is missing.");
+
+      const unresolved = Number((this.world.connection.prepare("SELECT COUNT(*) AS count FROM world_import_conflict WHERE import_session_id=? AND resolved=0").get(sessionId) as { count:number }).count);
+      if (unresolved > 0 && Object.keys(resolutions).length === 0) {
+        throw new Error("Import has unresolved conflicts.");
+      }
 
       const tables = this.listIncomingTables(incoming);
       const map = new Map<string, number>();
