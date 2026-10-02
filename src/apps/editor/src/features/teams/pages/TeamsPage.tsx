@@ -27,6 +27,7 @@ import {
   regionalCompetitionConfig,
   expectationConfig,
   coefficientConfig,
+  tacticalProfileConfig,
 } from "../config/teamConfig";
 
 type ConfigItem = {
@@ -53,6 +54,7 @@ const sections: Record<string, ConfigItem[]> = {
     { id: "ffp", label: "FFP", config: ffpConfig },
     { id: "fans", label: "Fan Profile", config: fanProfileConfig },
     { id: "objectives", label: "Objectives", config: objectivesConfig },
+    { id: "tactics", label: "Tactical Profile", config: tacticalProfileConfig },
   ],
   relations: [
     { id: "equipment", label: "Equipment", config: equipmentConfig },
