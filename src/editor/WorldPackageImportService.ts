@@ -24,6 +24,8 @@ export type ConflictPolicy =
   | "MANUAL";
 
 export interface PackageManifest {
+  /** Formal package identity. packageKey remains the persisted registry field. */
+  id?: string;
   packageKey: string;
   name: string;
   version: string;
@@ -3306,9 +3308,15 @@ export class WorldPackageImportService {
           | undefined;
 
       if (row?.manifest_json) {
-        return JSON.parse(
+        const parsed = JSON.parse(
           row.manifest_json,
-        ) as PackageManifest;
+        ) as Partial<PackageManifest> & { id?: string };
+
+        return {
+          ...parsed,
+          id: parsed.packageKey ?? parsed.id ?? "",
+          packageKey: parsed.packageKey ?? parsed.id ?? "",
+        } as PackageManifest;
       }
     }
 
@@ -3350,7 +3358,8 @@ export class WorldPackageImportService {
     );
 
     const packageKey =
-      values.get("package_key");
+      values.get("package_key") ??
+      values.get("package_id");
     const name =
       values.get("package_name");
 
