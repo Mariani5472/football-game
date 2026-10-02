@@ -2,7 +2,7 @@ const API_BASE = import.meta.env.VITE_EDITOR_API_BASE ?? "http://127.0.0.1:4179/
 
 export type Scalar = string | number | boolean | null;
 export type EntityRow = Record<string, Scalar>;
-export type EntityKey = string | number;
+export type EntityKey = string | number | Record<string, Scalar>;
 
 export interface ListOptions {
   page?: number;
@@ -40,7 +40,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return body as T;
 }
 
-function queryString(options: ListOptions): string {
+function serializeEntityKey(id: EntityKey): string {\n  return typeof id === "object" ? JSON.stringify(id) : String(id);\n}\n\nfunction queryString(options: ListOptions): string {
   const params = new URLSearchParams();
   if (options.page !== undefined) params.set("page", String(options.page));
   if (options.pageSize !== undefined) params.set("pageSize", String(options.pageSize));
@@ -59,7 +59,7 @@ export const editorApi = {
   list: <T extends EntityRow = EntityRow>(table: string, options: ListOptions = {}) =>
     request<ListResult<T>>("/entities/" + encodeURIComponent(table) + queryString(options)),
   get: <T extends EntityRow = EntityRow>(table: string, id: EntityKey) =>
-    request<T | null>("/entities/" + encodeURIComponent(table) + "/" + encodeURIComponent(String(id))),
+    request<T | null>("/entities/" + encodeURIComponent(table) + "/" + encodeURIComponent(serializeEntityKey(id))),
   create: <T extends EntityRow = EntityRow>(table: string, values: Record<string, Scalar>) =>
     request<T>("/entities/" + encodeURIComponent(table), { method: "POST", body: JSON.stringify(values) }),
   update: <T extends EntityRow = EntityRow>(table: string, id: EntityKey, values: Record<string, Scalar>) =>
