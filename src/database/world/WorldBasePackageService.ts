@@ -135,7 +135,7 @@ const NATIONS: Array<[string, string, string]> = [
   ["Ethiopia", "ETH", "Eastern Africa"],
   ["South Africa", "RSA", "Southern Africa"],
   ["Zimbabwe", "ZIM", "Southern Africa"],
-] ;
+];
 
 const CONFEDERATIONS = [
   ["AFC", "Asian Football Confederation"],
@@ -229,6 +229,7 @@ const REFERENCE_LISTS = {
 export class WorldBasePackageService {
   static ensureInstalled(world: WorldDatabase, worldPath: string): void {
     const database = world.connection;
+    let packageFile: string;
     try {
       initializeWorldCompositionSchema(database);
 
@@ -238,7 +239,7 @@ export class WorldBasePackageService {
 
       if (existing) return;
 
-      const packageFile = path.resolve(
+      packageFile = path.resolve(
         path.dirname(worldPath),
         ".packages",
         "world.base.db",
@@ -308,6 +309,8 @@ export class WorldBasePackageService {
           "UPDATE database_metadata SET value=? WHERE key='world_dirty_reason'",
         )
         .run("PACKAGE_COMPOSITION");
+    } catch (err: unknown) {
+      throw new Error(err.message)
     }
 
     const importService = new WorldPackageImportService(world);
@@ -471,7 +474,7 @@ export class WorldBasePackageService {
       const insertWeekday = db.prepare(
         "INSERT INTO weekday(uuid,name,index_value,is_weekend) VALUES(?,?,?,?)",
       );
-      for (const [name,index,isWeekend] of REFERENCE_LISTS.weekdays) {
+      for (const [name, index, isWeekend] of REFERENCE_LISTS.weekdays) {
         insertWeekday.run(crypto.randomUUID(), name, index, isWeekend);
       }
 
@@ -485,7 +488,7 @@ export class WorldBasePackageService {
       const insertDevelopmentState = db.prepare(
         "INSERT INTO nation_development_state(uuid,name,index_value) VALUES(?,?,?)",
       );
-      for (const [index,name] of REFERENCE_LISTS.developmentStates.entries()) {
+      for (const [index, name] of REFERENCE_LISTS.developmentStates.entries()) {
         insertDevelopmentState.run(crypto.randomUUID(), name, index + 1);
       }
 
