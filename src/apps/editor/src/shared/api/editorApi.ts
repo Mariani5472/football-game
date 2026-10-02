@@ -1,4 +1,4 @@
-const API_BASE = import.meta.env.VITE_EDITOR_API_BASE ?? "http://127.0.0.1:4179/api";
+const API_BASE = import.meta.env.VITE_EDITOR_API_BASE ?? "http://localhost:4179/api";
 
 export type Scalar = string | number | boolean | null;
 export type EntityRow = Record<string, Scalar>;
@@ -130,9 +130,9 @@ export const editorApi = {
   ) =>
     request<T>(
       "/entities/" +
-        encodeURIComponent(table) +
-        "/" +
-        encodeURIComponent(serializeEntityKey(id)),
+      encodeURIComponent(table) +
+      "/" +
+      encodeURIComponent(serializeEntityKey(id)),
       {
         method: "PATCH",
         body: JSON.stringify(values),
@@ -141,9 +141,9 @@ export const editorApi = {
   templateRelations: (rootTable: string, rootKey: EntityKey) =>
     request<{ relations: TemplateRelationOption[] }>(
       "/templates/relations?rootTable=" +
-        encodeURIComponent(rootTable) +
-        "&rootKey=" +
-        encodeURIComponent(serializeEntityKey(rootKey)),
+      encodeURIComponent(rootTable) +
+      "&rootKey=" +
+      encodeURIComponent(serializeEntityKey(rootKey)),
     ),
   templates: () => request<{ templates: TemplateRecord[] }>("/templates"),
   createTemplate: (payload: {
@@ -195,9 +195,11 @@ export const editorApi = {
     blocked: boolean;
     issues: Array<{ severity: "ERROR" | "WARNING"; ruleKey: string; message: string }>;
   }>("/export/world-db", { method: "POST", body: JSON.stringify({ outputPath }) }),
-  runValidation: (profileId?: number) => request<{ issues: Array<{
-    id: string; ruleKey: string; severity: "ERROR" | "WARNING" | "INFO"; entityType: string; entityId?: string | number; message: string; details?: string;
-  }> }>(`/validation/run${profileId ? `?profile=${profileId}` : ""}`, { method: "POST" }),
+  runValidation: (profileId?: number) => request<{
+    issues: Array<{
+      id: string; ruleKey: string; severity: "ERROR" | "WARNING" | "INFO"; entityType: string; entityId?: string | number; message: string; details?: string;
+    }>
+  }>(`/validation/run${profileId ? `?profile=${profileId}` : ""}`, { method: "POST" }),
   setValidationProfileEnabled: (id: number, enabled: boolean) =>
     request<{ id: number; name: string; description: string | null; enabled: boolean }>(`/validation/profiles/${id}`, { method: "PATCH", body: JSON.stringify({ enabled }) }),
   setValidationRuleEnabled: (ruleKey: string, enabled: boolean) =>
@@ -206,9 +208,9 @@ export const editorApi = {
   remove: (table: string, id: EntityKey) =>
     request<{ deleted: boolean }>(
       "/entities/" +
-        encodeURIComponent(table) +
-        "/" +
-        encodeURIComponent(serializeEntityKey(id)),
+      encodeURIComponent(table) +
+      "/" +
+      encodeURIComponent(serializeEntityKey(id)),
       { method: "DELETE" },
     ),
 };

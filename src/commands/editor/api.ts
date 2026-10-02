@@ -13,8 +13,8 @@ const server = createEditorApiServer({
   port,
 });
 
-server.listen(port, "127.0.0.1", () => {
-  console.log(`Editor API listening on http://127.0.0.1:${port}`);
+server.listen(port, "localhost", () => {
+  console.log(`Editor API listening on http://localhost:${port}`);
   console.log(`World database: ${databasePath}`);
 });
 

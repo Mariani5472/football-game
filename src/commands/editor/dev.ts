@@ -12,14 +12,15 @@ const server = createEditorApiServer({
   port: 4179,
 });
 
-server.listen(4179, "127.0.0.1", () => {
-  console.log("[editor] API: http://127.0.0.1:4179/api");
+// 1. Alterado de '127.0.0.1' para 'localhost'
+server.listen(4179, "localhost", () => {
+  console.log("[editor] API: http://localhost:4179/api");
   console.log("[editor] World DB:", databasePath);
 
   const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm";
   const vite = spawn(
     npmCommand,
-    ["run", "dev", "--", "--host", "127.0.0.1"],
+    ["run", "dev", "--", "--host", "localhost"],
     {
       cwd: path.resolve(process.cwd(), "src/apps/editor"),
       stdio: "inherit",
