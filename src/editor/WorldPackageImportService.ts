@@ -3654,44 +3654,6 @@ function sha256Value(
     .digest("hex");
 }
 
-function compareVersions(
-  a: string,
-  b: string,
-): number {
-  const left =
-    a.split(".").map(
-      part =>
-        Number(part) || 0,
-    );
-  const right =
-    b.split(".").map(
-      part =>
-        Number(part) || 0,
-    );
-
-  const length = Math.max(
-    left.length,
-    right.length,
-  );
-
-  for (
-    let index = 0;
-    index < length;
-    index += 1
-  ) {
-    const l =
-      left[index] ?? 0;
-    const r =
-      right[index] ?? 0;
-
-    if (l !== r) {
-      return l > r ? 1 : -1;
-    }
-  }
-
-  return 0;
-}
-
 function parseJsonArray(
   value?: string,
 ): string[] {
