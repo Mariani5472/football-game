@@ -65,6 +65,8 @@ function renderRoute(route: EditorRoute) {
       return <CompetitionsPage />;
     case "fast-start":
       return <ComingSoon title="Fast Start" />;
+    case "fast-create":
+      return <ComingSoon title="Quick Create" />;
     case "validation":
       return <ComingSoon title="Validation" />;
     case "export":
@@ -74,10 +76,21 @@ function renderRoute(route: EditorRoute) {
 
 export default function App() {
   const [route, setRoute] = useState<EditorRoute>("dashboard");
+  const [quickCreateOpen, setQuickCreateOpen] = useState(false);
 
   return (
-    <EditorLayout activeRoute={route} onNavigate={setRoute}>
+    <EditorLayout
+      activeRoute={route}
+      onNavigate={nextRoute => {
+        setRoute(nextRoute);
+        if (nextRoute === "fast-create") setQuickCreateOpen(true);
+      }}
+    >
       {renderRoute(route)}
+      <QuickCreateModal
+        open={quickCreateOpen}
+        onClose={() => setQuickCreateOpen(false)}
+      />
     </EditorLayout>
   );
 }
