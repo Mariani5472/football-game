@@ -6,7 +6,6 @@ import { WorldDatabase } from "../database/world/WorldDatabase.js";
 import {
   generateUuid,
   IDENTITY_POLICIES,
-  type IdentityMatchMode,
 } from "../database/world/WorldIdentity.js";
 
 export type ConflictPolicy = "REPLACE" | "MERGE" | "KEEP_EXISTING" | "KEEP_INCOMING" | "MANUAL";
@@ -274,8 +273,11 @@ export class WorldPackageImportService {
       id = Number(result.lastInsertRowid);
     }
 
-    const nextOrder = Number((this.world.connection.prepare("SELECT COALESCE(MAX(load_order),0)+1 AS value FROM world_package_load_order").get() as { value: number }).value);
-    this.world.connection.prepare("INSERT INTO world_package_load_order(package_id,load_order) VALUES(?,?) ON CONFLICT(package_id) DO UPDATE SET load_order=excluded.load_order").run(id, nextOrder);
+    const existingOrder = this.world.connection.prepare("SELECT load_order AS value FROM world_package_load_order WHERE package_id=?").get(id) as { value:number } | undefined;
+    if (!existingOrder) {
+      const nextOrder = Number((this.world.connection.prepare("SELECT COALESCE(MAX(load_order),0)+1 AS value FROM world_package_load_order").get() as { value: number }).value);
+      this.world.connection.prepare("INSERT INTO world_package_load_order(package_id,load_order) VALUES(?,?)").run(id, nextOrder);
+    }
 
     this.world.connection.prepare("DELETE FROM world_package_provides WHERE package_id=?").run(id);
     for (const item of manifest.provides ?? []) this.world.connection.prepare("INSERT INTO world_package_provides(package_id,provide_key) VALUES(?,?)").run(id, item);
@@ -302,7 +304,7 @@ export class WorldPackageImportService {
   private listIncomingTables(db: DatabaseConnection.Database): TableInfo[] {
     return (db.prepare(`SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name NOT IN ('database_metadata','package_manifest','world_package','world_package_load_order','world_package_provides','world_package_dependency','world_package_conflict','world_entity_identity','world_entity_provenance','world_attribute_provenance','world_import_session','world_import_id_map','world_import_conflict') ORDER BY name`).all() as Array<{ name: string }>).map(({name}) => {
       const columns = db.prepare(`PRAGMA table_info("${quote(name)}")`).all() as Array<{ name: string }>;
-      const primaryKey = db.prepare(`PRAGMA table_info("${quote(name)}")`).all().filter((x: any)=>x.pk).sort((a:any,b:any)=>a.pk-b.pk).map((x:any)=>x.name);
+      const primaryKey = columns.filter((x: any) => x.pk).sort((a:any,b:any) => a.pk-b.pk).map((x:any) => x.name);
       return { name, columns, primaryKey };
     });
   }
@@ -349,13 +351,6 @@ export class WorldPackageImportService {
     const current = this.world.connection.prepare(`SELECT * FROM "${quote(tableName)}" WHERE id=? LIMIT 1`).get(worldId) as Record<string, unknown> | undefined;
     if (!current) return false;
     return Object.entries(incoming).some(([column, value]) => column !== "id" && !["created_at","updated_at"].includes(column) && String(current[column] ?? "") !== String(value ?? ""));
-  }
-
-  private translatedValue(value: unknown, map: Map<string, number>, tableName: string): unknown {
-    if (typeof value !== "number") return value;
-    const policy = IDENTITY_POLICIES[tableName];
-    if (!policy) return value;
-    return map.get(`${tableName}:${value}`) ?? value;
   }
 
   private buildValues(tableName: string, row: Record<string, unknown>, map: Map<string, number>): Record<string, unknown> {
