@@ -364,6 +364,12 @@ export class WorldPackageService {
       );
     }
 
+    if (current.packageType === "BASE" || current.packageKey === "world.base") {
+      if (enabled === false) {
+        throw new Error("Base World package cannot be disabled.");
+      }
+    }
+
     if (enabled) {
       const identity = validatePackageIdentity(
         this.database,
@@ -416,6 +422,10 @@ export class WorldPackageService {
   }
 
   removePackage(id: number): boolean {
+    const packageItem = this.getPackage(id);
+    if (packageItem.packageType === "BASE" || packageItem.packageKey === "world.base") {
+      throw new Error("Base World package cannot be removed.");
+    }
     const packageRow =
       this.getPackage(id);
 
