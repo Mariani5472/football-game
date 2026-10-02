@@ -88,7 +88,7 @@ export default function App() {
   const [quickCreateOpen, setQuickCreateOpen] = useState(false);
   useEffect(() => {
     const handleEntityNavigation = (event: Event) => {
-      const detail = (event as CustomEvent<{ table?: string }>).detail;
+      const detail = (event as CustomEvent<{ table?: string; id?: string | number }>).detail;
       const routeByTable: Record<string, EditorRoute> = {
         team: "clubs",
         club: "clubs",
@@ -104,6 +104,15 @@ export default function App() {
       };
       const next = detail.table ? routeByTable[detail.table] : undefined;
       if (next) setRoute(next);
+
+      if (detail.table && detail.id != null) {
+        const key = `${detail.table}:${detail.id}`;
+        const stored = JSON.parse(localStorage.getItem("football-editor-recent") ?? "[]") as string[];
+        localStorage.setItem(
+          "football-editor-recent",
+          JSON.stringify([key, ...stored.filter(item => item !== key)].slice(0, 12)),
+        );
+      }
     };
 
     window.addEventListener("editor:navigate-entity", handleEntityNavigation);
