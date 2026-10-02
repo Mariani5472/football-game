@@ -154,6 +154,65 @@ export function createEditorApiServer(options: EditorApiServerOptions): http.Ser
         return;
       }
 
+      if (parts[1] === "validation") {
+        if (request.method === "GET" && parts[2] === "profiles") {
+          jsonResponse(response, 200, { profiles: service.validationProfiles() });
+          return;
+        }
+        if (request.method === "POST" && parts[2] === "run") {
+          const url = new URL(request.url ?? "/", "http://localhost");
+          const profile = url.searchParams.get("profile");
+          jsonResponse(response, 200, { issues: service.validate(profile ? Number(profile) : undefined) });
+          return;
+        }
+        if (request.method === "PATCH" && parts[2] === "profiles" && parts[3]) {
+          const body = (await readBody(request)) as { enabled?: boolean };
+          jsonResponse(response, 200, service.setValidationProfileEnabled(Number(parts[3]), body.enabled !== false));
+          return;
+        }
+        if (request.method === "PATCH" && parts[2] === "rules" && parts[3]) {
+          const body = (await readBody(request)) as { enabled?: boolean };
+          service.setValidationRuleEnabled(parts[3], body.enabled !== false);
+          jsonResponse(response, 200, { ok: true });
+          return;
+        }
+      }
+
+      if (parts[1] === "domain") {
+        if (request.method === "POST" && parts[2] === "transfer") {
+          jsonResponse(response, 201, service.createTransfer(await readBody(request) as Parameters<WorldEditorService["createTransfer"]>[0]));
+          return;
+        }
+        if (request.method === "POST" && parts[2] === "contract") {
+          jsonResponse(response, 201, service.createContract(await readBody(request) as Parameters<WorldEditorService["createContract"]>[0]));
+          return;
+        }
+        if (request.method === "POST" && parts[2] === "finance") {
+          jsonResponse(response, 200, service.saveClubFinance(await readBody(request) as Parameters<WorldEditorService["saveClubFinance"]>[0]));
+          return;
+        }
+        if (request.method === "POST" && parts[2] === "history") {
+          jsonResponse(response, 201, service.createCompetitionHistory(await readBody(request) as Parameters<WorldEditorService["createCompetitionHistory"]>[0]));
+          return;
+        }
+        if (request.method === "POST" && parts[2] === "award-history") {
+          jsonResponse(response, 201, service.createAwardHistory(await readBody(request) as Parameters<WorldEditorService["createAwardHistory"]>[0]));
+          return;
+        }
+        if (request.method === "POST" && parts[2] === "press-source") {
+          jsonResponse(response, 201, service.createPressSource(await readBody(request) as Parameters<WorldEditorService["createPressSource"]>[0]));
+          return;
+        }
+        if (request.method === "POST" && parts[2] === "climate-profile") {
+          jsonResponse(response, 201, service.createClimateProfile(await readBody(request) as Parameters<WorldEditorService["createClimateProfile"]>[0]));
+          return;
+        }
+        if (request.method === "POST" && parts[2] === "nationality-rule") {
+          jsonResponse(response, 201, service.createNationalityRule(await readBody(request) as Parameters<WorldEditorService["createNationalityRule"]>[0]));
+          return;
+        }
+      }
+
       if (parts[1] === "entities" && parts[2]) {
         const table = parts[2];
         const id = parts[3];
