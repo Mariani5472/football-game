@@ -162,6 +162,45 @@ async function createComposite(
     home_away_balanced: 1,
   });
 
+  if (toNumber(values.turns, 2) > 0) {
+    const participants = teamIds;
+    const roundsPerLeg = participants.length % 2 === 0
+      ? participants.length - 1
+      : participants.length;
+    let roundNumber = 0;
+
+    for (let leg = 0; leg < toNumber(values.turns, 2); leg++) {
+      for (let round = 0; round < roundsPerLeg; round++) {
+        const createdRound = await editorApi.create("competition_round", {
+          stage_id: stageId,
+          round_number: ++roundNumber,
+          name: `Round ${roundNumber}`,
+        });
+
+        if (participants.length < 2) continue;
+
+        const rotation = [...participants];
+        const fixed = rotation.shift()!;
+        const slots = [fixed, ...rotation];
+
+        for (let pair = 0; pair < Math.floor(slots.length / 2); pair++) {
+          const home = slots[pair];
+          const away = slots[slots.length - 1 - pair];
+          if (home == null || away == null || home === away) continue;
+
+          const direction = (round + leg) % 2 === 0;
+          await editorApi.create("fixture", {
+            round_id: Number(createdRound.id),
+            home_team_id: direction ? home : away,
+            away_team_id: direction ? away : home,
+          });
+        }
+
+        rotation.unshift(rotation.pop()!);
+      }
+    }
+  }
+
   return `Competition #${competitionId} → Season #${seasonId} → Stage #${stageId} → Rules → Schedule`;
 }
 
