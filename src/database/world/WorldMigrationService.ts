@@ -30,6 +30,15 @@ const IDENTITY_TABLES = [
   "stadium",
   "competition",
   "person",
+  "nationality_method",
+  "nation_development_state",
+  "gender",
+  "weekday",
+  "club_status",
+  "competition_type",
+  "competition_stage_type",
+  "pitch_type",
+  "stadium_owner_type",
 ] as const;
 
 const MIGRATIONS: WorldMigration[] = [
