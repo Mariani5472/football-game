@@ -126,6 +126,15 @@ export function createEditorApiServer(options: EditorApiServerOptions): http.Ser
           return;
         }
 
+        if (request.method === "POST" && parts[2] === "packages" && parts[3] === "upload") {
+          const body = await readBody(request) as { fileName?: string; contentBase64?: string };
+          if (!body.fileName || !body.contentBase64) {
+            throw new Error("fileName and contentBase64 are required.");
+          }
+          jsonResponse(response, 201, service.uploadPackage(body.fileName, body.contentBase64));
+          return;
+        }
+
         if (request.method === "POST" && parts[2] === "packages" && parts[3] === "inspect") {
           const body = await readBody(request) as { sourceFile?: string };
           if (!body.sourceFile) throw new Error("sourceFile is required.");
