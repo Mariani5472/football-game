@@ -22,9 +22,8 @@ export function NationalityPage() {
           <Field label="Tipo de tratamento" value={nationality.treatmentType} onChange={v=>setNationality({...nationality,treatmentType:v})} />
           <label className="flex items-center gap-2 text-xs text-slate-400"><input type="checkbox" checked={nationality.cumulative} onChange={e=>setNationality({...nationality,cumulative:e.target.checked})}/> Regra cumulativa</label>
           <button onClick={() => void submit(() => editorApi.create("nationality_method",{name:nationality.ruleType}))} className="rounded-lg border border-white/10 px-4 py-2 text-sm text-slate-300">Salvar método de nacionalidade</button>
-          <button onClick={() => void submit(() => editorApi.domainNationalityRule({nationId:id(nationality.nation)!,ruleType:nationality.ruleType,value:id(nationality.value),requiredNationId:id(nationality.requiredNation),cumulative:nationality.cumulative,eligibility:{minimumAge:id(nationality.minAge),maximumAge:id(nationality.maxAge),yearsRequired:id(nationality.years),matchesRequired:id(nationality.matches)},treatment:nationality.treatmentNation?{targetNationId:id(nationality.treatmentNation)!,treatmentType:nationality.treatmentType,value:id(nationality.treatmentValue)}:undefined}))} className="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-medium text-slate-950">Salvar regra de nacionalidade</button>
+          <button onClick={() => void submit(() => editorApi.domainNationalityRule({nationId:toId(nationality.nation)!,ruleType:nationality.ruleType,value:toId(nationality.value),requiredNationId:toId(nationality.requiredNation),cumulative:nationality.cumulative,eligibility:{minimumAge:toId(nationality.minAge),maximumAge:toId(nationality.maxAge),yearsRequired:toId(nationality.years),matchesRequired:toId(nationality.matches)},treatment:nationality.treatmentNation?{targetNationId:toId(nationality.treatmentNation)!,treatmentType:nationality.treatmentType,value:toId(nationality.treatmentValue)}:undefined}))} className="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-medium text-slate-950">Salvar regra de nacionalidade</button>
         </Card>
-      )}
     </div>
   );
 }
