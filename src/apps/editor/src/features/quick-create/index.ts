@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { editorApi, type Scalar } from "../../shared/api/editorApi";
 
 export type QuickCreatePreset =
@@ -212,12 +212,26 @@ function defaults(fields: string[]): Record<string, Scalar> {
   return Object.fromEntries(fields.map(field => [field, null]));
 }
 
-export function QuickCreateModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+export function QuickCreateModal({
+  open,
+  onClose,
+  initialPreset,
+}: {
+  open: boolean;
+  onClose: () => void;
+  initialPreset?: QuickCreatePreset;
+}) {
   const [selected, setSelected] = useState<Preset | null>(null);
   const [values, setValues] = useState<Record<string, Scalar>>({});
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!open || !initialPreset) return;
+    const item = presets.find(preset => preset.id === initialPreset);
+    if (item) choose(item);
+  }, [open, initialPreset]);
 
   if (!open) return null;
 
