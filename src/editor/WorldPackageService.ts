@@ -3,8 +3,9 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { WorldDatabase } from "../database/world/WorldDatabase.js";
+import { WorldPackageImportService } from "./WorldPackageImportService.js";
 
-export type WorldPackageStatus = "ACTIVE" | "CONFLICT" | "ERROR";
+export type WorldPackageStatus = "ACTIVE" | "CONFLICT" | "ERROR" | "DISABLED";
 
 export interface WorldPackageRecord {
   id: number;
