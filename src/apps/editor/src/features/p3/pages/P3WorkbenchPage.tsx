@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { ArrowRightLeft, Banknote, CloudSun, History, Newspaper, ShieldCheck } from "lucide-react";
 import { editorApi } from "../../../shared/api/editorApi";
 
@@ -264,7 +264,7 @@ export function P3WorkbenchPage() {
   );
 }
 
-function Card({ title, description, children }: { title: string; description: string; children: React.ReactNode }) {
+function Card({ title, description, children }: { title: string; description: string; children: ReactNode }) {
   return (
     <section className="rounded-2xl border border-white/10 bg-white/[0.02] p-6">
       <h2 className="font-semibold text-white">{title}</h2>
