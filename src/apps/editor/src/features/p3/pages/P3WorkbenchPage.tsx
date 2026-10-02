@@ -78,7 +78,14 @@ export function P3WorkbenchPage() {
     setMessage(null); setError(null);
     try {
       await action();
-      setMessage("Regra salva com sucesso.");
+      const validation = await editorApi.runValidation();
+      const errors = validation.issues.filter(issue => issue.severity === "ERROR").length;
+      const warnings = validation.issues.filter(issue => issue.severity === "WARNING").length;
+      setMessage(
+        errors
+          ? `Regra salva, mas a base agora possui ${errors} erro(s) e ${warnings} warning(s). Revise a validação antes de exportar.`
+          : `Regra salva e validação concluída: ${warnings} warning(s).`,
+      );
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause));
     }
