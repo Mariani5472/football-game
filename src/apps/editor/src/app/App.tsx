@@ -15,6 +15,7 @@ import { StadiumsPage } from "../features/stadiums/pages";
 import {
   CitiesPage,
   ClimatesPage,
+  ConfederationsPage,
   ContinentsPage,
   CountriesPage,
   GeographyPage,
@@ -46,6 +47,8 @@ function renderRoute(route: EditorRoute) {
       return <ReferenceDataPage />;
     case "continents":
       return <ContinentsPage />;
+    case "confederations":
+      return <ConfederationsPage />;
     case "countries":
       return <CountriesPage />;
     case "regions":
