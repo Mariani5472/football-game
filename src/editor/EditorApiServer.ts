@@ -90,6 +90,70 @@ export function createEditorApiServer(options: EditorApiServerOptions): http.Ser
         return;
       }
 
+      if (parts[1] === "templates") {
+        if (request.method === "GET" && parts[2] === undefined) {
+          jsonResponse(response, 200, { templates: service.listTemplates() });
+          return;
+        }
+
+        if (request.method === "GET" && parts[2] === "relations") {
+          const url = new URL(request.url ?? "/", "http://localhost");
+          const rootTable = url.searchParams.get("rootTable");
+          const rawKey = url.searchParams.get("rootKey");
+          if (!rootTable || rawKey === null) throw new Error("rootTable and rootKey are required.");
+          jsonResponse(response, 200, {
+            relations: service.templateRelations(rootTable, parseEntityKey(rawKey)),
+          });
+          return;
+        }
+
+        if (request.method === "POST" && parts[2] === undefined) {
+          const body = (await readBody(request)) as {
+            name?: string;
+            rootTable?: string;
+            rootKey?: SqlKey;
+            relations?: string[];
+          };
+          if (!body.name || !body.rootTable || body.rootKey === undefined) {
+            throw new Error("name, rootTable and rootKey are required.");
+          }
+          jsonResponse(response, 201, service.createTemplate(
+            body.name,
+            body.rootTable,
+            body.rootKey,
+            Array.isArray(body.relations) ? body.relations : [],
+          ));
+          return;
+        }
+
+        if (parts[2] && request.method === "POST" && parts[3] === "duplicate") {
+          jsonResponse(response, 201, service.duplicateFromTemplate(Number(parts[2])));
+          return;
+        }
+
+        if (parts[2] && request.method === "DELETE" && parts[3] === undefined) {
+          jsonResponse(response, 200, { deleted: service.deleteTemplate(Number(parts[2])) });
+          return;
+        }
+      }
+
+      if (parts[1] === "duplicate" && request.method === "POST") {
+        const body = (await readBody(request)) as {
+          rootTable?: string;
+          rootKey?: SqlKey;
+          relations?: string[];
+        };
+        if (!body.rootTable || body.rootKey === undefined) {
+          throw new Error("rootTable and rootKey are required.");
+        }
+        jsonResponse(response, 201, service.duplicateFromSource(
+          body.rootTable,
+          body.rootKey,
+          Array.isArray(body.relations) ? body.relations : [],
+        ));
+        return;
+      }
+
       if (parts[1] === "entities" && parts[2]) {
         const table = parts[2];
         const id = parts[3];
