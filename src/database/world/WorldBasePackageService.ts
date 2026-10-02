@@ -427,7 +427,7 @@ export class WorldBasePackageService {
         "INSERT INTO currency(uuid,name,exchange_rate) VALUES(?,?,?)",
       );
       for (const [name, code] of CURRENCIES) {
-        const result = insertCurrency.run(crypto.randomUUID(), name, 1);
+        const result = insertCurrency.run(crypto.randomUUID(), name, null);
         currencyByName.set(code, Number(result.lastInsertRowid));
       }
 
