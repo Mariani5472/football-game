@@ -248,46 +248,44 @@ export class WorldPackageImportService {
           }
 
           let effectiveWorldKey = resolved.worldKey;
+          const translated = this.tryBuildTranslatedRow(
+            table,
+            row,
+            mapping,
+            tableInfos,
+          );
 
-          if (!effectiveWorldKey) {
-            const translated = this.tryBuildTranslatedRow(
-              table,
-              row,
-              mapping,
-              tableInfos,
-            );
-
-            if (translated) {
-              effectiveWorldKey = this.findExistingByUnique(
+          if (!effectiveWorldKey && translated) {
+            effectiveWorldKey =
+              this.findExistingByUnique(
                 table,
                 translated,
               );
+          }
 
-              if (effectiveWorldKey) {
-                const changes = this.findRowChanges(
-                  table,
-                  effectiveWorldKey,
-                  translated,
-                );
+          if (effectiveWorldKey && translated) {
+            const changes = this.findRowChanges(
+              table,
+              effectiveWorldKey,
+              translated,
+            );
 
-                for (const change of changes) {
-                  conflicts += 1;
-                  this.recordConflict(
-                    sessionId,
-                    packageId,
-                    table,
-                    row,
-                    effectiveWorldKey,
-                    toNumberOrNull(
-                      effectiveWorldKey[table.primaryKey[0]],
-                    ),
-                    "ATTRIBUTE",
-                    change.column,
-                    change.existingValue,
-                    change.incomingValue,
-                  );
-                }
-              }
+            for (const change of changes) {
+              conflicts += 1;
+              this.recordConflict(
+                sessionId,
+                packageId,
+                table,
+                row,
+                effectiveWorldKey,
+                toNumberOrNull(
+                  effectiveWorldKey[table.primaryKey[0]],
+                ),
+                "ATTRIBUTE",
+                change.column,
+                change.existingValue,
+                change.incomingValue,
+              );
             }
           }
 
