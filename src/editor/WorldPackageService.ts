@@ -21,6 +21,13 @@ export interface WorldPackageRecord {
   schemaVersion: number;
   importedAt: string;
   updatedAt: string;
+  packageType: string;
+  priority: number;
+  enabled: boolean;
+  loadOrder: number | null;
+  provides: string[];
+  dependencies: Array<{ key: string; minVersion: string | null }>;
+  conflicts: string[];
 }
 
 export interface RegisterWorldPackageInput {
@@ -72,7 +79,9 @@ export class WorldPackageService {
              source_file AS sourceFile, source_sha256 AS sourceSha256,
              categories_json AS categoriesJson, description,
              schema_version AS schemaVersion, imported_at AS importedAt,
-             updated_at AS updatedAt
+             updated_at AS updatedAt,
+             package_type AS packageType, priority, enabled,
+             (SELECT load_order FROM world_package_load_order WHERE package_id = world_package.id) AS loadOrder
       FROM world_package
       ORDER BY imported_at ASC, id ASC
     `).all() as Array<Record<string, unknown>>;
@@ -91,6 +100,13 @@ export class WorldPackageService {
       schemaVersion: Number(row.schemaVersion ?? 0),
       importedAt: String(row.importedAt),
       updatedAt: String(row.updatedAt),
+      packageType: String(row.packageType ?? "CONTENT"),
+      priority: Number(row.priority ?? 100),
+      enabled: Number(row.enabled ?? 1) === 1,
+      loadOrder: row.loadOrder == null ? null : Number(row.loadOrder),
+      provides: this.listProvides(Number(row.id)),
+      dependencies: this.listDependencies(Number(row.id)),
+      conflicts: this.listConflicts(Number(row.id)),
     }));
   }
 
@@ -104,8 +120,8 @@ export class WorldPackageService {
     this.database.connection.prepare(`
       INSERT INTO world_package (
         package_key, name, version, status, icon, source_file, source_sha256,
-        categories_json, description, schema_version, imported_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        categories_json, description, package_type, priority, schema_version, installed_at, updated_at, enabled
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       packageKey,
       name,
@@ -116,9 +132,12 @@ export class WorldPackageService {
       input.sourceSha256 ?? null,
       JSON.stringify(input.categories ?? []),
       input.description ?? null,
+      "CONTENT",
+      100,
       Number(this.database.metadata("schema_version") ?? 0),
       now,
       now,
+      1,
     );
 
     return this.listPackages().find(item => item.packageKey === packageKey)!;
@@ -126,6 +145,19 @@ export class WorldPackageService {
 
   removePackage(id: number): boolean {
     return this.database.connection.prepare("DELETE FROM world_package WHERE id = ?").run(id).changes > 0;
+  }
+
+  inspectPackage(sourceFile: string) { return new WorldPackageImportService(this.database).inspect(sourceFile); }
+  importPackage(sessionId: number, resolutions: Record<string, "REPLACE"|"MERGE"|"KEEP_EXISTING"|"KEEP_INCOMING"|"MANUAL"> = {}) { return new WorldPackageImportService(this.database).import(sessionId, resolutions); }
+
+  private listProvides(packageId: number): string[] {
+    return (this.database.connection.prepare("SELECT provide_key AS value FROM world_package_provides WHERE package_id=? ORDER BY provide_key").all(packageId) as Array<{ value:string }>).map(row => row.value);
+  }
+  private listDependencies(packageId: number) {
+    return this.database.connection.prepare("SELECT dependency_key AS key, min_version AS minVersion FROM world_package_dependency WHERE package_id=? ORDER BY dependency_key").all(packageId) as Array<{ key:string; minVersion:string|null }>;
+  }
+  private listConflicts(packageId: number): string[] {
+    return (this.database.connection.prepare("SELECT conflict_key AS value FROM world_package_conflict WHERE package_id=? ORDER BY conflict_key").all(packageId) as Array<{ value:string }>).map(row => row.value);
   }
 
   private ensurePackageRegistry(): void {
