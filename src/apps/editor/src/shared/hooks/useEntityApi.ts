@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { editorApi, type EntityRow, type ListOptions, type ListResult } from "../api/editorApi";
+import { editorApi, type EntityKey, type EntityRow, type ListOptions, type ListResult } from "../api/editorApi";
 
 export function useEntityQuery<T extends EntityRow = EntityRow>(table: string, options: ListOptions = {}) {
   const [result, setResult] = useState<ListResult<T>>({
@@ -37,8 +37,8 @@ export function useEntityMutation(table: string) {
 
   return {
     create: (values: Record<string, string | number | boolean | null>) => run(() => editorApi.create(table, values)),
-    update: (id: string | number, values: Record<string, string | number | boolean | null>) => run(() => editorApi.update(table, id, values)),
-    remove: (id: string | number) => run(() => editorApi.remove(table, id)),
+    update: (id: EntityKey, values: Record<string, string | number | boolean | null>) => run(() => editorApi.update(table, id, values)),
+    remove: (id: EntityKey) => run(() => editorApi.remove(table, id)),
     loading,
     error,
   };
