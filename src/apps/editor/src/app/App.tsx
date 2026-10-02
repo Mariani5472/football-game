@@ -7,6 +7,8 @@ import { DashboardPage } from "../features/dashboard/pages/DashboardPage";
 import { PeoplePage } from "../features/people/pages";
 import { PlayersPage } from "../features/players/pages";
 import { TeamsPage } from "../features/teams/pages";
+import { TemplatesPage } from "../features/templates/pages/TemplatesPage";
+import { QuickCreateModal } from "../features/quick-create";
 import { StadiumsPage } from "../features/stadiums/pages";
 import {
   CitiesPage,
@@ -64,6 +66,8 @@ function renderRoute(route: EditorRoute) {
       return <FormationsPage />;
     case "competitions":
       return <CompetitionsPage />;
+    case "templates":
+      return <TemplatesPage />;
     case "fast-start":
       return <ComingSoon title="Fast Start" />;
     case "fast-create":

@@ -13,6 +13,24 @@ export interface ListOptions {
   orderDirection?: "ASC" | "DESC";
 }
 
+export interface TemplateRelationOption {
+  table: string;
+  depth: number;
+  required: boolean;
+  direction: "parent" | "child" | "related";
+}
+
+export interface TemplateRecord {
+  id: number;
+  name: string;
+  rootTable: string;
+  sourceKey: EntityKey;
+  relations: string[];
+  rowCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface ListResult<T extends EntityRow = EntityRow> {
   rows: T[];
   total: number;
@@ -84,6 +102,40 @@ export const editorApi = {
         body: JSON.stringify(values),
       },
     ),
+  templateRelations: (rootTable: string, rootKey: EntityKey) =>
+    request<{ relations: TemplateRelationOption[] }>(
+      "/templates/relations?rootTable=" +
+        encodeURIComponent(rootTable) +
+        "&rootKey=" +
+        encodeURIComponent(serializeEntityKey(rootKey)),
+    ),
+  templates: () => request<{ templates: TemplateRecord[] }>("/templates"),
+  createTemplate: (payload: {
+    name: string;
+    rootTable: string;
+    rootKey: EntityKey;
+    relations: string[];
+  }) =>
+    request<TemplateRecord>("/templates", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  duplicate: (payload: {
+    rootTable: string;
+    rootKey: EntityKey;
+    relations: string[];
+  }) =>
+    request<{ rootTable: string; oldKey: EntityKey; newKey: EntityKey; rowsCreated: number }>(
+      "/duplicate",
+      { method: "POST", body: JSON.stringify(payload) },
+    ),
+  duplicateTemplate: (id: number) =>
+    request<{ rootTable: string; oldKey: EntityKey; newKey: EntityKey; rowsCreated: number }>(
+      "/templates/" + id + "/duplicate",
+      { method: "POST" },
+    ),
+  deleteTemplate: (id: number) =>
+    request<{ deleted: boolean }>("/templates/" + id, { method: "DELETE" }),
   remove: (table: string, id: EntityKey) =>
     request<{ deleted: boolean }>(
       "/entities/" +

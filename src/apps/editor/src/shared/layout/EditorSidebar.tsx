@@ -14,6 +14,7 @@ import {
   UsersRound,
   Wrench,
   Plus,
+  Copy,
 } from "lucide-react";
 
 import type { EditorRoute } from "../../app/routes";
@@ -56,6 +57,7 @@ const tacticsItems: NavItem[] = [
 ];
 
 const toolItems: NavItem[] = [
+  { id: "templates", label: "Templates", icon: Copy },
   { id: "fast-start", label: "Fast Start", icon: CircleDot },
   { id: "validation", label: "Validation", icon: CheckCircle2 },
   { id: "export", label: "Export", icon: Database },
