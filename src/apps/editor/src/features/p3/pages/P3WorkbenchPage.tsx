@@ -325,6 +325,7 @@ export function P3WorkbenchPage() {
       {tab === "nationality" && (
         <Card title="Regra de nacionalidade e elegibilidade" description="Modele residência, idade, partidas, dupla nacionalidade e tratamento entre nações.">
           <Field label="Nação" value={nationality.nation} onChange={v=>setNationality({...nationality,nation:v})} />
+          <Field label="Método de aquisição de nacionalidade" value={nationality.ruleType} onChange={v=>setNationality({...nationality,ruleType:v})} />
           <Field label="Tipo da regra" value={nationality.ruleType} onChange={v=>setNationality({...nationality,ruleType:v})} />
           <Field label="Valor principal" type="number" value={nationality.value} onChange={v=>setNationality({...nationality,value:v})} />
           <Field label="Nação exigida" value={nationality.requiredNation} onChange={v=>setNationality({...nationality,requiredNation:v})} />
