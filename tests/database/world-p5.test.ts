@@ -8,6 +8,7 @@ import { describe, expect, it } from "vitest";
 
 import { WorldDatabase } from "../../src/database/world/WorldDatabase.js";
 import { WorldPackageImportService } from "../../src/editor/WorldPackageImportService.js";
+import { WorldEditorService } from "../../src/editor/WorldEditorService.js";
 import { WorldPackageService } from "../../src/editor/WorldPackageService.js";
 
 function tempDir() {
@@ -165,27 +166,27 @@ describe("P5 world composition", () => {
     const dir = tempDir();
     const worldPath = path.join(dir, "world.db");
 
-    const world = WorldDatabase.create(worldPath);
-    world.create("nation", {
+    const editor = new WorldEditorService({
+      filePath: worldPath,
+      createIfMissing: true,
+    });
+    const database = (editor as unknown as { database: WorldDatabase }).database;
+    editor.create("nation", {
       name: "Brazil",
       short_name: "BRA",
     });
 
-    expect(
-      new WorldPackageService(world).rebuild,
-    ).toBeTypeOf("function");
-
     expect(() =>
-      new WorldPackageService(world).rebuild(),
+      editor.rebuildWorld(),
     ).toThrow(/direct editor changes/i);
 
     expect(
-      (world.connection
+      (database.connection
         .prepare("SELECT COUNT(*) AS count FROM nation")
         .get() as { count: number }).count,
     ).toBe(1);
 
-    world.close();
+    editor.close();
   });
 
   it("imports package content with UUID identity and remaps foreign keys", () => {
