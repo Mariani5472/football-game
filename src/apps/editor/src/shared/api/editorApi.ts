@@ -189,6 +189,11 @@ export const editorApi = {
   removePackage: (id: number) => request<{ deleted: boolean }>(`/world/packages/${id}`, { method: "DELETE" }),
   updatePackage: (id: number, payload: { enabled?: boolean; priority?: number; loadOrder?: number }) =>
     request<WorldPackageRecord>(`/world/packages/${id}`, { method: "PATCH", body: JSON.stringify(payload) }),
+  uploadPackage: (fileName: string, contentBase64: string) =>
+    request<{ sourceFile: string; fileName: string; sizeBytes: number; sha256: string }>(
+      "/world/packages/upload",
+      { method: "POST", body: JSON.stringify({ fileName, contentBase64 }) },
+    ),
   inspectPackage: (sourceFile: string) =>
     request<ImportPreview>(
       "/world/packages/inspect",
