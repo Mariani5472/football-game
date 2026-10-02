@@ -13,6 +13,7 @@ export type EditorRoute =
   | "clubs"
   | "stadiums"
   | "formations"
+  | "fast-create"
   | "competitions"
   | "fast-start"
   | "validation"
