@@ -101,11 +101,11 @@ export class WorldDatabase extends Database {
     const schemaId = this.metadata("schema_id");
 
     if (packageVersion == null) {
-      this.setMetadata("package_version", "0.3.0");
+      this.setMetadata("package_version", "0.4.0");
     }
 
     if (schemaId == null) {
-      this.setMetadata("schema_id", "world-v3");
+      this.setMetadata("schema_id", "world-v4");
     }
 
     if (this.metadata("world_name") == null) {
