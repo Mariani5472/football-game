@@ -12,6 +12,7 @@ import {
 import { SchemaRunner } from "../SchemaRunner.js";
 import { WorldMigrationService } from "./WorldMigrationService.js";
 import { initializeWorldCompositionSchema } from "./WorldCompositionSchema.js";
+import { initializeWorldCompositionSchema } from "./WorldCompositionSchema.js";
 
 export interface WorldListOptions extends ListOptions {
   searchColumns?: string[];
@@ -29,7 +30,7 @@ export class WorldDatabase extends Database {
     const database = new WorldDatabase(new DatabaseConnection(filePath));
     database.initialize();
     database.initializeEditorTemplates();
-    database.initializeEditorWorkspace();
+    database.initializeWorldComposition();
     return database;
   }
 
@@ -69,6 +70,10 @@ export class WorldDatabase extends Database {
 
   deleteEntity(table: string, id: SqlValue): boolean {
     return this.delete(table, id);
+  }
+
+  private initializeWorldComposition(): void {
+    initializeWorldCompositionSchema(this.connection);
   }
 
   private initializeWorldComposition(): void {
