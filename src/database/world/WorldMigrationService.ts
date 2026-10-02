@@ -1,6 +1,6 @@
 import { WorldDatabase } from "./WorldDatabase.js";
 
-export const WORLD_SCHEMA_VERSION = 2;
+export const WORLD_SCHEMA_VERSION = 3;
 
 export interface WorldMigration {
   from: number;
@@ -9,12 +9,32 @@ export interface WorldMigration {
   migrate: (database: WorldDatabase) => void;
 }
 
-/*
- * Migrations are deliberately explicit. The current world schema is v2, so
- * v1 databases without a supported structural migration are rejected instead
- * of being silently opened against a newer schema.
- */
-const MIGRATIONS: WorldMigration[] = [];
+const MIGRATIONS: WorldMigration[] = [
+  {
+    from: 2,
+    to: 3,
+    name: "p5-world-composition",
+    migrate: database => {
+      const personColumns = database.connection
+        .prepare(`PRAGMA table_info("person")`)
+        .all() as Array<{ name: string }>;
+
+      if (!personColumns.some(column => column.name === "uuid")) {
+        database.connection.exec('ALTER TABLE person ADD COLUMN uuid TEXT');
+      }
+
+      database.connection.exec(`
+        UPDATE person
+        SET uuid = lower(hex(randomblob(16)))
+        WHERE uuid IS NULL OR uuid = '';
+      `);
+
+      database.connection.exec(`
+        CREATE UNIQUE INDEX IF NOT EXISTS ux_person_uuid ON person(uuid);
+      `);
+    },
+  },
+];
 
 export class WorldMigrationService {
   static readonly currentVersion = WORLD_SCHEMA_VERSION;
@@ -43,13 +63,11 @@ export class WorldMigrationService {
       );
     }
 
-    if (version === this.currentVersion) return;
-
     let current = version;
-    const applied: string[] = [];
 
     while (current < this.currentVersion) {
       const migration = MIGRATIONS.find(item => item.from === current);
+
       if (!migration) {
         throw new Error(
           `World database schema v${current} is incompatible. No migration to v${this.currentVersion} is registered.`,
@@ -59,10 +77,6 @@ export class WorldMigrationService {
       database.transaction(() => migration.migrate(database));
       current = migration.to;
       database.setMetadata("schema_version", String(current));
-      applied.push(migration.name);
-    }
-
-    if (applied.length) {
       database.setMetadata("last_migration_at", new Date().toISOString());
     }
   }
