@@ -1,4 +1,4 @@
-import type { Database, ForeignKey, SqlKey, SqlRow, SqlValue, TableSchema } from "../database/Database.js";
+import type { ForeignKey, SqlKey, SqlRow, SqlValue, TableSchema } from "../database/Database.js";
 import { WorldDatabase } from "../database/world/WorldDatabase.js";
 
 export interface TemplateRelationOption {
@@ -90,7 +90,7 @@ export class WorldTemplateService {
 
     while (queue.length) {
       const current = queue.shift()!;
-      if (current.depth >= 2) continue;
+      if (current.depth >= 3) continue;
 
       for (const [table, schema] of schemas) {
         if (table === rootTable) continue;
@@ -155,7 +155,6 @@ export class WorldTemplateService {
     for (const [capturedTable, rows] of captured) {
       const capturedSchema = schemas.get(capturedTable)!;
       for (const capturedRow of rows.values()) {
-        const capturedKey = keyFromRow(capturedSchema, capturedRow);
         const currentKey = keyFromRow(schemas.get(table)!, row);
         if (rowReferencesWithSchemas(capturedRow, capturedSchema, table, currentKey, schemas)) return true;
       }
@@ -272,8 +271,10 @@ export class WorldTemplateService {
   }
 
   duplicateFromSource(rootTable: string, rootKey: SqlKey, relations: string[] = []) {
-    const snapshot = this.captureSnapshot(rootTable, rootKey, relations);
-    return this.database.transaction(() => this.instantiate(snapshot));
+    return this.database.transaction(() => {
+      const snapshot = this.captureSnapshot(rootTable, rootKey, relations);
+      return this.instantiate(snapshot);
+    });
   }
 
   duplicateFromTemplate(templateId: number) {
