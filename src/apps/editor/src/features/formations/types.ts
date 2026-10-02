@@ -16,6 +16,7 @@ export interface Formation {
   name: string;
   description?: string;
   positions: FormationPosition[];
+  instructions: FormationInstruction[];
 }
 
 export interface TacticalPosition {
@@ -42,4 +43,16 @@ export interface Role {
   description?: string;
   dutyIds: number[];
   keyAttributes: RoleKeyAttribute[];
+}
+
+export interface TacticalInstruction {
+  id: number;
+  name: string;
+  category: string;
+  valueType: string;
+}
+
+export interface FormationInstruction {
+  instructionId: number;
+  value: string;
 }
