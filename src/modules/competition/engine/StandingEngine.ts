@@ -1,110 +1,52 @@
-import type Database from "better-sqlite3";
-
-import type { MatchResult } from "../../match/domain/MatchResult.js";
-import type { StandingRuleType } from "../domain/StandingRule.js";
-import { StandingRuleRepository } from "../repository/StandingRuleRepository.js";
-
-export interface Standing {
-  teamId: number;
-  teamName: string;
-
-  played: number;
-
-  wins: number;
-  draws: number;
-  losses: number;
-
-  goalsFor: number;
-  goalsAgainst: number;
-  goalDifference: number;
-
-  points: number;
-}
+import type {
+  CompetitionParticipant,
+} from "../domain/CompetitionParticipant.js";
+import type {
+  MatchResult,
+  SimulationResult,
+  Standing,
+} from "../domain/Standing.js";
 
 export class StandingEngine {
-  private readonly ruleRepository: StandingRuleRepository;
-
-  constructor(private readonly db: Database.Database,) {
-    this.ruleRepository = new StandingRuleRepository(db);
-  }
-
-  initialize(stageId: number, teamIds: number[],): void {
-    const insert = this.db.prepare(`
-      INSERT INTO standing (
-        stage_id,
-        team_id
-      )
-      VALUES (?, ?)
-    `);
-
-    const transaction = this.db.transaction((ids: number[]) => {
-      for (const teamId of ids) {
-        insert.run(stageId, teamId,);
-      }
-    },);
-
-    transaction(teamIds);
-  }
-
-  getStandings(stageId: number,): Standing[] {
-    const rules = this.ruleRepository.findByStage(stageId,);
-
-    if (!rules.length) {
-      throw new Error(`Nenhuma regra de classificação encontrada para o stage ${stageId}.`,);
-    }
-
-    const orderBy = rules
-      .map((rule) => this.getOrderExpression(rule.ruleType))
-      .join(", ");
-
-    const query = `
-      SELECT
-        s.team_id AS teamId,
-        t.name AS teamName,
-
-        s.played,
-
-        s.wins,
-        s.draws,
-        s.losses,
-
-        s.goals_for AS goalsFor,
-        s.goals_against AS goalsAgainst,
-
-        (s.goals_for - s.goals_against) AS goalDifference,
-
-        s.points
-
-      FROM standing s
-
-      INNER JOIN team t
-        ON t.id = s.team_id
-
-      WHERE s.stage_id = ?
-
-      ORDER BY
-        ${orderBy},
-        t.name ASC
-    `;
-
-    return this.db
-      .prepare(query)
-      .all(stageId) as Standing[];
+  initialize(
+    participants: CompetitionParticipant[],
+  ): Map<number, Standing> {
+    return new Map(
+      participants.map(
+        (participant) => [
+          participant.teamId,
+          {
+            teamId: participant.teamId,
+            played: 0,
+            wins: 0,
+            draws: 0,
+            losses: 0,
+            goalsFor: 0,
+            goalsAgainst: 0,
+            points: 0,
+          },
+        ],
+      ),
+    );
   }
 
   applyResult(
-    stageId: number,
+    standings: Map<number, Standing>,
     result: MatchResult,
+    pointsRule: {
+      winPoints: number;
+      drawPoints: number;
+      lossPoints: number;
+    },
   ): void {
-    const home = this.getStanding(
-      stageId,
-      result.homeTeamId,
-    );
+    const home = standings.get(result.homeTeamId);
+    const away = standings.get(result.awayTeamId);
 
-    const away = this.getStanding(
-      stageId,
-      result.awayTeamId,
-    );
+    if (!home || !away) {
+      throw new Error(
+        "Resultado contém um time que não participa da competição.",
+      );
+    }
 
     home.played++;
     away.played++;
@@ -119,146 +61,38 @@ export class StandingEngine {
       home.wins++;
       away.losses++;
 
-      home.points += 3;
-    } else if (result.homeGoals < result.awayGoals) {
+      home.points += pointsRule.winPoints;
+      away.points += pointsRule.lossPoints;
+      return;
+    }
+
+    if (result.homeGoals < result.awayGoals) {
       away.wins++;
       home.losses++;
 
-      away.points += 3;
-    } else {
-      home.draws++;
-      away.draws++;
-
-      home.points++;
-      away.points++;
+      away.points += pointsRule.winPoints;
+      home.points += pointsRule.lossPoints;
+      return;
     }
 
-    this.update(home);
-    this.update(away);
+    home.draws++;
+    away.draws++;
+
+    home.points += pointsRule.drawPoints;
+    away.points += pointsRule.drawPoints;
   }
 
-  private getOrderExpression(
-    rule: StandingRuleType,
-  ): string {
-    switch (rule) {
-      case "POINTS":
-        return "s.points DESC";
-
-      case "GOAL_DIFFERENCE":
-        return "goalDifference DESC";
-
-      case "GOALS_FOR":
-        return "s.goals_for DESC";
-
-      case "WINS":
-        return "s.wins DESC";
-
-      case "HEAD_TO_HEAD":
-        throw new Error(
-          "Regra HEAD_TO_HEAD ainda não implementada.",
-        );
-
-      case "FAIR_PLAY":
-        throw new Error(
-          "Regra FAIR_PLAY ainda não implementada.",
-        );
-
-      case "COEFFICIENT":
-        throw new Error(
-          "Regra COEFFICIENT ainda não implementada.",
-        );
-
-      default:
-        throw new Error(
-          `Regra de classificação desconhecida: ${rule}`,
-        );
-    }
+  sort(
+    standings: Map<number, Standing>,
+  ): Standing[] {
+    return [...standings.values()].sort(
+      (a, b) =>
+        b.points - a.points ||
+        (b.goalsFor - b.goalsAgainst) -
+          (a.goalsFor - a.goalsAgainst) ||
+        b.goalsFor - a.goalsFor ||
+        b.wins - a.wins ||
+        a.teamId - b.teamId,
+    );
   }
-
-  private getStanding(stageId: number, teamId: number,): StandingRow {
-    const row = this.db
-      .prepare(`
-        SELECT
-          id,
-          stage_id AS stageId,
-          team_id AS teamId,
-
-          played,
-
-          wins,
-          draws,
-          losses,
-
-          goals_for AS goalsFor,
-          goals_against AS goalsAgainst,
-
-          points
-
-        FROM standing
-
-        WHERE stage_id = ?
-          AND team_id = ?
-      `)
-      .get(
-        stageId,
-        teamId,
-      ) as StandingRow | undefined;
-
-    if (!row) {
-      throw new Error(`Standing não encontrada para team=${teamId}`,);
-    }
-
-    return row;
-  }
-
-  private update(row: StandingRow,): void {
-    this.db
-      .prepare(`
-        UPDATE standing
-        SET
-          played = ?,
-
-          wins = ?,
-          draws = ?,
-          losses = ?,
-
-          goals_for = ?,
-          goals_against = ?,
-
-          points = ?
-
-        WHERE id = ?
-      `)
-      .run(
-        row.played,
-
-        row.wins,
-        row.draws,
-        row.losses,
-
-        row.goalsFor,
-        row.goalsAgainst,
-
-        row.points,
-
-        row.id,
-      );
-  }
-}
-
-interface StandingRow {
-  id: number;
-  stageId: number;
-  teamId: number;
-
-  played: number;
-
-  wins: number;
-  draws: number;
-  losses: number;
-
-  goalsFor: number;
-  goalsAgainst: number;
-
-  points: number;
 }

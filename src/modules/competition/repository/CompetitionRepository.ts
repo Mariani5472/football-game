@@ -1,74 +1,94 @@
-import type Database from "better-sqlite3";
-
-import type { Competition } from "../domain/Competition.ts";
-import type { CompetitionSeason } from "../domain/CompetitionSeason.ts";
-import type { CompetitionParticipant } from "../domain/Participant.ts";
-import type { FixtureContext } from "../domain/FixtureContext.js";
+import type { WorldDatabase } from "../../../database/world/WorldDatabase.js";
+import type { Competition } from "../domain/Competition.js";
+import type { CompetitionParticipant } from "../domain/CompetitionParticipant.js";
+import type { CompetitionSeason } from "../domain/CompetitionSeason.js";
+import type {
+  CompetitionStage,
+  StageFormat,
+  StagePointsRule,
+  StageSchedule,
+} from "../domain/CompetitionStage.js";
 
 export class CompetitionRepository {
   constructor(
-    private readonly db: Database.Database,
+    private readonly database: WorldDatabase,
   ) {}
 
-  findBySlug(slug: string,): Competition | null {
-    const row = this.db
-      .prepare(`
-        SELECT
-          id,
-          external_id AS externalId,
-          country_id AS countryId,
-
-          name,
-          slug,
-          gender,
-          image,
-
-          primary_color AS primaryColor,
-          secondary_color AS secondaryColor,
-
-          usual_start_date AS usualStartDate,
-          usual_end_date AS usualEndDate,
-
-          frequency,
-          tier
-        FROM competition
-        WHERE slug = ?
-        LIMIT 1
-      `)
-      .get(slug) as Competition | undefined;
+  findById(id: number): Competition | null {
+    const row = this.database.connection
+      .prepare(
+        `
+          SELECT
+            id,
+            name,
+            level
+          FROM competition
+          WHERE id = ?
+          LIMIT 1
+        `,
+      )
+      .get(id) as Competition | undefined;
 
     return row ?? null;
   }
 
-  findSeason(competitionId: number, year: number,): CompetitionSeason | null {
-    const row = this.db
-      .prepare(`
-        SELECT
-          id,
-          external_id AS externalId,
-          competition_id AS competitionId,
+  findByName(name: string): Competition | null {
+    const row = this.database.connection
+      .prepare(
+        `
+          SELECT
+            id,
+            name,
+            level
+          FROM competition
+          WHERE name = ?
+          LIMIT 1
+        `,
+      )
+      .get(name) as Competition | undefined;
 
-          year,
-          number_of_competitors AS numberOfCompetitors,
+    return row ?? null;
+  }
 
-          start_date AS startDate,
-          end_date AS endDate,
+  findSeasonById(id: number): CompetitionSeason | null {
+    const row = this.database.connection
+      .prepare(
+        `
+          SELECT
+            id,
+            competition_id AS competitionId,
+            year,
+            start_date AS startDate,
+            end_date AS endDate
+          FROM competition_season
+          WHERE id = ?
+          LIMIT 1
+        `,
+      )
+      .get(id) as CompetitionSeason | undefined;
 
-          is_group AS isGroup,
-          has_rounds AS hasRounds,
-          has_groups AS hasGroups,
-          has_playoff AS hasPlayoff,
+    return row ?? null;
+  }
 
-          competition_type AS competitionType,
-          rounds_count AS roundsCount,
-
-          promoting_teams_count AS promotingTeamsCount,
-          relegating_teams_count AS relegatingTeamsCount
-        FROM competition_season
-        WHERE competition_id = ?
-          AND year = ?
-        LIMIT 1
-      `)
+  findSeason(
+    competitionId: number,
+    year: number,
+  ): CompetitionSeason | null {
+    const row = this.database.connection
+      .prepare(
+        `
+          SELECT
+            id,
+            competition_id AS competitionId,
+            year,
+            start_date AS startDate,
+            end_date AS endDate
+          FROM competition_season
+          WHERE competition_id = ?
+            AND year = ?
+          LIMIT 1
+        `,
+      )
       .get(
         competitionId,
         year,
@@ -77,160 +97,131 @@ export class CompetitionRepository {
     return row ?? null;
   }
 
-  findFixture(fixtureId: number,): FixtureContext | null {
-    const row = this.db
-      .prepare(`
-        SELECT
-          f.id,
-          f.round_id AS roundId,
-          f.home_team_id AS homeTeamId,
-          f.away_team_id AS awayTeamId,
-          f.scheduled_at AS scheduledAt,
-          f.status,
-          f.home_score AS homeScore,
-          f.away_score AS awayScore,
+  findStage(
+    seasonId: number,
+  ): CompetitionStage | null {
+    const row = this.database.connection
+      .prepare(
+        `
+          SELECT
+            cs.id,
+            cs.competition_season_id AS competitionSeasonId,
+            cs.name,
+            cs.stage_order AS stageOrder,
 
-          r.stage_id AS stageId
-        FROM fixture f
+            sf.format_type AS formatType,
+            sf.participant_count AS participantCount,
+            sf.legs,
+            sf.home_away AS homeAway,
 
-        INNER JOIN competition_round r
-          ON r.id = f.round_id
+            spr.win_points AS winPoints,
+            spr.draw_points AS drawPoints,
+            spr.loss_points AS lossPoints,
 
-        WHERE f.id = ?
+            sp.scheduling_type AS schedulingType,
+            sp.start_date AS startDate,
+            sp.end_date AS endDate,
+            sp.interval_days AS intervalDays,
+            sp.home_away_balanced AS homeAwayBalanced
+          FROM competition_stage cs
+          LEFT JOIN stage_format sf
+            ON sf.stage_id = cs.id
+          LEFT JOIN stage_points_rule spr
+            ON spr.stage_id = cs.id
+          LEFT JOIN schedule_profile sp
+            ON sp.stage_id = cs.id
+          WHERE cs.competition_season_id = ?
+          ORDER BY cs.stage_order
+          LIMIT 1
+        `,
+      )
+      .get(seasonId) as StageRow | undefined;
 
-        LIMIT 1
-      `)
-      .get(fixtureId) as FixtureContext | undefined;
+    if (!row) {
+      return null;
+    }
 
-    return row ?? null;
+    const format: StageFormat | null =
+      row.formatType === null
+        ? null
+        : {
+            formatType: row.formatType,
+            participantCount: row.participantCount,
+            legs: row.legs ?? 1,
+            homeAway: row.homeAway === 1,
+          };
+
+    const points: StagePointsRule | null =
+      row.winPoints === null
+        ? null
+        : {
+            winPoints: row.winPoints,
+            drawPoints: row.drawPoints,
+            lossPoints: row.lossPoints,
+          };
+
+    const schedule: StageSchedule | null =
+      row.schedulingType === null
+        ? null
+        : {
+            schedulingType: row.schedulingType,
+            startDate: row.startDate,
+            endDate: row.endDate,
+            intervalDays: row.intervalDays ?? 0,
+            homeAwayBalanced:
+              row.homeAwayBalanced === 1,
+          };
+
+    return {
+      id: row.id,
+      competitionSeasonId: row.competitionSeasonId,
+      name: row.name,
+      stageOrder: row.stageOrder,
+      format,
+      points,
+      schedule,
+    };
   }
 
-  findNextScheduledDate(stageId: number, currentDate: string,): string | null {
-    const row = this.db
-      .prepare(`
-        SELECT
-          substr(
-            f.scheduled_at,
-            1,
-            10
-          ) AS date
-
-        FROM fixture f
-
-        INNER JOIN competition_round r
-          ON r.id = f.round_id
-
-        WHERE r.stage_id = ?
-          AND f.status = 'SCHEDULED'
-          AND substr(
-            f.scheduled_at,
-            1,
-            10
-          ) > ?
-
-        ORDER BY
-          f.scheduled_at ASC,
-          f.id ASC
-
-        LIMIT 1
-      `)
-      .get(
-        stageId,
-        currentDate,
-      ) as { date: string } | undefined;
-
-    return row?.date ?? null;
-  }
-
-  findScheduledFixturesOnDate(stageId: number, date: string,): FixtureContext[] {
-    return this.db
-      .prepare(`
-        SELECT
-          f.id,
-          f.round_id AS roundId,
-          f.home_team_id AS homeTeamId,
-          f.away_team_id AS awayTeamId,
-          f.scheduled_at AS scheduledAt,
-          f.status,
-          f.home_score AS homeScore,
-          f.away_score AS awayScore,
-
-          r.stage_id AS stageId
-
-        FROM fixture f
-
-        INNER JOIN competition_round r
-          ON r.id = f.round_id
-
-        WHERE r.stage_id = ?
-          AND f.status = 'SCHEDULED'
-          AND substr(
-            f.scheduled_at,
-            1,
-            10
-          ) = ?
-
-        ORDER BY
-          f.scheduled_at ASC,
-          f.id ASC
-      `)
-      .all(
-        stageId,
-        date,
-      ) as FixtureContext[];
-  }
-
-  findNextScheduledFixture(stageId: number,): FixtureContext | null {
-    const row = this.db
-      .prepare(`
-        SELECT
-          f.id,
-          f.round_id AS roundId,
-          f.home_team_id AS homeTeamId,
-          f.away_team_id AS awayTeamId,
-          f.scheduled_at AS scheduledAt,
-          f.status,
-          f.home_score AS homeScore,
-          f.away_score AS awayScore,
-
-          r.stage_id AS stageId
-
-        FROM fixture f
-
-        INNER JOIN competition_round r
-          ON r.id = f.round_id
-
-        WHERE r.stage_id = ?
-          AND f.status = 'SCHEDULED'
-
-        ORDER BY
-          f.scheduled_at ASC,
-          f.id ASC
-
-        LIMIT 1
-      `)
-      .get(stageId) as FixtureContext | undefined;
-
-    return row ?? null;
-  }
-
-  findParticipants(seasonId: number,): CompetitionParticipant[] {
-    return this.db
-      .prepare(`
-        SELECT
-          t.id AS teamId,
-          t.name,
-          t.short_name AS shortName
-
-        FROM competition_team ct
-
-        INNER JOIN team t
-          ON t.id = ct.team_id
-
-        WHERE ct.competition_season_id = ?
-
-        ORDER BY t.name
-      `)
+  findParticipants(
+    seasonId: number,
+  ): CompetitionParticipant[] {
+    return this.database.connection
+      .prepare(
+        `
+          SELECT
+            t.id AS teamId,
+            t.name,
+            COALESCE(t.reputation, 50) AS reputation
+          FROM competition_team ct
+          INNER JOIN team t
+            ON t.id = ct.team_id
+          WHERE ct.competition_season_id = ?
+          ORDER BY t.id
+        `,
+      )
       .all(seasonId) as CompetitionParticipant[];
   }
+}
+
+interface StageRow {
+  id: number;
+  competitionSeasonId: number;
+  name: string;
+  stageOrder: number;
+
+  formatType: string | null;
+  participantCount: number | null;
+  legs: number | null;
+  homeAway: number | null;
+
+  winPoints: number | null;
+  drawPoints: number | null;
+  lossPoints: number | null;
+
+  schedulingType: string | null;
+  startDate: string | null;
+  endDate: string | null;
+  intervalDays: number | null;
+  homeAwayBalanced: number | null;
 }

@@ -1,0 +1,774 @@
+# ROADMAP — FOOTBALL GAME EDITOR
+
+## Objetivo
+
+Transformar o editor em uma ferramenta real para construir e manter o `world.db`.
+
+Fluxo final:
+
+```
+world.db
+  -> leitura real
+  -> edição
+  -> persistência
+  -> validação
+  -> export
+  -> reabertura sem perda
+```
+
+O editor NÃO deve usar mocks como fonte principal e NÃO deve acessar SQLite diretamente pelos componentes React.
+
+---
+
+# P0 — FAZER O CRUD FUNCIONAR
+
+## 1. Infra de persistência
+
+- [ ] Criar API genérica no `WorldDatabase`: list, findById, count, exists, create, update, delete.
+- [ ] Adicionar introspecção de tabelas/colunas/PK/FK/NOT NULL/UNIQUE/CHECK.
+- [ ] Tratar TEXT, INTEGER, REAL, boolean 0/1, NULL e datas.
+- [ ] Centralizar erros SQLite.
+- [ ] Usar transações em operações compostas.
+- [ ] Criar testes de integração com `world.db` temporário.
+
+## 2. Editor usando banco real
+
+- [ ] Abrir/criar World DB pelo editor.
+- [ ] Mostrar arquivo World atualmente aberto.
+- [ ] Remover `*.data.ts` como source of truth.
+- [ ] Recarregar dados depois de create/update/delete.
+- [ ] Garantir que fechar/reabrir conserva as alterações.
+
+## 3. CRUD genérico
+
+- [ ] Conectar `DataTable` ao banco.
+- [ ] Conectar `EntityForm` ao banco.
+- [ ] Conectar `EntityPicker` ao banco.
+- [ ] Busca SQL.
+- [ ] Paginação SQL.
+- [ ] Ordenação SQL.
+- [ ] Loading/empty/error.
+- [ ] Confirmar delete.
+- [ ] Tratar FK e constraints com mensagens úteis.
+- [ ] Criar definição/configuração de entidade para evitar código repetido.
+- [ ] FK deve aparecer como picker legível, não como ID cru.
+- [ ] Boolean/date/number/text devem ter input adequado.
+
+Critério: `Create -> Read -> Update -> Read -> Delete -> Read` funcionar de verdade.
+
+---
+
+# P0 — GEOGRAPHY NÃO PODE FICAR VAZIA
+
+## 4. Geography completa
+
+Hierarquia:
+
+```
+Federation
+  -> Continent
+      -> Continent Region
+          -> Nation
+              -> Nation Region
+                  -> City
+```
+
+Implementar leitura e CRUD real para:
+
+- [ ] federation
+- [ ] continent
+- [ ] continent_alt_name
+- [ ] continent_region
+- [ ] currency
+- [ ] nationality_method
+- [ ] nation_development_state
+- [ ] language_family
+- [ ] language_group
+- [ ] language_subgroup
+- [ ] language
+- [ ] nation
+- [ ] nation_native_treatment
+- [ ] nation_language
+- [ ] nation_region
+- [ ] nation_region_language
+- [ ] climate
+- [ ] climate_nation_region
+- [ ] city
+- [ ] city_language
+- [ ] weekday
+
+A tela deve permitir:
+
+- [ ] abrir nó e editar entidade;
+- [ ] criar entidade filha;
+- [ ] excluir entidade;
+- [ ] alterar relações;
+- [ ] editar idiomas e percentuais;
+- [ ] editar clima;
+- [ ] editar população/coordenadas/altitude;
+- [ ] busca;
+- [ ] filtros;
+- [ ] breadcrumbs;
+- [ ] contadores.
+
+Critério: criar um país completo sem SQL manual.
+
+---
+
+# P1 — REFERENCE DATA
+
+Criar CRUD genérico para as tabelas simples de referência do schema, incluindo:
+
+- [ ] gender
+- [ ] club_status
+- [ ] club_observation
+- [ ] stadium_owner_type
+- [ ] pitch_type
+- [ ] grass_deterioration_rate
+- [ ] quality_state
+- [ ] environment_quality
+- [ ] competition_stage_type
+- [ ] competition_type
+- [ ] referee_category
+- [ ] trophy
+- [ ] ownership_type
+- [ ] ownership_promise
+- [ ] president_title
+- [ ] patron_type
+- [ ] embargo_type
+- [ ] revenue_type
+- [ ] debt_source
+- [ ] money_direction
+- [ ] payment_interval
+- [ ] clause_condition
+- [ ] person_type
+- [ ] employment
+- [ ] second_nationality_info
+- [ ] position_definition
+- [ ] injury_classification
+- [ ] injury_subclassification
+- [ ] injury_reason
+- [ ] suspension
+- [ ] suspension_type
+- [ ] game_location_type
+- [ ] objective_type
+- [ ] equipment_type
+- [ ] equipment_piece
+- [ ] equipment_style
+- [ ] retired_number_reason
+- [ ] club_affiliation_type
+- [ ] division
+- [ ] transfer_status
+- [ ] transfer_type
+- [ ] contract_type
+- [ ] contract_clause_type
+- [ ] role_duty
+- [ ] tactical_instruction
+- [ ] attribute_scale
+- [ ] press/award/record reference data
+- [ ] weather/climate reference data
+
+---
+
+# P1 — RELAÇÕES REUTILIZÁVEIS
+
+Não criar páginas ruins para cada tabela N:N. Criar componentes:
+
+- [ ] RelationTable
+- [ ] MultiEntityPicker
+- [ ] PercentageEditor
+- [ ] WeightedRelationEditor
+- [ ] OrderedRelationEditor
+
+Cobrir:
+
+- [ ] nation_language
+- [ ] city_language
+- [ ] person_language
+- [ ] player_position
+- [ ] player_role_duty
+- [ ] player_role_key_attribute
+- [ ] position_attribute_weight
+- [ ] draw_pot_team
+- [ ] award eligibility
+- [ ] formation instructions
+- [ ] demais tabelas de associação
+
+---
+
+# P1 — TEAM / CLUB
+
+O editor atual deve cobrir todo o modelo, não apenas identidade básica.
+
+## Team
+
+- [ ] todos os campos de `team`
+- [ ] nomes alternativos/nickname
+- [ ] gender
+- [ ] nation
+- [ ] cores
+- [ ] reputation
+- [ ] extinct
+
+## Club
+
+- [ ] city
+- [ ] base nation
+- [ ] international competition nation
+- [ ] status
+- [ ] age limits
+- [ ] morale
+- [ ] institute/all-star
+- [ ] observation
+- [ ] designated player slot
+
+## Relações
+
+- [ ] national team info
+- [ ] reserve team
+- [ ] ownership
+- [ ] finance
+- [ ] embargoes
+- [ ] revenue
+- [ ] debt
+- [ ] FFP
+- [ ] fan profile
+- [ ] objectives
+- [ ] equipment
+- [ ] captain
+- [ ] partnerships
+- [ ] retired numbers
+- [ ] affiliations
+- [ ] rivalries/derbies
+- [ ] team-person relationships
+- [ ] competition history
+- [ ] expectations
+- [ ] coefficients
+
+---
+
+# P1 — STADIUM
+
+Cobrir os campos reais de `stadium`, incluindo:
+
+- [ ] cidade
+- [ ] owner
+- [ ] capacities
+- [ ] pitch
+- [ ] field dimensions
+- [ ] condition
+- [ ] grass/recovery
+- [ ] dates
+- [ ] latitude/longitude
+- [ ] quality/environment
+- [ ] national team usage
+- [ ] bans
+- [ ] roof/cover/heating/digital advertising
+- [ ] stadium changes
+- [ ] alternative stadiums
+
+- [ ] Duplicar estádio.
+
+---
+
+# P1 — PERSON
+
+Person é a base de player/staff/manager.
+
+- [ ] dados de identidade
+- [ ] person type
+- [ ] sexo
+- [ ] altura
+- [ ] nascimento
+- [ ] cidade natal
+- [ ] agente
+- [ ] retirement flag
+- [ ] segunda nacionalidade
+- [ ] internacional
+- [ ] idiomas
+- [ ] reputação
+- [ ] tendencies
+- [ ] contracts
+- [ ] team periods
+- [ ] person relationships
+- [ ] team relationships
+- [ ] titles
+- [ ] staff career history
+
+- [ ] criar pessoa sem player
+- [ ] adicionar player depois
+- [ ] duplicar pessoa
+
+---
+
+# P1 — PLAYER
+
+Player deve ser extensão de Person.
+
+- [ ] player core
+- [ ] posições
+- [ ] ratings
+- [ ] roles
+- [ ] role ratings
+- [ ] psychological attributes
+- [ ] physical attributes
+- [ ] technical attributes
+- [ ] goalkeeper attributes
+- [ ] club periods
+- [ ] national team periods
+- [ ] injuries
+- [ ] contracts
+- [ ] transfers
+- [ ] loans
+- [ ] clauses
+- [ ] career history
+- [ ] achievements
+- [ ] titles
+- [ ] relationships
+
+Atributos:
+
+- [ ] carregar `player_attribute_definition` do banco
+- [ ] respeitar `attribute_scale`
+- [ ] carregar weights
+- [ ] validar faixa
+- [ ] eliminar atributos hardcoded
+
+---
+
+# P1 — FORMATIONS / TACTICS
+
+- [ ] formation CRUD
+- [ ] formation_position
+- [ ] x/y
+- [ ] side
+- [ ] role assignment
+- [ ] duty assignment
+- [ ] tactical instructions
+- [ ] formation instructions
+- [ ] team tactical profile
+
+UI:
+
+- [ ] campo visual
+- [ ] drag/drop
+- [ ] role/duty
+- [ ] preview
+- [ ] persistência
+
+---
+
+# P1 — COMPETITIONS
+
+A estrutura atual é boa conceitualmente, mas precisa persistir tudo.
+
+## Competition
+
+- [ ] general
+- [ ] aliases
+- [ ] type
+- [ ] country
+- [ ] gender
+- [ ] level
+- [ ] parent
+- [ ] trophy
+- [ ] referee rules
+- [ ] technology
+- [ ] reserve team rules
+
+## Season
+
+- [ ] CRUD
+- [ ] host countries
+- [ ] teams
+- [ ] next teams
+- [ ] dates/status
+
+## Stage
+
+- [ ] CRUD
+- [ ] stage type/order
+- [ ] participant rules
+- [ ] participant sources
+- [ ] format
+- [ ] points
+- [ ] match rules
+- [ ] squad rules
+- [ ] registration rules
+- [ ] promotion/relegation
+- [ ] technology
+- [ ] standing rules
+- [ ] qualification
+- [ ] transitions
+
+## Schedule
+
+- [ ] profile
+- [ ] weekday rules
+- [ ] blackouts
+- [ ] constraints
+- [ ] fixture legs
+- [ ] fixture venues
+
+## Draw
+
+- [ ] definition
+- [ ] pots
+- [ ] pot teams
+- [ ] participants
+- [ ] restrictions
+- [ ] slots
+
+Regra:
+
+- [ ] alterar regra crítica deve invalidar fixtures antigos;
+- [ ] configuração deve ser persistida antes de gerar calendário.
+
+---
+
+# P2 — CRIAÇÃO RÁPIDA
+
+Colocar dentro do editor:
+
+- [ ] Dashboard
+- [ ] sidebar
+- [ ] botão global `+ Criar`
+
+Presets:
+
+## Geography
+
+- [ ] Federation
+- [ ] Continent
+- [ ] Region
+- [ ] Nation
+- [ ] City
+
+## People
+
+- [ ] Person
+- [ ] Player
+- [ ] Staff
+
+## Teams
+
+- [ ] Team
+- [ ] Club
+- [ ] National Team
+
+## Stadium
+
+- [ ] Stadium
+
+## Competitions
+
+- [ ] Competition
+- [ ] Season
+- [ ] League
+- [ ] Group Stage
+- [ ] Knockout Stage
+
+## Tactics
+
+- [ ] Formation
+- [ ] Role
+
+## Presets compostos
+
+### Nova Liga
+
+Entrada:
+
+- nome
+- país
+- número de times
+- turnos
+- pontos
+- datas
+- gerar calendário
+
+Cria:
+
+`Competition -> Season -> Stage -> Rules -> Schedule`
+
+### Novo Clube
+
+Opcional:
+
+`Team -> Club -> City -> Stadium`
+
+### Novo Jogador
+
+Opcional:
+
+`Person -> Player -> Position -> Attributes -> Contract`
+
+---
+
+# P2 — DUPLICAÇÃO / TEMPLATES
+
+- [ ] duplicar Team
+- [ ] duplicar Stadium
+- [ ] duplicar Person
+- [ ] duplicar Player
+- [ ] duplicar Competition
+- [ ] duplicar Formation
+- [ ] escolher relações que serão copiadas
+- [ ] gerar novos IDs
+- [ ] remapear FK internas
+- [ ] operação transacional
+- [ ] template salvo
+- [ ] criar a partir de template
+
+Nunca copiar PK original.
+
+---
+
+# P3 — TRANSFERS / CONTRACTS / FINANCE
+
+- [ ] transfer windows
+- [ ] statuses/types
+- [ ] player transfers
+- [ ] contracts
+- [ ] contract clauses
+- [ ] resale/sale clauses
+- [ ] installments
+- [ ] wage contribution
+- [ ] loans
+- [ ] club finance
+- [ ] debts
+- [ ] revenues
+- [ ] embargoes
+- [ ] FFP
+
+---
+
+# P3 — HISTORY / AWARDS / RECORDS
+
+- [ ] competition history
+- [ ] history teams/hosts
+- [ ] club competition history
+- [ ] club records
+- [ ] competition records
+- [ ] awards
+- [ ] award history
+- [ ] player career history
+- [ ] staff career history
+- [ ] player achievements
+- [ ] derbies
+
+---
+
+# P3 — PRESS / MEDIA
+
+- [ ] press periods
+- [ ] reach
+- [ ] press types
+- [ ] sources
+- [ ] source types
+- [ ] source areas
+- [ ] awards configuration
+
+---
+
+# P3 — WEATHER / CLIMATE
+
+- [ ] climate
+- [ ] climate season profile
+- [ ] weather season
+- [ ] region mappings
+- [ ] season profiles
+
+---
+
+# P3 — NATIONALITY
+
+- [ ] nationality methods
+- [ ] nationality rules
+- [ ] eligibility rules
+- [ ] nation treatment
+- [ ] native treatment
+
+Criar UI baseada em regras, não apenas campos técnicos.
+
+---
+
+# P3 — VALIDATION
+
+- [ ] conectar UI ao WorldValidator
+- [ ] erros por entidade
+- [ ] warnings
+- [ ] navegar do erro para a entidade
+- [ ] validar antes de exportar
+- [ ] validar depois de alterações importantes
+- [ ] perfis de validação
+
+Cobrir no mínimo:
+
+- [ ] FK quebrada
+- [ ] NOT NULL
+- [ ] órfãos
+- [ ] relações inválidas
+- [ ] season sem stage
+- [ ] stage sem participantes/configuração
+- [ ] competition sem teams suficientes
+- [ ] player sem Person
+- [ ] club sem Team
+- [ ] stadium sem City
+- [ ] UNIQUE
+- [ ] regras incompatíveis
+
+---
+
+# P4 — EXPORT / PACKAGE
+
+- [ ] exportar world.db
+- [ ] validar antes
+- [ ] metadata
+- [ ] package version
+- [ ] SHA-256/hash
+- [ ] exportar `.fg` quando formato estiver fechado
+- [ ] resumo do export
+- [ ] erros que impedem export
+
+---
+
+# P4 — SCHEMA / MIGRATIONS
+
+- [ ] schema version no metadata
+- [ ] detectar versão ao abrir
+- [ ] impedir abertura incompatível silenciosa
+- [ ] migrations
+- [ ] teste de DB antigo
+- [ ] package version atualizado
+
+---
+
+# P4 — TESTES E2E
+
+Fluxo obrigatório:
+
+1. [ ] criar World vazio
+2. [ ] criar país
+3. [ ] criar cidade
+4. [ ] criar clube
+5. [ ] criar estádio
+6. [ ] criar pessoas
+7. [ ] criar jogadores
+8. [ ] montar elenco
+9. [ ] criar liga
+10. [ ] adicionar clubes
+11. [ ] gerar calendário
+12. [ ] validar
+13. [ ] exportar
+14. [ ] fechar
+15. [ ] reabrir
+16. [ ] confirmar dados
+
+---
+
+# P4 — UX / PERFORMANCE
+
+- [ ] dirty state
+- [ ] save explícito consistente ou autosave definido
+- [ ] busca global
+- [ ] `+ Criar`
+- [ ] recentes
+- [ ] favoritos
+- [ ] breadcrumbs
+- [ ] abrir entidade relacionada em modal/painel
+- [ ] mensagens úteis
+- [ ] empty states
+- [ ] paginação SQL
+- [ ] filtros SQL
+- [ ] virtualização para listas grandes
+- [ ] evitar carregar milhares de players sem necessidade
+
+---
+
+# ARQUITETURA FINAL DESEJADA
+
+Não criar uma tela para cada uma das 217 tabelas.
+
+Usar:
+
+```
+217 tabelas
+  |
+  +-- tabelas simples --------> CRUD genérico
+  |
+  +-- N:N / associações ------> Relation components
+  |
+  +-- agregados complexos ----> Editors especializados
+```
+
+Estrutura:
+
+```
+apps/editor
+  UI
+
+editor/application
+  operações do editor
+
+world/database
+  SQLite
+
+world/domain
+  modelos/regras
+
+world/validation
+  validação
+
+engine
+  simulação
+```
+
+O engine não deve conhecer React nem detalhes do editor.
+
+---
+
+# DEFINIÇÃO FINAL DE PRONTO
+
+O editor só está pronto quando este fluxo funcionar sem SQL manual:
+
+```
+Abrir world.db
+   ->
+ver dados reais
+   ->
+criar
+   ->
+editar
+   ->
+deletar
+   ->
+criar relações
+   ->
+duplicar
+   ->
+Criação Rápida
+   ->
+validar
+   ->
+exportar
+   ->
+reabrir
+   ->
+dados continuam corretos
+```
+
+## Prioridade imediata
+
+P0:
+1. [ ] CRUD real
+2. [ ] Data source real
+3. [ ] Geography completa
+4. [ ] leitura/persistência após reload
+5. [ ] testes de integração
+
+Depois:
+P1 -> entidades principais  
+P2 -> criação rápida + duplicação  
+P3 -> cobertura restante do World  
+P4 -> validation/export/migrations/E2E/performance

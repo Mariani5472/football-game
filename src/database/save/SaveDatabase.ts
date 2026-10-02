@@ -1,25 +1,58 @@
-import Database from "better-sqlite3";
+import DatabaseConnection from "better-sqlite3";
 import fs from "node:fs";
 import path from "node:path";
-import { SAVE_SCHEMA } from "./SaveSchema.js";
 
-export class SaveDatabase {
-  private readonly db: Database.Database;
+import { Database } from "../Database.js";
+import { SchemaRunner } from "../SchemaRunner.js";
 
-  constructor(
-    readonly filePath: string,
+export class SaveDatabase extends Database {
+  private constructor(
+    db: DatabaseConnection.Database,
   ) {
-    fs.mkdirSync(path.dirname(filePath), { recursive: true });
-    this.db = new Database(filePath);
-    this.db.pragma("foreign_keys = ON");
-    this.db.exec(SAVE_SCHEMA);
+    super(db);
   }
 
-  get connection(): Database.Database {
-    return this.db;
+  static create(filePath: string): SaveDatabase {
+    const directory = path.dirname(filePath);
+
+    fs.mkdirSync(directory, {
+      recursive: true,
+    });
+
+    const db = new DatabaseConnection(filePath);
+
+    const database = new SaveDatabase(db);
+
+    database.initialize();
+
+    return database;
   }
 
-  close(): void {
-    this.db.close();
+  static open(filePath: string): SaveDatabase {
+    if (!fs.existsSync(filePath)) {
+      throw new Error(
+        `[SaveDatabase] Database não encontrada: ${filePath}`,
+      );
+    }
+
+    const db = new DatabaseConnection(filePath);
+
+    return new SaveDatabase(db);
+  }
+
+  private initialize(): void {
+    const schemaPath = path.resolve(
+      process.cwd(),
+      "src/schemas/save/save_v1.sql",
+    );
+
+    const runner = new SchemaRunner(this);
+
+    runner.run(schemaPath);
+
+    runner.initializeMetadata({
+      schemaVersion: 1,
+      databaseType: "save",
+    });
   }
 }

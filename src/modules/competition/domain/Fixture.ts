@@ -1,21 +1,11 @@
-export type FixtureStatus =
-  | "SCHEDULED"
-  | "PLAYED"
-  | "POSTPONED"
-  | "CANCELLED";
+export type FixtureStatus = "SCHEDULED" | "PLAYED";
 
 export interface Fixture {
-  id?: number;
-
-  roundId: number;
-
+  roundNumber: number;
   homeTeamId: number;
   awayTeamId: number;
-
   scheduledAt: string;
-
   status: FixtureStatus;
-
-  homeScore?: number | null;
-  awayScore?: number | null;
+  homeScore?: number;
+  awayScore?: number;
 }

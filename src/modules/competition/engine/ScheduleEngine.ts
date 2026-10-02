@@ -1,68 +1,91 @@
-import type {
-  CompetitionParticipant,
-} from "../domain/Participant.ts";
-
-import type { Fixture } from "../domain/Fixture.ts";
+import type { CompetitionParticipant } from "../domain/CompetitionParticipant.js";
+import type { Fixture } from "../domain/Fixture.js";
 
 export interface GeneratedRound {
   roundNumber: number;
+  date: string;
   fixtures: Fixture[];
 }
 
 export class ScheduleEngine {
-  generateDoubleRoundRobin(participants: CompetitionParticipant[]): GeneratedRound[] {
+  generateDoubleRoundRobin(
+    participants: CompetitionParticipant[],
+    startDate: string,
+    intervalDays: number,
+  ): GeneratedRound[] {
     if (participants.length < 2) {
-      throw new Error("Uma competição precisa de pelo menos 2 participantes.",);
+      throw new Error(
+        "Uma competição precisa de pelo menos 2 participantes.",
+      );
     }
 
     if (participants.length % 2 !== 0) {
-      throw new Error("Double round-robin exige número par de participantes.",);
+      throw new Error(
+        "Double round-robin exige número par de participantes.",
+      );
+    }
+
+    if (!startDate) {
+      throw new Error(
+        "A competição precisa de uma data de início.",
+      );
+    }
+
+    if (intervalDays < 1) {
+      throw new Error(
+        "O intervalo entre rodadas precisa ser maior que zero.",
+      );
     }
 
     const teams = [...participants];
-
-    const rounds = teams.length - 1;
-
+    const firstLegRounds = teams.length - 1;
     const matchesPerRound = teams.length / 2;
+    const firstLeg: GeneratedRound[] = [];
 
-    const schedule: GeneratedRound[] = [];
-
-    for (let roundIndex = 0; roundIndex < rounds; roundIndex++) {
+    for (
+      let roundIndex = 0;
+      roundIndex < firstLegRounds;
+      roundIndex++
+    ) {
       const fixtures: Fixture[] = [];
 
-      for (let matchIndex = 0; matchIndex < matchesPerRound; matchIndex++) {
-        const home = teams[matchIndex];
-        const away = teams[teams.length - 1 - matchIndex];
+      for (
+        let matchIndex = 0;
+        matchIndex < matchesPerRound;
+        matchIndex++
+      ) {
+        const first = teams[matchIndex];
+        const second =
+          teams[teams.length - 1 - matchIndex];
+
         const swap = roundIndex % 2 === 1;
 
         fixtures.push({
-          roundId: 0,
-
+          roundNumber: roundIndex + 1,
           homeTeamId: swap
-            ? away.teamId
-            : home.teamId,
-
+            ? second.teamId
+            : first.teamId,
           awayTeamId: swap
-            ? home.teamId
-            : away.teamId,
-
+            ? first.teamId
+            : second.teamId,
           scheduledAt: "",
           status: "SCHEDULED",
         });
       }
 
-      schedule.push({
+      firstLeg.push({
         roundNumber: roundIndex + 1,
+        date: this.addDays(
+          startDate,
+          roundIndex * intervalDays,
+        ),
         fixtures,
       });
 
       const fixed = teams[0];
-
       const rotating = teams.slice(1);
 
-      rotating.unshift(
-        rotating.pop()!,
-      );
+      rotating.unshift(rotating.pop()!);
 
       teams.splice(
         0,
@@ -72,19 +95,20 @@ export class ScheduleEngine {
       );
     }
 
-    const secondHalf = schedule.map(
+    const secondLeg = firstLeg.map(
       (round, index) => ({
-        roundNumber: rounds + index + 1,
-
+        roundNumber: firstLegRounds + index + 1,
+        date: this.addDays(
+          startDate,
+          (firstLegRounds + index) * intervalDays,
+        ),
         fixtures: round.fixtures.map(
           (fixture) => ({
             ...fixture,
-
+            roundNumber:
+              firstLegRounds + index + 1,
             homeTeamId: fixture.awayTeamId,
             awayTeamId: fixture.homeTeamId,
-
-            roundId: 0,
-
             scheduledAt: "",
             status: "SCHEDULED" as const,
           }),
@@ -92,9 +116,32 @@ export class ScheduleEngine {
       }),
     );
 
-    return [
-      ...schedule,
-      ...secondHalf,
-    ];
+    return [...firstLeg, ...secondLeg].map(
+      (round) => ({
+        ...round,
+        fixtures: round.fixtures.map(
+          (fixture) => ({
+            ...fixture,
+            scheduledAt:
+              `${round.date}T16:00:00`,
+          }),
+        ),
+      }),
+    );
+  }
+
+  private addDays(
+    date: string,
+    days: number,
+  ): string {
+    const value = new Date(
+      `${date}T00:00:00Z`,
+    );
+
+    value.setUTCDate(
+      value.getUTCDate() + days,
+    );
+
+    return value.toISOString().slice(0, 10);
   }
 }

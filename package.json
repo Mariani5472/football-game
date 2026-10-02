@@ -4,9 +4,15 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "game:start": "tsx src/commands/game.ts",
-    "game:test-season": "tsx src/commands/game.ts --test-season",
-    "typecheck": "tsc --noEmit"
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "db:create-world": "tsx src/commands/database/create-world.ts",
+    "world:fast-start": "tsx src/commands/world/fast-start.ts",
+    "competition:brazil-sandbox": "tsx src/commands/competition/brazil-sandbox.ts",
+    "career:new": "tsx src/commands/career/new.ts",
+    "editor:api": "tsx src/commands/editor/api.ts",
+    "editor:dev": "tsx src/commands/editor/dev.ts",
+    "editor:build": "npm --prefix src/apps/editor install && npm --prefix src/apps/editor run build"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^9.6.0",

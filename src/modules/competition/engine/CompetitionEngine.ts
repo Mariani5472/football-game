@@ -1,261 +1,216 @@
-import type Database from "better-sqlite3";
+import type { WorldDatabase } from "../../../database/world/WorldDatabase.js";
+import type { GeneratedSeason } from "../domain/GeneratedSeason.js";
+import type { SimulationResult } from "../domain/Standing.js";
 import { CompetitionRepository } from "../repository/CompetitionRepository.js";
+import { MatchEngine } from "./MatchEngine.js";
 import { ScheduleEngine } from "./ScheduleEngine.js";
 import { StandingEngine } from "./StandingEngine.js";
-import { CalendarEngine } from "./CalendarEngine.js";
-import { MatchEngine } from "../../match/engine/MatchEngine.js";
-import type { MatchResult } from "../../match/domain/MatchResult.js";
-import type { Fixture } from "../domain/Fixture.js";
-import type { Standing } from "./StandingEngine.js";
-import { StandingRuleType } from "../domain/StandingRule.js";
-import { StandingRuleRepository } from "../repository/StandingRuleRepository.js";
-import { QualificationEngine } from "./QualificationEngine.js";
 
 export interface CompetitionSeasonSetup {
-  competitionSlug: string;
-  year: number;
-}
-
-export interface GeneratedSeason {
-  competitionId: number;
-  seasonId: number;
-  stageId: number;
-  rounds: number;
-  fixtures: number;
+  competitionSeasonId: number;
 }
 
 export class CompetitionEngine {
   private readonly repository: CompetitionRepository;
-  private readonly scheduleEngine: ScheduleEngine;
-  private readonly standingEngine: StandingEngine;
-  private readonly calendarEngine: CalendarEngine;
-  private readonly matchEngine: MatchEngine;
-  private readonly standingRuleRepository: StandingRuleRepository;
-  private readonly qualificationEngine: QualificationEngine;
+  private readonly scheduleEngine = new ScheduleEngine();
+  private readonly matchEngine = new MatchEngine();
+  private readonly standingEngine = new StandingEngine();
 
-  constructor(private readonly db: Database.Database) {
-    this.repository = new CompetitionRepository(db);
-    this.scheduleEngine = new ScheduleEngine();
-    this.standingEngine = new StandingEngine(db);
-    this.calendarEngine = new CalendarEngine();
-    this.matchEngine = new MatchEngine();
-    this.standingRuleRepository = new StandingRuleRepository(db);
-    this.qualificationEngine = new QualificationEngine(db);
+  constructor(
+    database: WorldDatabase,
+  ) {
+    this.repository =
+      new CompetitionRepository(database);
   }
 
-  generateSeason(setup: CompetitionSeasonSetup): GeneratedSeason {
-    const competition = this.repository.findBySlug(setup.competitionSlug);
-
-    if (!competition) {
-      throw new Error(`Competition não encontrada: ${setup.competitionSlug}`);
-    }
-
-    const season = this.repository.findSeason(
-      competition.id,
-      setup.year,
+  generateSeason(
+    setup: CompetitionSeasonSetup,
+  ): GeneratedSeason {
+    const season = this.findSeason(
+      setup.competitionSeasonId,
     );
 
-    if (!season) {
-      throw new Error(`Temporada ${setup.year} não encontrada para ${competition.name}`);
+    const stage =
+      this.repository.findStage(season.id);
+
+    if (!stage) {
+      throw new Error(
+        `Stage não encontrada para season=${season.id}`,
+      );
     }
 
-    const participants = this.repository.findParticipants(season.id);
+    const participants =
+      this.repository.findParticipants(season.id);
 
-    if (!participants.length) {
-      throw new Error(`Nenhum participante encontrado para ${competition.name} ${setup.year}`);
+    if (
+      !stage.format ||
+      stage.format.formatType !== "LEAGUE"
+    ) {
+      throw new Error(
+        "CompetitionEngine MVP suporta apenas stages LEAGUE.",
+      );
     }
-    const stage = this.createLeagueStage(season.id);
 
-    const rounds = this.scheduleEngine.generateDoubleRoundRobin(participants);
+    if (
+      stage.format.legs !== 2 ||
+      !stage.format.homeAway
+    ) {
+      throw new Error(
+        "League precisa ser double round-robin com mando de campo.",
+      );
+    }
 
-    const startDate = season.startDate ?? `${season.year}-01-27`;
+    if (
+      stage.format.participantCount !== null &&
+      stage.format.participantCount !==
+        participants.length
+    ) {
+      throw new Error(
+        `Stage espera ${stage.format.participantCount} participantes, mas encontrou ${participants.length}.`,
+      );
+    }
 
-    this.createRounds(stage.id, rounds, startDate);
+    if (
+      !stage.schedule ||
+      stage.schedule.schedulingType !==
+        "ROUND_ROBIN"
+    ) {
+      throw new Error(
+        "CompetitionEngine MVP suporta apenas ROUND_ROBIN.",
+      );
+    }
 
-    this.standingEngine.initialize(stage.id, participants.map((participant) => participant.teamId));
+    if (
+      !stage.schedule.startDate ||
+      stage.schedule.intervalDays < 1
+    ) {
+      throw new Error(
+        "Schedule inválido para geração da temporada.",
+      );
+    }
 
-    const fixtureCount = rounds.reduce((total, round) => total + round.fixtures.length, 0);
+    if (!stage.points) {
+      throw new Error(
+        "Stage não possui regra de pontuação.",
+      );
+    }
+
+    const rounds =
+      this.scheduleEngine.generateDoubleRoundRobin(
+        participants,
+        stage.schedule.startDate,
+        stage.schedule.intervalDays,
+      );
 
     return {
-      competitionId: competition.id,
-      seasonId: season.id,
-      stageId: stage.id,
+      competition: this.findCompetition(
+        season.competitionId,
+      ),
+      season,
+      stage,
+      participants,
       rounds: rounds.length,
-      fixtures: fixtureCount,
+      fixtures: rounds.flatMap(
+        (round) => round.fixtures,
+      ),
     };
   }
 
-  playFixture(fixtureId: number): Fixture {
-    const transaction = this.db.transaction(() => {
-      const fixture = this.repository.findFixture(fixtureId);
-
-      if (!fixture) {
-        throw new Error(`Fixture não encontrada: ${fixtureId}`);
-      }
-
-      if (fixture.status !== "SCHEDULED") {
-        throw new Error(`Fixture ${fixtureId} já foi processada.`);
-      }
-
-      const result = this.matchEngine.simulate({
-        homeTeamId: fixture.homeTeamId,
-        awayTeamId: fixture.awayTeamId,
-      });
-
-      this.updateFixtureResult(fixtureId, result);
-
-      this.standingEngine.applyResult(
-        fixture.stageId,
-        result,
+  simulateSeason(
+    generatedSeason: GeneratedSeason,
+    seed = 2026,
+  ): SimulationResult {
+    if (!generatedSeason.stage.points) {
+      throw new Error(
+        "Stage não possui regra de pontuação.",
       );
-
-      return {
-        ...fixture,
-        status: "PLAYED" as const,
-        homeScore: result.homeGoals,
-        awayScore: result.awayGoals,
-      };
-    });
-
-    return transaction();
-  }
-
-  playFixturesOnDate(stageId: number, date: string,): Fixture[] {
-    const fixtures = this.repository.findScheduledFixturesOnDate(stageId, date,);
-    if (!fixtures.length) {
-      return [];
     }
 
-    const transaction = this.db.transaction(() => {
-      const played: Fixture[] = [];
+    const standings =
+      this.standingEngine.initialize(
+        generatedSeason.participants,
+      );
 
-      for (const fixture of fixtures) {
-        const result = this.matchEngine.simulate({ homeTeamId: fixture.homeTeamId, awayTeamId: fixture.awayTeamId, });
-        this.updateFixtureResult(fixture.id, result,);
-        this.standingEngine.applyResult(fixture.stageId, result,);
+    const strengths = new Map(
+      generatedSeason.participants.map(
+        (participant) => [
+          participant.teamId,
+          {
+            teamId: participant.teamId,
+            reputation: participant.reputation,
+          },
+        ],
+      ),
+    );
 
-        played.push({
-          ...fixture,
-          status: "PLAYED",
-          homeScore: result.homeGoals,
-          awayScore: result.awayGoals,
-        });
+    let fixturesPlayed = 0;
+
+    for (const fixture of generatedSeason.fixtures) {
+      const home = strengths.get(
+        fixture.homeTeamId,
+      );
+      const away = strengths.get(
+        fixture.awayTeamId,
+      );
+
+      if (!home || !away) {
+        throw new Error(
+          "Fixture contém time fora dos participantes.",
+        );
       }
 
-      return played;
-    }); return transaction();
-  }
-
-  getNextCompetitionDate(stageId: number, currentDate: string,): string | null {
-    return this.repository.findNextScheduledDate(stageId, currentDate,);
-  }
-
-  getStandings(stageId: number,): Standing[] {
-    return this.standingEngine.getStandings(stageId);
-  }
-
-
-  private updateFixtureResult(fixtureId: number, result: MatchResult,): void {
-    this.db
-      .prepare(` 
-        UPDATE fixture 
-        SET status = ?, 
-        home_score = ?,
-        away_score = ? 
-        WHERE id = ? `
-      )
-      .run(
-        "PLAYED",
-        result.homeGoals,
-        result.awayGoals,
-        fixtureId,
-      );
-  }
-
-  private createLeagueStage(seasonId: number,): { id: number; } {
-    const result = this.db.prepare(`
-        SELECT id FROM competition_stage 
-        where competition_season_id = ?
-      `)
-      .get(seasonId,) as { id: number }
-
-    const stageId = Number(
-      result.id,
-    );
-
-
-    return {
-      id: stageId,
-    };
-  }
-
-  getQualifications(stageId: number) {
-    const standings = this.standingEngine.getStandings(stageId);
-
-    return this.qualificationEngine.resolve(
-      stageId,
-      standings,
-    );
-  }
-
-  private createRounds(
-    stageId: number,
-    rounds: ReturnType<ScheduleEngine["generateDoubleRoundRobin"]>,
-    startDate: string,
-  ): void {
-    const calendar = this.calendarEngine.generate(
-      startDate,
-      rounds.length,
-    );
-
-    const insertRound = this.db.prepare(`
-      INSERT INTO competition_round (
-        stage_id,
-        round_number,
-        name,
-        start_date,
-        end_date
-      )
-      VALUES (?, ?, ?, ?, ?)
-    `);
-
-    const insertFixture = this.db.prepare(`
-      INSERT INTO fixture (
-        round_id,
-        home_team_id,
-        away_team_id,
-        scheduled_at,
-        status
-      )
-      VALUES (?, ?, ?, ?, ?)
-    `);
-
-    const transaction = this.db.transaction(() => {
-      for (const round of rounds) {
-        const date = calendar[round.roundNumber - 1].date;
-
-        const roundResult = insertRound.run(
-          stageId,
-          round.roundNumber,
-          `Rodada ${round.roundNumber}`,
-          date,
-          date,
+      const result =
+        this.matchEngine.simulate(
+          home,
+          away,
+          seed +
+            fixture.roundNumber * 997 +
+            fixture.homeTeamId * 31 +
+            fixture.awayTeamId,
         );
 
-        const roundId = Number(roundResult.lastInsertRowid,);
+      this.standingEngine.applyResult(
+        standings,
+        result,
+        generatedSeason.stage.points,
+      );
 
-        for (const fixture of round.fixtures) {
-          insertFixture.run(
-            roundId,
-            fixture.homeTeamId,
-            fixture.awayTeamId,
-            `${date}T16:00:00`,
-            "SCHEDULED",
-          );
-        }
-      }
-    });
+      fixture.status = "PLAYED";
+      fixture.homeScore = result.homeGoals;
+      fixture.awayScore = result.awayGoals;
 
-    transaction();
+      fixturesPlayed++;
+    }
+
+    return {
+      fixturesPlayed,
+      standings:
+        this.standingEngine.sort(standings),
+    };
+  }
+
+  private findSeason(id: number) {
+    const row = this.repository.findSeasonById(id);
+
+    if (!row) {
+      throw new Error(
+        `Competition season não encontrada: ${id}`,
+      );
+    }
+
+    return row;
+  }
+
+  private findCompetition(id: number) {
+    const row =
+      this.repository.findById(id);
+
+    if (!row) {
+      throw new Error(
+        `Competition não encontrada: ${id}`,
+      );
+    }
+
+    return row;
   }
 }
