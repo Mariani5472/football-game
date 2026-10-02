@@ -40,6 +40,33 @@ const MIGRATIONS: WorldMigration[] = [
     migrate: database => {
       initializeWorldCompositionSchema(database.connection);
 
+      const duplicateIdentity = database.connection
+        .prepare(
+          "SELECT lower(package_key) AS packageKey, COUNT(*) AS count FROM world_package GROUP BY lower(package_key) HAVING COUNT(*) > 1 LIMIT 1",
+        )
+        .get() as { packageKey: string; count: number } | undefined;
+
+      if (duplicateIdentity) {
+        throw new Error(
+          "Cannot migrate World to schema v4: duplicate package identity detected for " +
+            duplicateIdentity.packageKey +
+            ". Resolve the duplicate packages before migrating.",
+        );
+      }
+
+      database.connection.exec(
+        "UPDATE world_package SET package_key=lower(trim(package_key))",
+      );
+      database.connection.exec(
+        "UPDATE world_package_provides SET provide_key=lower(trim(provide_key))",
+      );
+      database.connection.exec(
+        "UPDATE world_package_dependency SET dependency_key=lower(trim(dependency_key))",
+      );
+      database.connection.exec(
+        "UPDATE world_package_conflict SET conflict_key=lower(trim(conflict_key))",
+      );
+
       database.connection.exec(
         "CREATE UNIQUE INDEX IF NOT EXISTS ux_world_package_identity_normalized ON world_package(lower(package_key))",
       );
