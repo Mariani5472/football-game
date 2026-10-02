@@ -13,6 +13,7 @@ import {
   UserRound,
   UsersRound,
   Wrench,
+  Plus,
 } from "lucide-react";
 
 import type { EditorRoute } from "../../app/routes";
@@ -51,6 +52,7 @@ const competitionItems: NavItem[] = [
 
 const tacticsItems: NavItem[] = [
   { id: "formations", label: "Formations", icon: Swords },
+  { id: "fast-create", label: "Quick Create", icon: Plus },
 ];
 
 const toolItems: NavItem[] = [
