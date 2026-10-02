@@ -63,7 +63,7 @@ export const editorApi = {
   create: <T extends EntityRow = EntityRow>(table: string, values: Record<string, Scalar>) =>
     request<T>("/entities/" + encodeURIComponent(table), { method: "POST", body: JSON.stringify(values) }),
   update: <T extends EntityRow = EntityRow>(table: string, id: EntityKey, values: Record<string, Scalar>) =>
-    request<T>("/entities/" + encodeURIComponent(table) + "/" + encodeURIComponent(String(id)), { method: "PATCH", body: JSON.stringify(values) }),
+    request<T>("/entities/" + encodeURIComponent(table) + "/" + encodeURIComponent(serializeEntityKey(id)), { method: "PATCH", body: JSON.stringify(values) }),
   remove: (table: string, id: EntityKey) =>
-    request<{ deleted: boolean }>("/entities/" + encodeURIComponent(table) + "/" + encodeURIComponent(String(id)), { method: "DELETE" }),
+    request<{ deleted: boolean }>("/entities/" + encodeURIComponent(table) + "/" + encodeURIComponent(serializeEntityKey(id)), { method: "DELETE" }),
 };
