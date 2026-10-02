@@ -80,6 +80,37 @@ export function createEditorApiServer(options: EditorApiServerOptions): http.Ser
         return;
       }
 
+      if (parts[1] === "world") {
+        if (request.method === "GET" && parts[2] === undefined) {
+          jsonResponse(response, 200, service.dashboard());
+          return;
+        }
+
+        if (request.method === "PATCH" && parts[2] === "settings") {
+          const body = await readBody(request) as { name?: string; year?: number };
+          jsonResponse(response, 200, service.updateWorldSettings(
+            String(body.name ?? ""),
+            Number(body.year),
+          ));
+          return;
+        }
+
+        if (request.method === "GET" && parts[2] === "packages") {
+          jsonResponse(response, 200, { packages: service.listPackages() });
+          return;
+        }
+
+        if (request.method === "POST" && parts[2] === "packages") {
+          jsonResponse(response, 201, service.registerPackage(await readBody(request) as Parameters<WorldEditorService["registerPackage"]>[0]));
+          return;
+        }
+
+        if (request.method === "DELETE" && parts[2] === "packages" && parts[3]) {
+          jsonResponse(response, 200, { deleted: service.removePackage(Number(parts[3])) });
+          return;
+        }
+      }
+
       if (parts[1] === "tables" && request.method === "GET") {
         jsonResponse(response, 200, { tables: service.tables() });
         return;
