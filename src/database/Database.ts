@@ -159,9 +159,12 @@ export abstract class Database {
         (
           this.db.prepare(
             `PRAGMA index_info("${index.name}")`,
-          ).all() as Array<{ name: string }>
-        ).map((column) => column.name),
-      );
+          ).all() as Array<{ name: string | null }>
+        )
+          .map((column) => column.name)
+          .filter((name): name is string => name !== null),
+      )
+      .filter((columns) => columns.length > 0);
 
     const checks = [...ddl.matchAll(/CHECK\s*\(([^()]*)\)/gi)]
       .map((match) => match[1].trim());
