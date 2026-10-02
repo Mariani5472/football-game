@@ -19,7 +19,7 @@ export interface WorldPackageRecord {
   packageKey: string;
   name: string;
   version: string;
-  status: "ACTIVE" | "CONFLICT" | "ERROR";
+  status: "ACTIVE" | "CONFLICT" | "ERROR" | "DISABLED";
   icon: string | null;
   sourceFile: string | null;
   sourceSha256: string | null;
@@ -28,6 +28,13 @@ export interface WorldPackageRecord {
   schemaVersion: number;
   importedAt: string;
   updatedAt: string;
+  packageType: string;
+  priority: number;
+  enabled: boolean;
+  loadOrder: number | null;
+  provides: string[];
+  dependencies: Array<{ key: string; minVersion: string | null }>;
+  conflicts: string[];
 }
 
 export interface WorldDashboard {
