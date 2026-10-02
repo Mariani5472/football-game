@@ -1,14 +1,23 @@
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
+
 import DatabaseConnection from "better-sqlite3";
+
 import { WorldDatabase } from "../database/world/WorldDatabase.js";
 import {
+  type IdentityContext,
+  type IdentityPolicy,
   generateUuid,
-  IDENTITY_POLICIES,
+  identityPolicy,
 } from "../database/world/WorldIdentity.js";
 
-export type ConflictPolicy = "REPLACE" | "MERGE" | "KEEP_EXISTING" | "KEEP_INCOMING" | "MANUAL";
+export type ConflictPolicy =
+  | "REPLACE"
+  | "MERGE"
+  | "KEEP_EXISTING"
+  | "KEEP_INCOMING"
+  | "MANUAL";
 
 export interface PackageManifest {
   packageKey: string;
@@ -20,7 +29,7 @@ export interface PackageManifest {
   categories?: string[];
   description?: string | null;
   provides?: string[];
-  dependencies?: Array<{ key: string; minVersion?: string }>;
+  dependencies?: Array<{ key: string; minVersion?: string | null }>;
   conflicts?: string[];
 }
 
@@ -36,645 +45,3724 @@ export interface ImportPreview {
   message: string;
 }
 
-interface TableInfo {
-  name: string;
-  columns: Array<{ name: string }>;
-  primaryKey: string[];
+export interface ImportConflictRecord {
+  id: number;
+  packageId: number;
+  tableName: string;
+  incomingKey: string;
+  incomingId: number | null;
+  worldKey: string | null;
+  worldId: number | null;
+  conflictType: string;
+  columnName: string | null;
+  existingValue: string | null;
+  incomingValue: string | null;
+  resolution: ConflictPolicy;
+  resolved: boolean;
 }
 
+export interface ImportSessionRecord {
+  id: number;
+  status: string;
+  packageId: number;
+  packageKey: string;
+  sourceFile: string;
+  sourceSha256: string;
+  startedAt: string;
+  completedAt: string | null;
+  errorMessage: string | null;
+  summary: Record<string, unknown>;
+}
+
+export interface RebuildResult {
+  status: "COMPLETED";
+  packages: number;
+  rows: number;
+  sessions: number;
+  message: string;
+}
+
+type Row = Record<string, unknown>;
+type KeyObject = Record<string, unknown>;
+
+interface ColumnInfo {
+  name: string;
+  type: string;
+  notNull: boolean;
+  defaultValue: unknown;
+  primaryKeyOrder: number;
+}
+
+interface ForeignKeyInfo {
+  id: number;
+  sequence: number;
+  table: string;
+  from: string;
+  to: string;
+}
+
+interface TableInfo {
+  name: string;
+  columns: ColumnInfo[];
+  primaryKey: string[];
+  foreignKeys: ForeignKeyInfo[];
+  uniqueColumns: string[][];
+  rowIdPrimaryKey: boolean;
+}
+
+interface PackageRuntime {
+  id: number;
+  manifest: PackageManifest;
+  sourceFile: string;
+  sourceSha256: string;
+  loadOrder: number;
+  priority: number;
+  alias: string;
+}
+
+interface ImportRuntime {
+  packageId: number;
+  sessionId: number;
+  manifest: PackageManifest;
+  tableInfos: Map<string, TableInfo>;
+  mapping: Map<string, KeyObject>;
+  packagePriority: number;
+  alias: string;
+}
+
+class UnresolvedForeignKeyError extends Error {
+  constructor(
+    readonly tableName: string,
+    readonly columnName: string,
+    readonly targetTable: string,
+    readonly targetKey: string,
+  ) {
+    super(
+      "Unresolved foreign key " +
+        tableName +
+        "." +
+        columnName +
+        " -> " +
+        targetTable +
+        " " +
+        targetKey,
+    );
+    this.name = "UnresolvedForeignKeyError";
+  }
+}
+
+const INTERNAL_TABLES = new Set([
+  "database_metadata",
+  "editor_template",
+  "world_package",
+  "world_package_load_order",
+  "world_package_provides",
+  "world_package_dependency",
+  "world_package_conflict",
+  "world_entity_identity",
+  "world_entity_provenance",
+  "world_attribute_provenance",
+  "world_import_session",
+  "world_import_id_map",
+  "world_import_conflict",
+]);
+
+const EVENT_TABLES = new Set([
+  "fixture",
+  "transfer",
+  "player_transfer",
+  "award",
+  "player_injury",
+  "person_suspension",
+  "competition_history",
+]);
+
 export class WorldPackageImportService {
-  constructor(private readonly world: WorldDatabase) {}
+  constructor(private readonly world: WorldDatabase) {
+    this.bootstrapWorldIdentities();
+  }
 
   inspect(sourceFile: string): ImportPreview {
     const absolute = this.resolveSource(sourceFile);
     const sourceSha256 = sha256File(absolute);
-    const incoming = new DatabaseConnection(absolute, { readonly: true });
-    const alias = this.attach(incoming, absolute);
+    const alias = "incoming_package";
+
+    this.attach(alias, absolute);
+
     try {
-      const manifest = this.readManifest(incoming);
-      this.ensureManifest(manifest, sourceSha256, absolute);
-      const packageId = this.ensurePackage(manifest, absolute, sourceSha256);
-      const sessionId = this.createSession(packageId, absolute, sourceSha256);
+      const manifest = this.readManifest(alias);
+      this.validateManifest(manifest);
+
+      const packageId = this.ensurePackage(
+        manifest,
+        absolute,
+        sourceSha256,
+      );
+      const sessionId = this.createSession(
+        packageId,
+        absolute,
+        sourceSha256,
+      );
+
       this.setSessionStatus(sessionId, "INSPECTING");
 
-      const tables = this.listIncomingTables(incoming);
+      const tableInfos = this.loadTableInfos(alias);
+      this.validateCompatibleTables(tableInfos);
+
+      const context = this.createIdentityContext(alias, tableInfos);
+      const mapping = new Map<string, KeyObject>();
+
       let rows = 0;
       let newRows = 0;
       let existingRows = 0;
       let conflicts = 0;
 
-      for (const table of tables) {
-        const count = Number(incoming.prepare(`SELECT COUNT(*) AS count FROM "${quote(table)}"`).get().count);
-        rows += count;
-        const policy = IDENTITY_POLICIES[table.name];
-        if (!policy) {
-          newRows += count;
-          continue;
-        }
+      for (const table of this.orderTables(tableInfos)) {
+        for (const row of this.iterateRows(alias, table.name)) {
+          rows += 1;
 
-        for (const row of incoming.prepare(`SELECT * FROM "${quote(table)}"`).iterate() as Iterable<Record<string, unknown>>) {
-          const resolved = this.resolveIncomingRow(table.name, row);
-          if (resolved.worldId == null) newRows++;
-          else {
-            existingRows++;
-            if (this.rowHasChanged(table.name, resolved.worldId, row)) {
-              conflicts++;
-              this.recordConflict(
-                sessionId,
-                table.name,
-                row,
-                resolved.worldId,
+          const incomingKey = serializeKey(table, row);
+          const resolved = this.resolveExisting(
+            table,
+            row,
+            context,
+            mapping,
+            packageId,
+            incomingKey,
+          );
+
+          if (resolved.conflict) {
+            conflicts += 1;
+            this.recordConflict(
+              sessionId,
+              packageId,
+              table,
+              row,
+              resolved.worldKey,
+              resolved.worldId,
+              resolved.conflict.type,
+              resolved.conflict.column,
+              resolved.conflict.existingValue,
+              resolved.conflict.incomingValue,
+            );
+          }
+
+          let effectiveWorldKey = resolved.worldKey;
+
+          if (!effectiveWorldKey) {
+            const translated = this.tryBuildTranslatedRow(
+              table,
+              row,
+              mapping,
+              tableInfos,
+            );
+
+            if (translated) {
+              effectiveWorldKey = this.findExistingByUnique(
+                table,
+                translated,
               );
+
+              if (effectiveWorldKey) {
+                const changes = this.findRowChanges(
+                  table,
+                  effectiveWorldKey,
+                  translated,
+                );
+
+                for (const change of changes) {
+                  conflicts += 1;
+                  this.recordConflict(
+                    sessionId,
+                    packageId,
+                    table,
+                    row,
+                    effectiveWorldKey,
+                    toNumberOrNull(
+                      effectiveWorldKey[table.primaryKey[0]],
+                    ),
+                    "ATTRIBUTE",
+                    change.column,
+                    change.existingValue,
+                    change.incomingValue,
+                  );
+                }
+              }
             }
+          }
+
+          if (effectiveWorldKey) {
+            existingRows += 1;
+            mapping.set(
+              mapKey(table.name, incomingKey),
+              effectiveWorldKey,
+            );
+          } else {
+            newRows += 1;
+            mapping.set(
+              mapKey(table.name, incomingKey),
+              virtualKey(table, incomingKey),
+            );
           }
         }
       }
 
-      const status = conflicts > 0 ? "CONFLICTS_FOUND" : "READY";
-      this.setSessionStatus(sessionId, status, { tables: tables.length, rows, newRows, existingRows, conflicts });
-      if (conflicts > 0) {
-        this.world.connection.prepare("UPDATE world_package SET status='CONFLICT', updated_at=? WHERE id=?").run(new Date().toISOString(), packageId);
-      }
-      return {
-        sessionId,
-        packageKey: manifest.packageKey,
-        status,
-        tables: tables.length,
+      const status =
+        conflicts > 0 ? "CONFLICTS_FOUND" : "READY";
+
+      this.setSessionStatus(sessionId, status, {
+        tables: tableInfos.size,
         rows,
         newRows,
         existingRows,
         conflicts,
-        message: conflicts > 0 ? "Package inspected; review conflicts before importing." : "Package is ready to import.",
+      });
+      this.setBuildDirty();
+
+      return {
+        sessionId,
+        packageKey: manifest.packageKey,
+        status,
+        tables: tableInfos.size,
+        rows,
+        newRows,
+        existingRows,
+        conflicts,
+        message:
+          conflicts > 0
+            ? "Package inspected; review the detected conflicts before importing."
+            : "Package is compatible and ready to import.",
       };
     } finally {
       this.detach(alias);
-      incoming.close();
     }
   }
 
-  import(sessionId: number, resolutions: Record<string, ConflictPolicy> = {}): ImportPreview {
+  import(
+    sessionId: number,
+    resolutions: Record<string, ConflictPolicy> = {},
+  ): ImportPreview {
     const session = this.getSession(sessionId);
-    if (!session) throw new Error(`Import session not found: ${sessionId}`);
+    if (!session) {
+      throw new Error("Import session not found: " + sessionId);
+    }
 
-    const absolute = session.source_file;
-    if (!fs.existsSync(absolute)) throw new Error(`Package file not found: ${absolute}`);
-    const incoming = new DatabaseConnection(absolute, { readonly: true });
-    const alias = this.attach(incoming, absolute);
+    const absolute = session.sourceFile;
+    if (!fs.existsSync(absolute)) {
+      throw new Error("Package file not found: " + absolute);
+    }
+
+    const sourceHash = sha256File(absolute);
+    if (sourceHash !== session.sourceSha256) {
+      throw new Error(
+        "Package changed after inspection. Inspect it again before importing.",
+      );
+    }
+
+    const alias = "incoming_package";
+    this.attach(alias, absolute);
 
     try {
-      this.setSessionStatus(sessionId, "RESOLVING");
-      const manifest = this.readManifest(incoming);
-      const packageRow = this.world.connection.prepare("SELECT id FROM world_package WHERE package_key = ?").get(manifest.packageKey) as { id: number } | undefined;
-      if (!packageRow) throw new Error("Package registry entry is missing.");
+      const manifest = this.readManifest(alias);
+      this.validateManifest(manifest);
 
-      const unresolved = Number((this.world.connection.prepare("SELECT COUNT(*) AS count FROM world_import_conflict WHERE import_session_id=? AND resolved=0").get(sessionId) as { count:number }).count);
-      if (unresolved > 0 && Object.keys(resolutions).length === 0) {
-        throw new Error("Import has unresolved conflicts.");
+      const packageRow = this.world.connection
+        .prepare(
+          "SELECT id, priority FROM world_package WHERE package_key=?",
+        )
+        .get(manifest.packageKey) as
+        | { id: number; priority: number }
+        | undefined;
+
+      if (!packageRow) {
+        throw new Error("Package registry entry is missing.");
       }
 
-      const tables = this.listIncomingTables(incoming);
-      const map = new Map<string, number>();
+      const tableInfos = this.loadTableInfos(alias);
+      this.validateCompatibleTables(tableInfos);
+
+      const runtime: ImportRuntime = {
+        packageId: packageRow.id,
+        sessionId,
+        manifest,
+        tableInfos,
+        mapping: new Map(),
+        packagePriority: Number(
+          packageRow.priority ?? manifest.priority ?? 100,
+        ),
+        alias,
+      };
+
+      this.setSessionStatus(sessionId, "RESOLVING");
+
+      const explicitResolution = this.buildResolutionMap(
+        this.listConflicts(sessionId),
+        resolutions,
+      );
+
       let rows = 0;
       let created = 0;
       let updated = 0;
+      let skipped = 0;
 
       this.world.transaction(() => {
+        this.world.connection.pragma("defer_foreign_keys = ON");
         this.setSessionStatus(sessionId, "COMMITTING");
 
-        for (const table of this.orderTablesForImport(tables)) {
-          if (this.isInternalTable(table.name)) continue;
+        const pending = new Map<string, Row[]>();
+        for (const table of this.orderTables(tableInfos)) {
+          pending.set(
+            table.name,
+            Array.from(this.iterateRows(alias, table.name)),
+          );
+        }
 
-          for (const row of incoming.prepare(`SELECT * FROM "${quote(table.name)}"`).iterate() as Iterable<Record<string, unknown>>) {
-            rows++;
-            const resolved = this.resolveIncomingRow(table.name, row);
-            const worldId = resolved.worldId;
-            const policy = resolved.policy;
+        let progress = true;
+        while (pending.size > 0 && progress) {
+          progress = false;
 
-            if (worldId != null && this.rowHasChanged(table.name, worldId, row)) {
-              const policyKey = `${table.name}.${worldId}`;
-              const conflict = resolutions[policyKey] ?? (policy?.fallback === "NONE" ? "KEEP_INCOMING" : "REPLACE");
-              if (conflict === "MANUAL") throw new Error(`Unresolved conflict: ${table.name}#${worldId}`);
-              if (conflict === "KEEP_EXISTING") {
-                this.recordProvenance(table.name, worldId, packageRow.id, "KEEP_EXISTING", row);
-                this.recordMap(sessionId, table.name, row, worldId, resolved);
-                continue;
-              }
-              if (conflict === "MERGE") {
-                this.mergeRow(table.name, worldId, row, map);
-              } else {
-                this.updateResolvedRow(table.name, worldId, row, map);
-              }
-              updated++;
-              this.recordProvenance(table.name, worldId, packageRow.id, conflict, row);
-              this.recordMap(sessionId, table.name, row, worldId, resolved);
+          for (const [tableName, pendingRows] of Array.from(
+            pending.entries(),
+          )) {
+            const table = tableInfos.get(tableName);
+            if (!table) {
+              pending.delete(tableName);
               continue;
             }
 
-            if (worldId != null) {
-              this.recordProvenance(table.name, worldId, packageRow.id, "EXISTING", row);
-              this.recordMap(sessionId, table.name, row, worldId, resolved);
-              continue;
+            const next: Row[] = [];
+
+            for (const row of pendingRows) {
+              try {
+                const result = this.importRow(
+                  runtime,
+                  table,
+                  row,
+                  explicitResolution,
+                );
+
+                rows += 1;
+                if (result.created) created += 1;
+                if (result.updated) updated += 1;
+                if (result.skipped) skipped += 1;
+
+                progress = true;
+              } catch (error) {
+                if (error instanceof UnresolvedForeignKeyError) {
+                  next.push(row);
+                  continue;
+                }
+                throw error;
+              }
             }
 
-            const createdId = this.insertResolvedRow(table.name, row, map);
-            created++;
-            this.recordProvenance(table.name, createdId, packageRow.id, "CREATED", row);
-            this.recordMap(sessionId, table.name, row, createdId, resolved);
+            if (next.length === 0) {
+              pending.delete(tableName);
+            } else {
+              pending.set(tableName, next);
+            }
           }
         }
 
+        if (pending.size > 0) {
+          const unresolved = Array.from(pending.entries())
+            .map(
+              ([tableName, pendingRows]) =>
+                tableName + " (" + pendingRows.length + " rows)",
+            )
+            .join(", ");
+
+          throw new Error(
+            "Unable to resolve package foreign keys: " +
+              unresolved,
+          );
+        }
+
         this.world.setMetadata("world_build_status", "VALID");
-        this.world.setMetadata("world_last_build_at", new Date().toISOString());
+        this.world.setMetadata(
+          "world_last_build_at",
+          new Date().toISOString(),
+        );
       });
 
-      this.setSessionStatus(sessionId, "COMPLETED", { tables: tables.length, rows, created, updated });
+      this.setSessionStatus(sessionId, "COMPLETED", {
+        tables: tableInfos.size,
+        rows,
+        created,
+        updated,
+        skipped,
+      });
+
+      this.world.connection
+        .prepare(
+          "UPDATE world_package SET status='ACTIVE', updated_at=? WHERE id=?",
+        )
+        .run(new Date().toISOString(), packageRow.id);
+
       return {
         sessionId,
         packageKey: manifest.packageKey,
         status: "COMPLETED",
-        tables: tables.length,
+        tables: tableInfos.size,
         rows,
         newRows: created,
         existingRows: updated,
-        conflicts: 0,
-        message: `Imported ${rows} rows.`,
+        conflicts: this.listConflicts(sessionId).length,
+        message:
+          "Imported " +
+          rows +
+          " rows (" +
+          created +
+          " created, " +
+          updated +
+          " updated, " +
+          skipped +
+          " unchanged).",
       };
     } catch (error) {
-      this.setSessionStatus(sessionId, "FAILED", undefined, error instanceof Error ? error.message : String(error));
+      this.setSessionStatus(
+        sessionId,
+        "FAILED",
+        undefined,
+        error instanceof Error ? error.message : String(error),
+      );
+      this.world.setMetadata("world_build_status", "INVALID");
       throw error;
     } finally {
       this.detach(alias);
-      incoming.close();
     }
   }
 
-  private resolveSource(sourceFile: string): string {
-    const absolute = path.resolve(sourceFile);
-    if (!fs.existsSync(absolute)) throw new Error(`Package file not found: ${absolute}`);
-    return absolute;
-  }
+  rebuild(): RebuildResult {
+    const packages = this.listEnabledPackages();
 
-  private attach(_incoming: DatabaseConnection.Database, sourceFile: string): string {
-    const alias = "incoming_package";
-    this.world.connection.exec(`ATTACH DATABASE ? AS ${alias}`.replace("?", quoteString(sourceFile)));
-    return alias;
-  }
+    for (const pkg of packages) {
+      if (!pkg.sourceFile) {
+        throw new Error(
+          "Enabled package has no source file: " +
+            pkg.manifest.packageKey,
+        );
+      }
 
-  private detach(alias: string): void {
-    this.world.connection.exec(`DETACH DATABASE ${quote(alias)}`);
-  }
+      if (!fs.existsSync(pkg.sourceFile)) {
+        throw new Error(
+          "Package source file not found: " +
+            pkg.manifest.packageKey +
+            " -> " +
+            pkg.sourceFile,
+        );
+      }
 
-  private readManifest(db: DatabaseConnection.Database): PackageManifest {
-    const hasTable = Boolean(db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='package_manifest'").get());
-    if (hasTable) {
-      const row = db.prepare("SELECT manifest_json FROM package_manifest LIMIT 1").get() as { manifest_json?: string } | undefined;
-      if (row?.manifest_json) return JSON.parse(row.manifest_json) as PackageManifest;
+      const actualHash = sha256File(pkg.sourceFile);
+      if (actualHash !== pkg.sourceSha256) {
+        throw new Error(
+          "Package hash changed: " + pkg.manifest.packageKey,
+        );
+      }
+
+      this.validateManifest(pkg.manifest);
     }
-    const metadataTable = Boolean(db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='database_metadata'").get());
-    const metadata = metadataTable ? db.prepare("SELECT key,value FROM database_metadata").all() as Array<{ key: string; value: string }> : [];
-    const values = new Map(metadata.map(item => [item.key, item.value]));
-    const packageKey = values.get("package_key");
-    const name = values.get("package_name");
-    if (!packageKey || !name) throw new Error("Package manifest is missing. Expected package_manifest or database_metadata package_key/package_name.");
+
+    const runtimes = packages.map(pkg => ({
+      ...pkg,
+      alias: "incoming_" + pkg.id,
+    }));
+
+    for (const runtime of runtimes) {
+      this.attach(runtime.alias, runtime.sourceFile);
+    }
+
+    const sessions: Array<{
+      runtime: PackageRuntime;
+      sessionId: number;
+    }> = [];
+
+    try {
+      for (const runtime of runtimes) {
+        sessions.push({
+          runtime,
+          sessionId: this.createSession(
+            runtime.id,
+            runtime.sourceFile,
+            runtime.sourceSha256,
+          ),
+        });
+      }
+
+      let totalRows = 0;
+
+      this.world.transaction(() => {
+        this.world.connection.pragma("defer_foreign_keys = ON");
+        this.clearBuiltWorld();
+
+        for (const item of sessions) {
+          const tableInfos = this.loadTableInfos(item.runtime.alias);
+          this.validateCompatibleTables(tableInfos);
+
+          const runtime: ImportRuntime = {
+            packageId: item.runtime.id,
+            sessionId: item.sessionId,
+            manifest: item.runtime.manifest,
+            tableInfos,
+            mapping: new Map(),
+            packagePriority: item.runtime.priority,
+            alias: item.runtime.alias,
+          };
+
+          this.setSessionStatus(
+            item.sessionId,
+            "RESOLVING",
+          );
+
+          const pending = new Map<string, Row[]>();
+          for (const table of this.orderTables(tableInfos)) {
+            pending.set(
+              table.name,
+              Array.from(
+                this.iterateRows(
+                  item.runtime.alias,
+                  table.name,
+                ),
+              ),
+            );
+          }
+
+          let packageRows = 0;
+          let progress = true;
+
+          while (pending.size > 0 && progress) {
+            progress = false;
+
+            for (const [tableName, pendingRows] of Array.from(
+              pending.entries(),
+            )) {
+              const table = tableInfos.get(tableName);
+              if (!table) {
+                pending.delete(tableName);
+                continue;
+              }
+
+              const next: Row[] = [];
+
+              for (const row of pendingRows) {
+                try {
+                  const result = this.importRow(
+                    runtime,
+                    table,
+                    row,
+                    new Map(),
+                  );
+
+                  if (
+                    result.created ||
+                    result.updated ||
+                    result.skipped
+                  ) {
+                    packageRows += 1;
+                  }
+
+                  progress = true;
+                } catch (error) {
+                  if (error instanceof UnresolvedForeignKeyError) {
+                    next.push(row);
+                    continue;
+                  }
+                  throw error;
+                }
+              }
+
+              if (next.length === 0) {
+                pending.delete(tableName);
+              } else {
+                pending.set(tableName, next);
+              }
+            }
+          }
+
+          if (pending.size > 0) {
+            throw new Error(
+              "Unable to resolve foreign keys while rebuilding " +
+                item.runtime.manifest.packageKey,
+            );
+          }
+
+          totalRows += packageRows;
+
+          this.setSessionStatus(
+            item.sessionId,
+            "COMPLETED",
+            {
+              tables: tableInfos.size,
+              rows: packageRows,
+            },
+          );
+        }
+
+        this.world.setMetadata("world_build_status", "VALID");
+        this.world.setMetadata(
+          "world_last_build_at",
+          new Date().toISOString(),
+        );
+      });
+
+      return {
+        status: "COMPLETED",
+        packages: packages.length,
+        rows: totalRows,
+        sessions: sessions.length,
+        message:
+          "World rebuilt from " +
+          packages.length +
+          " enabled package(s).",
+      };
+    } catch (error) {
+      for (const item of sessions) {
+        this.setSessionStatus(
+          item.sessionId,
+          "FAILED",
+          undefined,
+          error instanceof Error ? error.message : String(error),
+        );
+      }
+      this.world.setMetadata(
+        "world_build_status",
+        "INVALID",
+      );
+      throw error;
+    } finally {
+      for (const runtime of runtimes) {
+        this.detach(runtime.alias);
+      }
+    }
+  }
+
+  getSession(id: number): ImportSessionRecord | undefined {
+    const row = this.world.connection
+      .prepare(
+        `SELECT
+          s.id,
+          s.status,
+          s.package_id AS packageId,
+          p.package_key AS packageKey,
+          s.source_file AS sourceFile,
+          s.source_sha256 AS sourceSha256,
+          s.started_at AS startedAt,
+          s.completed_at AS completedAt,
+          s.error_message AS errorMessage,
+          s.summary_json AS summaryJson
+        FROM world_import_session s
+        JOIN world_package p ON p.id=s.package_id
+        WHERE s.id=?
+        LIMIT 1`,
+      )
+      .get(id) as Record<string, unknown> | undefined;
+
+    if (!row) return undefined;
+
     return {
-      packageKey,
-      name,
-      version: values.get("package_version") ?? "1.0.0",
-      schemaVersion: Number(values.get("schema_version") ?? 0),
-      packageType: values.get("package_type") ?? "CONTENT",
-      priority: Number(values.get("package_priority") ?? 100),
+      id: Number(row.id),
+      status: String(row.status),
+      packageId: Number(row.packageId),
+      packageKey: String(row.packageKey),
+      sourceFile: String(row.sourceFile),
+      sourceSha256: String(row.sourceSha256),
+      startedAt: String(row.startedAt),
+      completedAt:
+        row.completedAt == null
+          ? null
+          : String(row.completedAt),
+      errorMessage:
+        row.errorMessage == null
+          ? null
+          : String(row.errorMessage),
+      summary: JSON.parse(
+        String(row.summaryJson ?? "{}"),
+      ) as Record<string, unknown>,
     };
   }
 
-  private ensureManifest(manifest: PackageManifest, hash: string, sourceFile: string): void {
-    if (!manifest.packageKey.trim()) throw new Error("Package key is required.");
-    if (!manifest.name.trim()) throw new Error("Package name is required.");
-    if (manifest.schemaVersion !== Number(this.world.metadata("schema_version"))) {
-      throw new Error(`Package schema v${manifest.schemaVersion} is incompatible with World schema v${this.world.metadata("schema_version") ?? "unknown"}.`);
-    }
-    const existing = this.world.connection.prepare("SELECT package_key, version, source_sha256 FROM world_package WHERE package_key = ?").get(manifest.packageKey) as { package_key: string; version: string; source_sha256: string | null } | undefined;
-    if (existing?.source_sha256 && existing.source_sha256 !== hash && existing.version === manifest.version) {
-      throw new Error(`Package ${manifest.packageKey} v${manifest.version} is already registered with a different source hash.`);
-    }
-    void sourceFile;
+  listConflicts(sessionId: number): ImportConflictRecord[] {
+    return (
+      this.world.connection
+        .prepare(
+          `SELECT
+            id,
+            package_id AS packageId,
+            table_name AS tableName,
+            incoming_key AS incomingKey,
+            incoming_id AS incomingId,
+            world_key AS worldKey,
+            world_id AS worldId,
+            conflict_type AS conflictType,
+            column_name AS columnName,
+            existing_value AS existingValue,
+            incoming_value AS incomingValue,
+            resolution,
+            resolved
+          FROM world_import_conflict
+          WHERE import_session_id=?
+          ORDER BY id`,
+        )
+        .all(sessionId) as Array<Record<string, unknown>>
+    ).map(row => ({
+      id: Number(row.id),
+      packageId: Number(row.packageId),
+      tableName: String(row.tableName),
+      incomingKey: String(row.incomingKey),
+      incomingId:
+        row.incomingId == null
+          ? null
+          : Number(row.incomingId),
+      worldKey:
+        row.worldKey == null
+          ? null
+          : String(row.worldKey),
+      worldId:
+        row.worldId == null
+          ? null
+          : Number(row.worldId),
+      conflictType: String(row.conflictType),
+      columnName:
+        row.columnName == null
+          ? null
+          : String(row.columnName),
+      existingValue:
+        row.existingValue == null
+          ? null
+          : String(row.existingValue),
+      incomingValue:
+        row.incomingValue == null
+          ? null
+          : String(row.incomingValue),
+      resolution: String(row.resolution) as ConflictPolicy,
+      resolved: Number(row.resolved ?? 0) === 1,
+    }));
   }
 
-  private ensurePackage(manifest: PackageManifest, sourceFile: string, hash: string): number {
-    const now = new Date().toISOString();
-    const existing = this.world.connection.prepare("SELECT id FROM world_package WHERE package_key = ?").get(manifest.packageKey) as { id: number } | undefined;
-    let id: number;
-    if (existing) {
-      this.world.connection.prepare(`UPDATE world_package SET name=?, version=?, package_type=?, priority=?, source_file=?, source_sha256=?, categories_json=?, description=?, schema_version=?, updated_at=?, enabled=1 WHERE id=?`)
-        .run(manifest.name, manifest.version, manifest.packageType ?? "CONTENT", manifest.priority ?? 100, sourceFile, hash, JSON.stringify(manifest.categories ?? []), manifest.description ?? null, manifest.schemaVersion, now, existing.id);
-      id = existing.id;
+  private buildResolutionMap(
+    conflicts: ImportConflictRecord[],
+    resolutions: Record<string, ConflictPolicy>,
+  ): Map<string, ConflictPolicy> {
+    const result = new Map<string, ConflictPolicy>();
+
+    for (const conflict of conflicts) {
+      const byId = resolutions[String(conflict.id)];
+      const byKey =
+        resolutions[
+          conflict.tableName +
+            ":" +
+            conflict.incomingKey +
+            ":" +
+            (conflict.columnName ?? "*")
+        ];
+
+      if (byId) result.set(String(conflict.id), byId);
+      else if (byKey) {
+        result.set(String(conflict.id), byKey);
+      }
+    }
+
+    return result;
+  }
+
+  private importRow(
+    runtime: ImportRuntime,
+    table: TableInfo,
+    row: Row,
+    explicitResolution: Map<string, ConflictPolicy>,
+  ): { created: boolean; updated: boolean; skipped: boolean } {
+    const context = this.createIdentityContext(
+      runtime.alias,
+      runtime.tableInfos,
+    );
+    const incomingKey = serializeKey(table, row);
+
+    const resolved = this.resolveExisting(
+      table,
+      row,
+      context,
+      runtime.mapping,
+      runtime.packageId,
+      incomingKey,
+    );
+
+    if (resolved.conflict?.type === "IDENTITY") {
+      const sessionConflict = this.findSessionConflict(
+        runtime.sessionId,
+        table,
+        incomingKey,
+        resolved.conflict.column,
+      );
+
+      const identityPolicyValue =
+        (sessionConflict
+          ? explicitResolution.get(
+              String(sessionConflict.id),
+            )
+          : undefined) ?? "MANUAL";
+
+      if (identityPolicyValue === "MANUAL") {
+        throw new Error(
+          "Manual identity resolution required for " +
+            table.name +
+            " " +
+            incomingKey,
+        );
+      }
+
+      if (
+        resolved.worldKey &&
+        identityPolicyValue === "KEEP_EXISTING"
+      ) {
+        runtime.mapping.set(
+          mapKey(table.name, incomingKey),
+          resolved.worldKey,
+        );
+        this.recordProvenance(
+          runtime,
+          table,
+          resolved.worldKey,
+          row,
+          "KEEP_EXISTING",
+          new Set(),
+        );
+        this.recordIdMap(
+          runtime,
+          table,
+          row,
+          incomingKey,
+          resolved.worldKey,
+          "KEEP_EXISTING",
+        );
+        this.resolveSessionConflict(
+          sessionConflict?.id ?? null,
+          "KEEP_EXISTING",
+        );
+        return {
+          created: false,
+          updated: false,
+          skipped: true,
+        };
+      }
+    }
+
+    const translated = this.buildTranslatedRow(
+      runtime,
+      table,
+      row,
+    );
+
+    let worldKey = resolved.worldKey;
+
+    if (!worldKey) {
+      worldKey = this.findExistingByUnique(
+        table,
+        translated,
+      );
+    }
+
+    if (!worldKey) {
+      const values = this.prepareInsertValues(
+        table,
+        translated,
+        row,
+      );
+      worldKey = this.insertRow(table, values);
+
+      runtime.mapping.set(
+        mapKey(table.name, incomingKey),
+        worldKey,
+      );
+
+      this.persistIdentity(
+        table,
+        worldKey,
+        row,
+        runtime,
+      );
+
+      this.recordProvenance(
+        runtime,
+        table,
+        worldKey,
+        row,
+        "CREATED",
+        new Set(Object.keys(values)),
+      );
+
+      this.recordIdMap(
+        runtime,
+        table,
+        row,
+        incomingKey,
+        worldKey,
+        "CREATED",
+      );
+
+      return {
+        created: true,
+        updated: false,
+        skipped: false,
+      };
+    }
+
+    runtime.mapping.set(
+      mapKey(table.name, incomingKey),
+      worldKey,
+    );
+
+    const changes = this.findRowChanges(
+      table,
+      worldKey,
+      translated,
+    );
+
+    if (changes.length === 0) {
+      this.persistIdentity(
+        table,
+        worldKey,
+        row,
+        runtime,
+      );
+      this.recordProvenance(
+        runtime,
+        table,
+        worldKey,
+        row,
+        "EXISTING",
+        new Set(),
+      );
+      this.recordIdMap(
+        runtime,
+        table,
+        row,
+        incomingKey,
+        worldKey,
+        "EXISTING",
+      );
+      return {
+        created: false,
+        updated: false,
+        skipped: true,
+      };
+    }
+
+    const winningColumns = new Set<string>();
+    let updated = false;
+
+    for (const change of changes) {
+      const sessionConflict = this.findSessionConflict(
+        runtime.sessionId,
+        table,
+        incomingKey,
+        change.column,
+      );
+
+      const policy =
+        (sessionConflict
+          ? explicitResolution.get(
+              String(sessionConflict.id),
+            )
+          : undefined) ??
+        this.defaultConflictPolicy(
+          table,
+          worldKey,
+          change.column,
+          runtime.packageId,
+          runtime.packagePriority,
+        );
+
+      if (policy === "MANUAL") {
+        throw new Error(
+          "Manual conflict resolution required for " +
+            table.name +
+            " " +
+            incomingKey +
+            " column " +
+            change.column,
+        );
+      }
+
+      if (policy === "KEEP_EXISTING") {
+        this.resolveSessionConflict(
+          sessionConflict?.id ?? null,
+          "KEEP_EXISTING",
+        );
+        continue;
+      }
+
+      if (
+        policy === "MERGE" &&
+        change.existingValue != null &&
+        change.existingValue !== ""
+      ) {
+        this.resolveSessionConflict(
+          sessionConflict?.id ?? null,
+          "KEEP_EXISTING",
+        );
+        continue;
+      }
+
+      winningColumns.add(change.column);
+      updated = true;
+
+      this.resolveSessionConflict(
+        sessionConflict?.id ?? null,
+        policy,
+      );
+    }
+
+    if (winningColumns.size > 0) {
+      const values: Record<string, unknown> = {};
+
+      for (const column of winningColumns) {
+        values[column] =
+          translated[column] ?? null;
+      }
+
+      this.updateRow(
+        table,
+        worldKey,
+        values,
+      );
+
+      this.persistProvenanceColumns(
+        runtime,
+        table,
+        worldKey,
+        row,
+        values,
+        "REPLACE",
+      );
     } else {
-      const result = this.world.connection.prepare(`INSERT INTO world_package (package_key,name,version,package_type,priority,source_file,source_sha256,categories_json,description,schema_version,installed_at,updated_at,enabled) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,1)`)
-        .run(manifest.packageKey, manifest.name, manifest.version, manifest.packageType ?? "CONTENT", manifest.priority ?? 100, sourceFile, hash, JSON.stringify(manifest.categories ?? []), manifest.description ?? null, manifest.schemaVersion, now, now);
-      id = Number(result.lastInsertRowid);
+      this.recordProvenance(
+        runtime,
+        table,
+        worldKey,
+        row,
+        "KEEP_EXISTING",
+        new Set(),
+      );
     }
 
-    const existingOrder = this.world.connection.prepare("SELECT load_order AS value FROM world_package_load_order WHERE package_id=?").get(id) as { value:number } | undefined;
-    if (!existingOrder) {
-      const nextOrder = Number((this.world.connection.prepare("SELECT COALESCE(MAX(load_order),0)+1 AS value FROM world_package_load_order").get() as { value: number }).value);
-      this.world.connection.prepare("INSERT INTO world_package_load_order(package_id,load_order) VALUES(?,?)").run(id, nextOrder);
+    this.recordIdMap(
+      runtime,
+      table,
+      row,
+      incomingKey,
+      worldKey,
+      updated ? "UPDATED" : "EXISTING",
+    );
+
+    return {
+      created: false,
+      updated,
+      skipped: !updated,
+    };
+  }
+
+  private resolveExisting(
+    table: TableInfo,
+    row: Row,
+    context: IdentityContext,
+    mapping: Map<string, KeyObject>,
+    packageId: number,
+    incomingKey: string,
+  ): {
+    worldKey: KeyObject | null;
+    worldId: number | null;
+    naturalKey: string | null;
+    conflict?: {
+      type: "IDENTITY";
+      column: string;
+      existingValue: string | null;
+      incomingValue: string | null;
+    };
+  } {
+    const policy = identityPolicy(table.name);
+
+    if (policy) {
+      const uuidValue =
+        policy.uuidColumn &&
+        row[policy.uuidColumn] != null
+          ? String(row[policy.uuidColumn])
+          : null;
+
+      const naturalKey = safeNaturalKey(
+        policy,
+        row,
+        context,
+      );
+
+      let uuidWorldKey: KeyObject | null = null;
+      if (uuidValue) {
+        const identity = this.world.connection
+          .prepare(
+            "SELECT table_name,row_id FROM world_entity_identity WHERE entity_uuid=?",
+          )
+          .get(uuidValue) as
+          | { table_name: string; row_id: number }
+          | undefined;
+
+        if (identity && identity.table_name === table.name) {
+          uuidWorldKey = {
+            [table.primaryKey[0]]:
+              identity.row_id,
+          };
+        }
+      }
+
+      let naturalWorldKey: KeyObject | null = null;
+      if (naturalKey) {
+        const identity = this.world.connection
+          .prepare(
+            "SELECT row_id FROM world_entity_identity WHERE table_name=? AND natural_key=?",
+          )
+          .get(table.name, naturalKey) as
+          | { row_id: number }
+          | undefined;
+
+        if (identity) {
+          naturalWorldKey = {
+            [table.primaryKey[0]]:
+              identity.row_id,
+          };
+        }
+      }
+
+      if (
+        uuidWorldKey &&
+        naturalWorldKey &&
+        serializeKey(table, uuidWorldKey) !==
+          serializeKey(table, naturalWorldKey)
+      ) {
+        return {
+          worldKey: uuidWorldKey,
+          worldId: toNumberOrNull(
+            uuidWorldKey[table.primaryKey[0]],
+          ),
+          naturalKey,
+          conflict: {
+            type: "IDENTITY",
+            column: "uuid",
+            existingValue:
+              String(
+                naturalWorldKey[
+                  table.primaryKey[0]
+                ] ?? "",
+              ),
+            incomingValue: uuidValue,
+          },
+        };
+      }
+
+      const worldKey =
+        uuidWorldKey ?? naturalWorldKey;
+
+      if (worldKey) {
+        return {
+          worldKey,
+          worldId: toNumberOrNull(
+            worldKey[table.primaryKey[0]],
+          ),
+          naturalKey,
+        };
+      }
     }
 
-    this.world.connection.prepare("DELETE FROM world_package_provides WHERE package_id=?").run(id);
-    for (const item of manifest.provides ?? []) this.world.connection.prepare("INSERT INTO world_package_provides(package_id,provide_key) VALUES(?,?)").run(id, item);
+    const previous = this.previousImportMapping(
+      packageId,
+      table.name,
+      incomingKey,
+    );
 
-    this.world.connection.prepare("DELETE FROM world_package_dependency WHERE package_id=?").run(id);
-    for (const item of manifest.dependencies ?? []) this.world.connection.prepare("INSERT INTO world_package_dependency(package_id,dependency_key,min_version) VALUES(?,?,?)").run(id, item.key, item.minVersion ?? null);
-
-    this.world.connection.prepare("DELETE FROM world_package_conflict WHERE package_id=?").run(id);
-    for (const item of manifest.conflicts ?? []) this.world.connection.prepare("INSERT INTO world_package_conflict(package_id,conflict_key) VALUES(?,?)").run(id, item);
-
-    return id;
-  }
-
-  private createSession(packageId: number, sourceFile: string, hash: string): number {
-    const result = this.world.connection.prepare("INSERT INTO world_import_session(status,package_id,source_file,source_sha256,started_at) VALUES('CREATED',?,?,?,?)").run(packageId, sourceFile, hash, new Date().toISOString());
-    return Number(result.lastInsertRowid);
-  }
-
-  private setSessionStatus(id: number, status: string, summary?: Record<string, unknown>, error?: string): void {
-    this.world.connection.prepare("UPDATE world_import_session SET status=?, summary_json=?, error_message=?, completed_at=? WHERE id=?")
-      .run(status, JSON.stringify(summary ?? {}), error ?? null, ["COMPLETED","FAILED"].includes(status) ? new Date().toISOString() : null, id);
-  }
-
-  private listIncomingTables(db: DatabaseConnection.Database): TableInfo[] {
-    return (db.prepare(`SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name NOT IN ('database_metadata','package_manifest','world_package','world_package_load_order','world_package_provides','world_package_dependency','world_package_conflict','world_entity_identity','world_entity_provenance','world_attribute_provenance','world_import_session','world_import_id_map','world_import_conflict') ORDER BY name`).all() as Array<{ name: string }>).map(({name}) => {
-      const columns = db.prepare(`PRAGMA table_info("${quote(name)}")`).all() as Array<{ name: string }>;
-      const primaryKey = columns.filter((x: any) => x.pk).sort((a:any,b:any) => a.pk-b.pk).map((x:any) => x.name);
-      return { name, columns, primaryKey };
-    });
-  }
-
-  private orderTablesForImport(tables: TableInfo[]): TableInfo[] {
-    const core = ["federation","continent","continent_region","currency","language_family","language_group","language_subgroup","language","nation","nation_region","city","gender","team","club_status","club","national_team","stadium"];
-    return [...tables].sort((a,b) => {
-      const ai = core.indexOf(a.name); const bi = core.indexOf(b.name);
-      return (ai < 0 ? 1000 : ai) - (bi < 0 ? 1000 : bi) || a.name.localeCompare(b.name);
-    });
-  }
-
-  private isInternalTable(name: string): boolean {
-    return name.startsWith("world_") || name === "editor_template";
-  }
-
-  private resolveIncomingRow(tableName: string, row: Record<string, unknown>): { worldId: number | null; naturalKey: string | null; policy?: typeof IDENTITY_POLICIES[string] } {
-    const policy = IDENTITY_POLICIES[tableName];
-    if (!policy) return { worldId: null, naturalKey: null };
-    let naturalKey: string | null = null;
-    try { naturalKey = policy.naturalKey(row, (table, id) => this.lookupRowById(table, id)); } catch { naturalKey = null; }
-
-    if (policy.uuidColumn && row[policy.uuidColumn]) {
-      const found = this.world.connection.prepare("SELECT row_id FROM world_entity_identity WHERE entity_uuid = ?").get(String(row[policy.uuidColumn])) as { row_id: number } | undefined;
-      if (found) return { worldId: Number(found.row_id), naturalKey, policy };
+    if (previous) {
+      const existing = this.findRowByKey(
+        table,
+        previous,
+      );
+      if (existing) {
+        return {
+          worldKey: previous,
+          worldId: toNumberOrNull(
+            previous[table.primaryKey[0]],
+          ),
+          naturalKey: null,
+        };
+      }
     }
 
-    if (naturalKey) {
-      const found = this.world.connection.prepare("SELECT row_id FROM world_entity_identity WHERE table_name=? AND natural_key=?").get(tableName, naturalKey) as { row_id: number } | undefined;
-      if (found) return { worldId: Number(found.row_id), naturalKey, policy };
+    return {
+      worldKey: null,
+      worldId: null,
+      naturalKey: null,
+    };
+  }
+
+  private defaultConflictPolicy(
+    table: TableInfo,
+    worldKey: KeyObject,
+    column: string,
+    _packageId: number,
+    incomingPriority: number,
+  ): ConflictPolicy {
+    if (EVENT_TABLES.has(table.name)) {
+      return "KEEP_EXISTING";
     }
 
-    const directUuidColumn = policy.uuidColumn && row[policy.uuidColumn] ? String(row[policy.uuidColumn]) : null;
-    const rowFound = directUuidColumn ? this.world.connection.prepare(`SELECT id FROM "${quote(tableName)}" WHERE "${quote(policy.uuidColumn!)}" = ?`).get(directUuidColumn) as { id: number } | undefined : undefined;
-    return { worldId: rowFound ? Number(rowFound.id) : null, naturalKey, policy };
+    if (table.primaryKey.length > 1) {
+      return "MERGE";
+    }
+
+    const owner = this.world.connection
+      .prepare(
+        `SELECT p.priority
+         FROM world_attribute_provenance a
+         JOIN world_package p ON p.id=a.package_id
+         WHERE a.table_name=?
+           AND a.row_key=?
+           AND a.column_name=?
+           AND a.is_current=1
+         LIMIT 1`,
+      )
+      .get(
+        table.name,
+        serializeKey(table, worldKey),
+        column,
+      ) as { priority?: number } | undefined;
+
+    const existingPriority = Number(
+      owner?.priority ?? -1,
+    );
+
+    return incomingPriority >= existingPriority
+      ? "KEEP_INCOMING"
+      : "KEEP_EXISTING";
   }
 
-  private lookupRowById(table: string, id: number): Record<string, unknown> | undefined {
-    if (!Number.isFinite(id)) return undefined;
-    return this.world.connection.prepare(`SELECT * FROM "${quote(table)}" WHERE id=? LIMIT 1`).get(id) as Record<string, unknown> | undefined;
+  private buildTranslatedRow(
+    runtime: ImportRuntime,
+    table: TableInfo,
+    row: Row,
+  ): Record<string, unknown> {
+    const translated: Record<string, unknown> = {};
+
+    for (const column of table.columns) {
+      if (column.name in row) {
+        translated[column.name] =
+          row[column.name];
+      }
+    }
+
+    for (const group of groupForeignKeys(
+      table.foreignKeys,
+    )) {
+      const targetInfo =
+        runtime.tableInfos.get(group[0].table) ??
+        infoToTableInfo(
+          this.world.tableSchema(group[0].table),
+        );
+
+      const incomingTargetKey: KeyObject = {};
+      for (const fk of group) {
+        const targetColumn =
+          fk.to ||
+          targetInfo.primaryKey[fk.sequence];
+        incomingTargetKey[targetColumn] =
+          row[fk.from];
+      }
+
+      if (
+        Object.values(incomingTargetKey).every(
+          value => value == null,
+        )
+      ) {
+        for (const fk of group) {
+          translated[fk.from] = null;
+        }
+        continue;
+      }
+
+      const targetMapped =
+        runtime.mapping.get(
+          mapKey(
+            group[0].table,
+            serializeKey(
+              targetInfo,
+              incomingTargetKey,
+            ),
+          ),
+        );
+
+      if (!targetMapped) {
+        throw new UnresolvedForeignKeyError(
+          table.name,
+          group[0].from,
+          group[0].table,
+          serializeKey(
+            targetInfo,
+            incomingTargetKey,
+          ),
+        );
+      }
+
+      for (const fk of group) {
+        const targetColumn =
+          fk.to ||
+          targetInfo.primaryKey[fk.sequence];
+
+        translated[fk.from] =
+          targetMapped[targetColumn];
+      }
+    }
+
+    return translated;
   }
 
-  private rowHasChanged(tableName: string, worldId: number, incoming: Record<string, unknown>): boolean {
-    const current = this.world.connection.prepare(`SELECT * FROM "${quote(tableName)}" WHERE id=? LIMIT 1`).get(worldId) as Record<string, unknown> | undefined;
-    if (!current) return false;
-    return Object.entries(incoming).some(([column, value]) => column !== "id" && !["created_at","updated_at"].includes(column) && String(current[column] ?? "") !== String(value ?? ""));
+  private tryBuildTranslatedRow(
+    table: TableInfo,
+    row: Row,
+    mapping: Map<string, KeyObject>,
+    tableInfos: Map<string, TableInfo>,
+  ): Record<string, unknown> | null {
+    const translated: Record<string, unknown> = {
+      ...row,
+    };
+
+    try {
+      for (const group of groupForeignKeys(
+        table.foreignKeys,
+      )) {
+        const targetInfo =
+          tableInfos.get(group[0].table) ??
+          infoToTableInfo(
+            this.world.tableSchema(group[0].table),
+          );
+
+        const incomingTargetKey: KeyObject = {};
+        for (const fk of group) {
+          incomingTargetKey[
+            fk.to ||
+              targetInfo.primaryKey[fk.sequence]
+          ] = row[fk.from];
+        }
+
+        if (
+          Object.values(incomingTargetKey).every(
+            value => value == null,
+          )
+        ) {
+          for (const fk of group) {
+            translated[fk.from] = null;
+          }
+          continue;
+        }
+
+        const mapped = mapping.get(
+          mapKey(
+            group[0].table,
+            serializeKey(
+              targetInfo,
+              incomingTargetKey,
+            ),
+          ),
+        );
+
+        if (!mapped) return null;
+
+        for (const fk of group) {
+          translated[fk.from] =
+            mapped[
+              fk.to ||
+                targetInfo.primaryKey[
+                  fk.sequence
+                ]
+            ];
+        }
+      }
+
+      return translated;
+    } catch {
+      return null;
+    }
   }
 
-  private buildValues(tableName: string, row: Record<string, unknown>, map: Map<string, number>): Record<string, unknown> {
+  private prepareInsertValues(
+    table: TableInfo,
+    translated: Record<string, unknown>,
+    incoming: Row,
+  ): Record<string, unknown> {
     const values: Record<string, unknown> = {};
-    for (const [column, value] of Object.entries(row)) {
-      if (column === "id") continue;
-      if (column.endsWith("_id")) {
-        const targetTable = column === "team_id" || column === "club_id" ? (this.targetTableForFk(tableName, column)) : this.targetTableForFk(tableName, column);
-        values[column] = this.findTranslatedFk(targetTable, value, map);
-      } else values[column] = value;
+
+    for (const column of table.columns) {
+      if (!(column.name in translated)) {
+        continue;
+      }
+
+      if (
+        column.primaryKeyOrder > 0 &&
+        table.rowIdPrimaryKey
+      ) {
+        continue;
+      }
+
+      values[column.name] =
+        translated[column.name];
     }
+
+    const policy = identityPolicy(table.name);
+    if (policy?.uuidColumn) {
+      const uuidColumn = policy.uuidColumn;
+      if (
+        values[uuidColumn] == null ||
+        String(values[uuidColumn]).trim() === ""
+      ) {
+        values[uuidColumn] =
+          incoming[uuidColumn] == null
+            ? generateUuid()
+            : String(incoming[uuidColumn]);
+      }
+    }
+
     return values;
   }
 
-  private targetTableForFk(tableName: string, column: string): string {
-    const explicit: Record<string, string> = {
-      person_id: "person", player_id: "player", team_id: "team", club_id: "club", nation_id: "nation", base_nation_id: "nation", international_competition_nation_id: "nation",
-      city_id: "city", birth_city_id: "city", stadium_id: "stadium", alternative_stadium_id: "stadium", competition_id: "competition", parent_competition_id: "competition",
-      competition_season_id: "competition_season", stage_id: "competition_stage", stage_type_id: "competition_stage_type", round_id: "competition_round", formation_id: "formation", position_id: "position_definition",
-      gender_id: "gender", currency_id: "currency", language_id: "language", family_id: "language_family", group_id: "language_group", subgroup_id: "language_subgroup",
-      continent_region_id: "continent_region", nation_region_id: "nation_region", owner_club_id: "club", owner_person_id: "person",
-    };
-    return explicit[column] ?? column.replace(/_id$/, "");
+  private insertRow(
+    table: TableInfo,
+    values: Record<string, unknown>,
+  ): KeyObject {
+    const columns = Object.keys(values);
+    if (columns.length === 0) {
+      throw new Error(
+        "Cannot insert an empty row into " +
+          table.name,
+      );
+    }
+
+    const statement =
+      "INSERT INTO " +
+      quoteIdentifier(table.name) +
+      " (" +
+      columns
+        .map(quoteIdentifier)
+        .join(", ") +
+      ") VALUES (" +
+      columns.map(() => "?").join(", ") +
+      ")";
+
+    const result = this.world.connection
+      .prepare(statement)
+      .run(
+        ...columns.map(
+          column => values[column] ?? null,
+        ),
+      );
+
+    if (table.rowIdPrimaryKey) {
+      return {
+        [table.primaryKey[0]]:
+          Number(result.lastInsertRowid),
+      };
+    }
+
+    const primaryKeyValues: KeyObject = {};
+    for (const column of table.primaryKey) {
+      primaryKeyValues[column] =
+        values[column];
+    }
+
+    if (
+      Object.values(primaryKeyValues).some(
+        value => value === undefined,
+      )
+    ) {
+      const row = this.world.connection
+        .prepare(
+          "SELECT * FROM " +
+            quoteIdentifier(table.name) +
+            " WHERE rowid=last_insert_rowid() LIMIT 1",
+        )
+        .get() as Row | undefined;
+
+      if (!row) {
+        throw new Error(
+          "Inserted row could not be resolved: " +
+            table.name,
+        );
+      }
+
+      return pickKey(table, row);
+    }
+
+    return primaryKeyValues;
   }
 
-  private findTranslatedFk(targetTable: string, value: unknown, map: Map<string, number>): unknown {
-    if (value == null) return null;
-    const numeric = Number(value);
-    if (!Number.isFinite(numeric)) return value;
-    return map.get(`${targetTable}:${numeric}`) ?? numeric;
+  private updateRow(
+    table: TableInfo,
+    worldKey: KeyObject,
+    values: Record<string, unknown>,
+  ): void {
+    const writable = Object.keys(values).filter(
+      column =>
+        !table.primaryKey.includes(column),
+    );
+
+    if (writable.length === 0) return;
+
+    const setSql = writable
+      .map(
+        column =>
+          quoteIdentifier(column) + "=?",
+      )
+      .join(", ");
+
+    const whereSql = table.primaryKey
+      .map(
+        column =>
+          quoteIdentifier(column) + "=?",
+      )
+      .join(" AND ");
+
+    this.world.connection
+      .prepare(
+        "UPDATE " +
+          quoteIdentifier(table.name) +
+          " SET " +
+          setSql +
+          " WHERE " +
+          whereSql,
+      )
+      .run(
+        ...writable.map(
+          column => values[column] ?? null,
+        ),
+        ...table.primaryKey.map(
+          column => worldKey[column],
+        ),
+      );
   }
 
-  private insertResolvedRow(tableName: string, row: Record<string, unknown>, map: Map<string, number>): number {
-    const values = this.buildValues(tableName, row, map);
-    const columns = Object.keys(values).filter(c => this.world.tableSchema(tableName).columns.some(x => x.name === c));
-    const result = this.world.connection.prepare(`INSERT INTO "${quote(tableName)}" (${columns.map(quote).join(",")}) VALUES (${columns.map(()=>"?").join(",")})`).run(...columns.map(c => values[c] ?? null));
-    const id = Number(result.lastInsertRowid);
-    map.set(`${tableName}:${Number(row.id)}`, id);
-    this.persistIdentity(tableName, id, row);
-    return id;
-  }
+  private findExistingByUnique(
+    table: TableInfo,
+    values: Record<string, unknown>,
+  ): KeyObject | null {
+    const candidates = [
+      ...table.uniqueColumns,
+      ...(table.primaryKey.length > 0 &&
+      !table.rowIdPrimaryKey
+        ? [table.primaryKey]
+        : []),
+    ];
 
-  private updateResolvedRow(tableName: string, worldId: number, row: Record<string, unknown>, map: Map<string, number>): void {
-    const values = this.buildValues(tableName, row, map);
-    const columns = Object.keys(values).filter(c => c !== "id" && this.world.tableSchema(tableName).columns.some(x => x.name === c));
-    if (!columns.length) return;
-    this.world.connection.prepare(`UPDATE "${quote(tableName)}" SET ${columns.map(c => `"${quote(c)}"=?`).join(",")} WHERE id=?`).run(...columns.map(c => values[c] ?? null), worldId);
-    map.set(`${tableName}:${Number(row.id)}`, worldId);
-    this.persistIdentity(tableName, worldId, row);
-  }
+    for (const columns of candidates) {
+      if (
+        columns.length === 0 ||
+        columns.some(
+          column =>
+            values[column] === undefined ||
+            values[column] === null,
+        )
+      ) {
+        continue;
+      }
 
-  private mergeRow(tableName: string, worldId: number, row: Record<string, unknown>, map: Map<string, number>): void {
-    const current = this.world.connection.prepare(`SELECT * FROM "${quote(tableName)}" WHERE id=?`).get(worldId) as Record<string, unknown>;
-    const merged = { ...current };
-    for (const [key, value] of Object.entries(row)) if (key !== "id" && (merged[key] == null || merged[key] === "")) merged[key] = value;
-    this.updateResolvedRow(tableName, worldId, merged, map);
-  }
+      const where = columns
+        .map(
+          column =>
+            quoteIdentifier(column) + "=?",
+        )
+        .join(" AND ");
 
-  private recordMap(sessionId: number, tableName: string, row: Record<string, unknown>, worldId: number, resolved: { naturalKey: string | null }): void {
-    this.world.connection.prepare(`INSERT OR REPLACE INTO world_import_id_map(import_session_id,table_name,incoming_id,incoming_uuid,world_id,resolution,natural_key) VALUES(?,?,?,?,?,?,?)`)
-      .run(sessionId, tableName, row.id == null ? null : Number(row.id), row.uuid == null ? null : String(row.uuid), worldId, resolved.worldId == null ? "CREATED" : "RESOLVED", resolved.naturalKey);
-  }
+      const row = this.world.connection
+        .prepare(
+          "SELECT * FROM " +
+            quoteIdentifier(table.name) +
+            " WHERE " +
+            where +
+            " LIMIT 1",
+        )
+        .get(
+          ...columns.map(
+            column => values[column],
+          ),
+        ) as Row | undefined;
 
-  private persistIdentity(tableName: string, rowId: number, row: Record<string, unknown>): void {
-    const policy = IDENTITY_POLICIES[tableName];
-    if (!policy) return;
-    let naturalKey: string | null = null;
-    try { naturalKey = policy.naturalKey(row, (table, id) => this.lookupRowById(table, id)); } catch { naturalKey = null; }
-    const uuid = policy.uuidColumn && row[policy.uuidColumn] ? String(row[policy.uuidColumn]) : (policy.uuidColumn ? generateUuid() : null);
-    if (policy.uuidColumn) {
-      const tableSchema = this.world.tableSchema(tableName);
-      if (tableSchema.columns.some(column => column.name === policy.uuidColumn)) {
-        this.world.connection.prepare(`UPDATE "${quote(tableName)}" SET "${quote(policy.uuidColumn)}" = COALESCE("${quote(policy.uuidColumn)}", ?) WHERE id=?`).run(uuid, rowId);
+      if (row) {
+        return pickKey(table, row);
       }
     }
-    this.world.connection.prepare(`INSERT OR REPLACE INTO world_entity_identity(table_name,row_id,entity_uuid,natural_key) VALUES(?,?,?,?)`).run(tableName,rowId,uuid,naturalKey);
+
+    return null;
   }
 
-  private recordConflict(sessionId: number, tableName: string, row: Record<string, unknown>, worldId: number): void {
-    const current = this.world.connection.prepare(`SELECT * FROM "${quote(tableName)}" WHERE id=? LIMIT 1`).get(worldId) as Record<string, unknown> | undefined;
-    if (!current) return;
+  private findRowByKey(
+    table: TableInfo,
+    worldKey: KeyObject,
+  ): Row | undefined {
+    if (table.primaryKey.length === 0) {
+      return undefined;
+    }
 
-    for (const [column, value] of Object.entries(row)) {
-      if (column === "id" || ["created_at","updated_at"].includes(column)) continue;
-      const existingValue = current[column];
-      if (String(existingValue ?? "") === String(value ?? "")) continue;
-      this.world.connection.prepare(`
-        INSERT INTO world_import_conflict(
-          import_session_id, table_name, incoming_id, world_id, conflict_type,
-          column_name, existing_value, incoming_value
-        ) VALUES (?, ?, ?, ?, 'ATTRIBUTE', ?, ?, ?)
-      `).run(
-        sessionId,
+    const where = table.primaryKey
+      .map(
+        column =>
+          quoteIdentifier(column) + "=?",
+      )
+      .join(" AND ");
+
+    return this.world.connection
+      .prepare(
+        "SELECT * FROM " +
+          quoteIdentifier(table.name) +
+          " WHERE " +
+          where +
+          " LIMIT 1",
+      )
+      .get(
+        ...table.primaryKey.map(
+          column => worldKey[column],
+        ),
+      ) as Row | undefined;
+  }
+
+  private findRowChanges(
+    table: TableInfo,
+    worldKey: KeyObject,
+    incoming: Record<string, unknown>,
+  ): Array<{
+    column: string;
+    existingValue: unknown;
+    incomingValue: unknown;
+  }> {
+    const current = this.findRowByKey(
+      table,
+      worldKey,
+    );
+
+    if (!current) return [];
+
+    const changes: Array<{
+      column: string;
+      existingValue: unknown;
+      incomingValue: unknown;
+    }> = [];
+
+    for (const column of table.columns) {
+      if (
+        table.primaryKey.includes(
+          column.name,
+        ) ||
+        !(column.name in incoming)
+      ) {
+        continue;
+      }
+
+      if (
+        normalizeComparable(
+          current[column.name],
+        ) !==
+        normalizeComparable(
+          incoming[column.name],
+        )
+      ) {
+        changes.push({
+          column: column.name,
+          existingValue:
+            current[column.name],
+          incomingValue:
+            incoming[column.name],
+        });
+      }
+    }
+
+    return changes;
+  }
+
+  private persistIdentity(
+    table: TableInfo,
+    worldKey: KeyObject,
+    incomingRow: Row,
+    runtime: ImportRuntime,
+  ): void {
+    const policy = identityPolicy(table.name);
+    if (!policy) return;
+
+    const context = this.createIdentityContext(
+      runtime.alias,
+      runtime.tableInfos,
+    );
+
+    const naturalKey = safeNaturalKey(
+      policy,
+      incomingRow,
+      context,
+    );
+
+    let uuid: string | null = null;
+    if (policy.uuidColumn) {
+      const row = this.findRowByKey(
+        table,
+        worldKey,
+      );
+
+      uuid =
+        incomingRow[policy.uuidColumn] !=
+          null &&
+        String(
+          incomingRow[policy.uuidColumn],
+        ).trim() !== ""
+          ? String(
+              incomingRow[
+                policy.uuidColumn
+              ],
+            )
+          : row?.[policy.uuidColumn] !=
+                  null
+            ? String(row[policy.uuidColumn])
+            : generateUuid();
+
+      const setSql =
+        "UPDATE " +
+        quoteIdentifier(table.name) +
+        " SET " +
+        quoteIdentifier(policy.uuidColumn) +
+        "=? WHERE " +
+        table.primaryKey
+          .map(
+            column =>
+              quoteIdentifier(column) +
+              "=?",
+          )
+          .join(" AND ");
+
+      this.world.connection
+        .prepare(setSql)
+        .run(
+          uuid,
+          ...table.primaryKey.map(
+            column =>
+              worldKey[column],
+          ),
+        );
+    }
+
+    this.world.connection
+      .prepare(
+        `INSERT OR REPLACE INTO world_entity_identity(
+          table_name,row_id,entity_uuid,natural_key
+        ) VALUES(?,?,?,?)`,
+      )
+      .run(
+        table.name,
+        Number(
+          worldKey[
+            table.primaryKey[0]
+          ],
+        ),
+        uuid,
+        naturalKey,
+      );
+  }
+
+  private bootstrapWorldIdentities(): void {
+    const context: IdentityContext = {
+      token: (tableName, keyObject) => {
+        if (!this.world.tableExists(tableName)) {
+          return null;
+        }
+
+        const table = infoToTableInfo(
+          this.world.tableSchema(tableName),
+        );
+        const row = this.findRowByKey(
+          table,
+          keyObject,
+        );
+
+        if (!row) return null;
+
+        const policy = identityPolicy(tableName);
+
+        if (
+          policy?.uuidColumn &&
+          row[policy.uuidColumn]
+        ) {
+          return (
+            "uuid:" +
+            String(row[policy.uuidColumn])
+          );
+        }
+
+        if (policy) {
+          const naturalKey = safeNaturalKey(
+            policy,
+            row,
+            context,
+          );
+          if (naturalKey) {
+            return "natural:" + naturalKey;
+          }
+        }
+
+        return (
+          "pk:" +
+          serializeKey(table, pickKey(table, row))
+        );
+      },
+    };
+
+    for (const tableName of this.world.listTables()) {
+      const policy = identityPolicy(
         tableName,
-        row.id == null ? null : Number(row.id),
-        worldId,
+      );
+      if (!policy) continue;
+
+      const table = infoToTableInfo(
+        this.world.tableSchema(tableName),
+      );
+
+      for (const row of this.world.connection
+        .prepare(
+          "SELECT * FROM " +
+            quoteIdentifier(table.name),
+        )
+        .iterate() as Iterable<Row>) {
+        const worldKey = pickKey(
+          table,
+          row,
+        );
+
+        let uuid: string | null = null;
+        if (policy.uuidColumn) {
+          uuid =
+            row[policy.uuidColumn] !=
+              null &&
+            String(
+              row[policy.uuidColumn],
+            ).trim() !== ""
+              ? String(
+                  row[policy.uuidColumn],
+                )
+              : generateUuid();
+
+          this.world.connection
+            .prepare(
+              "UPDATE " +
+                quoteIdentifier(table.name) +
+                " SET " +
+                quoteIdentifier(
+                  policy.uuidColumn,
+                ) +
+                "=? WHERE " +
+                table.primaryKey
+                  .map(
+                    column =>
+                      quoteIdentifier(
+                        column,
+                      ) + "=?",
+                  )
+                  .join(" AND "),
+            )
+            .run(
+              uuid,
+              ...table.primaryKey.map(
+                column =>
+                  worldKey[column],
+              ),
+            );
+        }
+
+        const naturalKey = safeNaturalKey(
+          policy,
+          row,
+          context,
+        );
+
+        this.world.connection
+          .prepare(
+            `INSERT OR IGNORE INTO world_entity_identity(
+              table_name,row_id,entity_uuid,natural_key
+            ) VALUES(?,?,?,?)`,
+          )
+          .run(
+            table.name,
+            Number(
+              worldKey[
+                table.primaryKey[0]
+              ],
+            ),
+            uuid,
+            naturalKey,
+          );
+      }
+    }
+  }
+
+  private recordProvenance(
+    runtime: ImportRuntime,
+    table: TableInfo,
+    worldKey: KeyObject,
+    incoming: Row,
+    resolution: string,
+    winningColumns: Set<string>,
+  ): void {
+    const now = new Date().toISOString();
+    const rowKey = serializeKey(
+      table,
+      worldKey,
+    );
+
+    this.world.connection
+      .prepare(
+        `INSERT OR REPLACE INTO world_entity_provenance(
+          table_name,row_key,package_id,resolution,imported_at
+        ) VALUES(?,?,?,?,?)`,
+      )
+      .run(
+        table.name,
+        rowKey,
+        runtime.packageId,
+        resolution,
+        now,
+      );
+
+    for (const [column, value] of Object.entries(
+      incoming,
+    )) {
+      if (
+        column === "id" &&
+        table.rowIdPrimaryKey
+      ) {
+        continue;
+      }
+
+      this.recordAttributeProvenance(
+        table,
+        rowKey,
         column,
-        existingValue == null ? null : String(existingValue),
-        value == null ? null : String(value),
+        runtime.packageId,
+        value,
+        winningColumns.has(column),
+        resolution,
+        now,
       );
     }
   }
 
-  private recordProvenance(tableName: string, rowId: number, packageId: number, resolution: string, row: Record<string, unknown>): void {
+  private persistProvenanceColumns(
+    runtime: ImportRuntime,
+    table: TableInfo,
+    worldKey: KeyObject,
+    incoming: Row,
+    values: Record<string, unknown>,
+    resolution: string,
+  ): void {
     const now = new Date().toISOString();
-    this.world.connection.prepare(`INSERT OR REPLACE INTO world_entity_provenance(table_name,row_id,package_id,resolution,imported_at) VALUES(?,?,?,?,?)`).run(tableName,rowId,packageId,resolution,now);
-    for (const [column,value] of Object.entries(row)) {
-      this.world.connection.prepare(`INSERT OR REPLACE INTO world_attribute_provenance(table_name,row_id,column_name,package_id,value_hash,resolution,updated_at) VALUES(?,?,?,?,?,?,?)`)
-        .run(tableName,rowId,column,packageId,crypto.createHash("sha256").update(JSON.stringify(value)).digest("hex"),resolution,now);
+    const rowKey = serializeKey(
+      table,
+      worldKey,
+    );
+
+    for (const column of Object.keys(values)) {
+      this.recordAttributeProvenance(
+        table,
+        rowKey,
+        column,
+        runtime.packageId,
+        incoming[column],
+        true,
+        resolution,
+        now,
+      );
     }
   }
 
-  private getSession(id: number): { id: number; source_file: string } | undefined {
-    return this.world.connection.prepare("SELECT id,source_file FROM world_import_session WHERE id=?").get(id) as { id: number; source_file: string } | undefined;
-  }
-}
-
-function quote(value: string): string {
-  if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(value)) throw new Error(`Invalid identifier: ${value}`);
-  return value;
-}
-
-function quoteString(value: string): string {
-  return "'" + value.replaceAll("'", "''") + "'";
-}
-
-function sha256File(filePath: string): string {
-  return crypto.createHash("sha256").update(fs.readFileSync(filePath)).digest("hex");
-}  private listIncomingTables(): TableInfo[] {
-    return (
+  private recordAttributeProvenance(
+    table: TableInfo,
+    rowKey: string,
+    column: string,
+    packageId: number,
+    value: unknown,
+    current: boolean,
+    resolution: string,
+    now: string,
+  ): void {
+    if (current) {
       this.world.connection
         .prepare(
-          `SELECT name
-           FROM "incoming_package".sqlite_master
-           WHERE type='table'
-             AND name NOT LIKE 'sqlite_%'
-             AND name NOT IN (
-               'database_metadata','package_manifest',
-               'world_package','world_package_load_order',
-               'world_package_provides','world_package_dependency',
-               'world_package_conflict','world_entity_identity',
-               'world_entity_provenance','world_attribute_provenance',
-               'world_import_session','world_import_id_map','world_import_conflict',
-               'editor_template'
-             )
-           ORDER BY name`,
+          `UPDATE world_attribute_provenance
+           SET is_current=0
+           WHERE table_name=?
+             AND row_key=?
+             AND column_name=?`,
         )
-        .all() as Array<{ name: string }>
-    ).map(({ name }) => {
-      const columns = this.world.connection
-        .prepare(`PRAGMA incoming_package.table_info("${quote(name)}")`)
-        .all() as Array<{ name: string; pk: number }>;
+        .run(
+          table.name,
+          rowKey,
+          column,
+        );
+    }
 
+    this.world.connection
+      .prepare(
+        `INSERT OR REPLACE INTO world_attribute_provenance(
+          table_name,row_key,column_name,package_id,
+          value_hash,resolution,is_current,updated_at
+        ) VALUES(?,?,?,?,?,?,?,?)`,
+      )
+      .run(
+        table.name,
+        rowKey,
+        column,
+        packageId,
+        sha256Value(value),
+        resolution,
+        current ? 1 : 0,
+        now,
+      );
+  }
+
+  private recordIdMap(
+    runtime: ImportRuntime,
+    table: TableInfo,
+    row: Row,
+    incomingKey: string,
+    worldKey: KeyObject,
+    resolution: string,
+  ): void {
+    const worldId =
+      table.primaryKey.length === 1
+        ? toNumberOrNull(
+            worldKey[
+              table.primaryKey[0]
+            ],
+          )
+        : null;
+
+    const context = this.createIdentityContext(
+      runtime.alias,
+      runtime.tableInfos,
+    );
+
+    this.world.connection
+      .prepare(
+        `INSERT OR REPLACE INTO world_import_id_map(
+          import_session_id,table_name,incoming_key,incoming_id,
+          incoming_uuid,world_key,world_id,resolution,natural_key
+        ) VALUES(?,?,?,?,?,?,?,?,?)`,
+      )
+      .run(
+        runtime.sessionId,
+        table.name,
+        incomingKey,
+        table.primaryKey.length === 1
+          ? toNumberOrNull(
+              row[
+                table.primaryKey[0]
+              ],
+            )
+          : null,
+        row.uuid == null
+          ? null
+          : String(row.uuid),
+        serializeKey(
+          table,
+          worldKey,
+        ),
+        worldId,
+        resolution,
+        safeNaturalKey(
+          identityPolicy(table.name),
+          row,
+          context,
+        ),
+      );
+  }
+
+  private recordConflict(
+    sessionId: number,
+    packageId: number,
+    table: TableInfo,
+    row: Row,
+    worldKey: KeyObject | null,
+    worldId: number | null,
+    conflictType: string,
+    column: string | null,
+    existingValue: unknown,
+    incomingValue: unknown,
+  ): void {
+    this.world.connection
+      .prepare(
+        `INSERT INTO world_import_conflict(
+          import_session_id,package_id,table_name,incoming_key,
+          incoming_id,world_key,world_id,conflict_type,column_name,
+          existing_value,incoming_value,resolution,resolved
+        ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,0)`,
+      )
+      .run(
+        sessionId,
+        packageId,
+        table.name,
+        serializeKey(table, row),
+        table.primaryKey.length === 1
+          ? toNumberOrNull(
+              row[table.primaryKey[0]],
+            )
+          : null,
+        worldKey
+          ? serializeKey(table, worldKey)
+          : null,
+        worldId,
+        conflictType,
+        column,
+        existingValue == null
+          ? null
+          : String(existingValue),
+        incomingValue == null
+          ? null
+          : String(incomingValue),
+        "MANUAL",
+      );
+  }
+
+  private resolveSessionConflict(
+    id: number | null,
+    resolution: ConflictPolicy,
+  ): void {
+    if (id == null) return;
+
+    this.world.connection
+      .prepare(
+        "UPDATE world_import_conflict SET resolution=?,resolved=1 WHERE id=?",
+      )
+      .run(resolution, id);
+  }
+
+  private findSessionConflict(
+    sessionId: number,
+    table: TableInfo,
+    incomingKey: string,
+    column: string | null,
+  ): ImportConflictRecord | null {
+    return (
+      this.listConflicts(sessionId).find(
+        conflict =>
+          conflict.tableName ===
+            table.name &&
+          conflict.incomingKey ===
+            incomingKey &&
+          conflict.columnName ===
+            column &&
+          !conflict.resolved,
+      ) ?? null
+    );
+  }
+
+  private previousImportMapping(
+    packageId: number,
+    tableName: string,
+    incomingKey: string,
+  ): KeyObject | null {
+    const row = this.world.connection
+      .prepare(
+        `SELECT m.world_key AS worldKey
+         FROM world_import_id_map m
+         JOIN world_import_session s
+           ON s.id=m.import_session_id
+         WHERE s.package_id=?
+           AND m.table_name=?
+           AND m.incoming_key=?
+           AND s.status='COMPLETED'
+           AND m.world_key IS NOT NULL
+         ORDER BY s.id DESC
+         LIMIT 1`,
+      )
+      .get(
+        packageId,
+        tableName,
+        incomingKey,
+      ) as { worldKey: string } | undefined;
+
+    if (!row?.worldKey) return null;
+
+    try {
+      return JSON.parse(row.worldKey) as KeyObject;
+    } catch {
+      return null;
+    }
+  }
+
+  private listEnabledPackages(): PackageRuntime[] {
+    const rows = this.world.connection
+      .prepare(
+        `SELECT
+          p.id,
+          p.package_key AS packageKey,
+          p.name,
+          p.version,
+          p.package_type AS packageType,
+          p.priority,
+          p.source_file AS sourceFile,
+          p.source_sha256 AS sourceSha256,
+          p.schema_version AS schemaVersion,
+          COALESCE(o.load_order,p.id) AS loadOrder
+        FROM world_package p
+        LEFT JOIN world_package_load_order o
+          ON o.package_id=p.id
+        WHERE p.enabled=1
+        ORDER BY COALESCE(o.load_order,p.id),p.id`,
+      )
+      .all() as Array<Record<string, unknown>>;
+
+    return rows.map(row => {
+      const packageId = Number(row.id);
       return {
-        name,
-        columns,
-        primaryKey: columns
-          .filter(column => column.pk > 0)
-          .sort((a, b) => a.pk - b.pk)
-          .map(column => column.name),
+        id: packageId,
+        manifest: this.packageManifestFromRegistry(
+          packageId,
+          {
+            packageKey: String(row.packageKey),
+            name: String(row.name),
+            version: String(row.version),
+            packageType: String(
+              row.packageType ?? "CONTENT",
+            ),
+            priority: Number(
+              row.priority ?? 100,
+            ),
+            schemaVersion: Number(
+              row.schemaVersion ?? 0,
+            ),
+          },
+        ),
+        sourceFile:
+          row.sourceFile == null
+            ? ""
+            : path.resolve(
+                String(row.sourceFile),
+              ),
+        sourceSha256: String(
+          row.sourceSha256 ?? "",
+        ),
+        loadOrder: Number(row.loadOrder),
+        priority: Number(
+          row.priority ?? 100,
+        ),
+        alias: "",
       };
     });
   }
 
-  private isInternalTable(name: string): boolean {
-    return name.startsWith("world_") || name === "editor_template";
-  }
+  private packageManifestFromRegistry(
+    packageId: number,
+    base: PackageManifest,
+  ): PackageManifest {
+    const provides = (
+      this.world.connection
+        .prepare(
+          "SELECT provide_key AS value FROM world_package_provides WHERE package_id=? ORDER BY provide_key",
+        )
+        .all(packageId) as Array<{
+        value: string;
+      }>
+    ).map(row => row.value);
 
-  private resolveIncomingRow(tableName: string, row: Record<string, unknown>): { worldId: number | null; naturalKey: string | null; policy?: typeof IDENTITY_POLICIES[string] } {
-    const policy = IDENTITY_POLICIES[tableName];
-    if (!policy) return { worldId: null, naturalKey: null };
-    let naturalKey: string | null = null;
-    try { naturalKey = policy.naturalKey(row, (table, id) => this.lookupRowById(table, id)); } catch { naturalKey = null; }
+    const dependencies = (
+      this.world.connection
+        .prepare(
+          "SELECT dependency_key AS key,min_version AS minVersion FROM world_package_dependency WHERE package_id=? ORDER BY dependency_key",
+        )
+        .all(packageId) as Array<{
+        key: string;
+        minVersion: string | null;
+      }>
+    ).map(row => ({
+      key: row.key,
+      minVersion: row.minVersion,
+    }));
 
-    if (policy.uuidColumn && row[policy.uuidColumn]) {
-      const found = this.world.connection.prepare("SELECT row_id FROM world_entity_identity WHERE entity_uuid = ?").get(String(row[policy.uuidColumn])) as { row_id: number } | undefined;
-      if (found) return { worldId: Number(found.row_id), naturalKey, policy };
-    }
+    const conflicts = (
+      this.world.connection
+        .prepare(
+          "SELECT conflict_key AS value FROM world_package_conflict WHERE package_id=? ORDER BY conflict_key",
+        )
+        .all(packageId) as Array<{
+        value: string;
+      }>
+    ).map(row => row.value);
 
-    if (naturalKey) {
-      const found = this.world.connection.prepare("SELECT row_id FROM world_entity_identity WHERE table_name=? AND natural_key=?").get(tableName, naturalKey) as { row_id: number } | undefined;
-      if (found) return { worldId: Number(found.row_id), naturalKey, policy };
-    }
-
-    const directUuidColumn = policy.uuidColumn && row[policy.uuidColumn] ? String(row[policy.uuidColumn]) : null;
-    const rowFound = directUuidColumn ? this.world.connection.prepare(`SELECT id FROM "${quote(tableName)}" WHERE "${quote(policy.uuidColumn!)}" = ?`).get(directUuidColumn) as { id: number } | undefined : undefined;
-    return { worldId: rowFound ? Number(rowFound.id) : null, naturalKey, policy };
-  }
-
-  private lookupRowById(table: string, id: number): Record<string, unknown> | undefined {
-    if (!Number.isFinite(id)) return undefined;
-    return this.world.connection.prepare(`SELECT * FROM "${quote(table)}" WHERE id=? LIMIT 1`).get(id) as Record<string, unknown> | undefined;
-  }
-
-  private rowHasChanged(tableName: string, worldId: number, incoming: Record<string, unknown>): boolean {
-    const current = this.world.connection.prepare(`SELECT * FROM "${quote(tableName)}" WHERE id=? LIMIT 1`).get(worldId) as Record<string, unknown> | undefined;
-    if (!current) return false;
-    return Object.entries(incoming).some(([column, value]) => column !== "id" && !["created_at","updated_at"].includes(column) && String(current[column] ?? "") !== String(value ?? ""));
-  }
-
-  private buildValues(tableName: string, row: Record<string, unknown>, map: Map<string, number>): Record<string, unknown> {
-    const values: Record<string, unknown> = {};
-    for (const [column, value] of Object.entries(row)) {
-      if (column === "id") continue;
-      if (column.endsWith("_id")) {
-        const targetTable = column === "team_id" || column === "club_id" ? (this.targetTableForFk(tableName, column)) : this.targetTableForFk(tableName, column);
-        values[column] = this.findTranslatedFk(targetTable, value, map);
-      } else values[column] = value;
-    }
-    return values;
-  }
-
-  private targetTableForFk(tableName: string, column: string): string {
-    const explicit: Record<string, string> = {
-      person_id: "person", player_id: "player", team_id: "team", club_id: "club", nation_id: "nation", base_nation_id: "nation", international_competition_nation_id: "nation",
-      city_id: "city", birth_city_id: "city", stadium_id: "stadium", alternative_stadium_id: "stadium", competition_id: "competition", parent_competition_id: "competition",
-      competition_season_id: "competition_season", stage_id: "competition_stage", stage_type_id: "competition_stage_type", round_id: "competition_round", formation_id: "formation", position_id: "position_definition",
-      gender_id: "gender", currency_id: "currency", language_id: "language", family_id: "language_family", group_id: "language_group", subgroup_id: "language_subgroup",
-      continent_region_id: "continent_region", nation_region_id: "nation_region", owner_club_id: "club", owner_person_id: "person",
+    return {
+      ...base,
+      provides,
+      dependencies,
+      conflicts,
     };
-    return explicit[column] ?? column.replace(/_id$/, "");
   }
 
-  private findTranslatedFk(targetTable: string, value: unknown, map: Map<string, number>): unknown {
-    if (value == null) return null;
-    const numeric = Number(value);
-    if (!Number.isFinite(numeric)) return value;
-    return map.get(`${targetTable}:${numeric}`) ?? numeric;
-  }
+  private ensurePackage(
+    manifest: PackageManifest,
+    sourceFile: string,
+    sourceSha256: string,
+  ): number {
+    const now = new Date().toISOString();
+    const existing = this.world.connection
+      .prepare(
+        "SELECT id FROM world_package WHERE package_key=?",
+      )
+      .get(manifest.packageKey) as
+      | { id: number }
+      | undefined;
 
-  private insertResolvedRow(tableName: string, row: Record<string, unknown>, map: Map<string, number>): number {
-    const values = this.buildValues(tableName, row, map);
-    const columns = Object.keys(values).filter(c => this.world.tableSchema(tableName).columns.some(x => x.name === c));
-    const result = this.world.connection.prepare(`INSERT INTO "${quote(tableName)}" (${columns.map(quote).join(",")}) VALUES (${columns.map(()=>"?").join(",")})`).run(...columns.map(c => values[c] ?? null));
-    const id = Number(result.lastInsertRowid);
-    map.set(`${tableName}:${Number(row.id)}`, id);
-    this.persistIdentity(tableName, id, row);
-    return id;
-  }
+    let packageId: number;
 
-  private updateResolvedRow(tableName: string, worldId: number, row: Record<string, unknown>, map: Map<string, number>): void {
-    const values = this.buildValues(tableName, row, map);
-    const columns = Object.keys(values).filter(c => c !== "id" && this.world.tableSchema(tableName).columns.some(x => x.name === c));
-    if (!columns.length) return;
-    this.world.connection.prepare(`UPDATE "${quote(tableName)}" SET ${columns.map(c => `"${quote(c)}"=?`).join(",")} WHERE id=?`).run(...columns.map(c => values[c] ?? null), worldId);
-    map.set(`${tableName}:${Number(row.id)}`, worldId);
-    this.persistIdentity(tableName, worldId, row);
-  }
+    if (existing) {
+      packageId = existing.id;
 
-  private mergeRow(tableName: string, worldId: number, row: Record<string, unknown>, map: Map<string, number>): void {
-    const current = this.world.connection.prepare(`SELECT * FROM "${quote(tableName)}" WHERE id=?`).get(worldId) as Record<string, unknown>;
-    const merged = { ...current };
-    for (const [key, value] of Object.entries(row)) if (key !== "id" && (merged[key] == null || merged[key] === "")) merged[key] = value;
-    this.updateResolvedRow(tableName, worldId, merged, map);
-  }
+      this.world.connection
+        .prepare(
+          `UPDATE world_package
+           SET name=?,version=?,package_type=?,priority=?,
+               source_file=?,source_sha256=?,categories_json=?,
+               description=?,schema_version=?,updated_at=?
+           WHERE id=?`,
+        )
+        .run(
+          manifest.name,
+          manifest.version,
+          manifest.packageType ??
+            "CONTENT",
+          manifest.priority ?? 100,
+          sourceFile,
+          sourceSha256,
+          JSON.stringify(
+            manifest.categories ?? [],
+          ),
+          manifest.description ?? null,
+          manifest.schemaVersion,
+          now,
+          packageId,
+        );
+    } else {
+      const nextOrder = Number(
+        (
+          this.world.connection
+            .prepare(
+              "SELECT COALESCE(MAX(load_order),0)+1 AS value FROM world_package_load_order",
+            )
+            .get() as { value: number }
+        ).value,
+      );
 
-  private recordMap(sessionId: number, tableName: string, row: Record<string, unknown>, worldId: number, resolved: { naturalKey: string | null }): void {
-    this.world.connection.prepare(`INSERT OR REPLACE INTO world_import_id_map(import_session_id,table_name,incoming_id,incoming_uuid,world_id,resolution,natural_key) VALUES(?,?,?,?,?,?,?)`)
-      .run(sessionId, tableName, row.id == null ? null : Number(row.id), row.uuid == null ? null : String(row.uuid), worldId, resolved.worldId == null ? "CREATED" : "RESOLVED", resolved.naturalKey);
-  }
+      const result = this.world.connection
+        .prepare(
+          `INSERT INTO world_package(
+            package_key,name,version,package_type,priority,status,
+            source_file,source_sha256,categories_json,description,
+            schema_version,imported_at,installed_at,updated_at,enabled
+          ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,1)`,
+        )
+        .run(
+          manifest.packageKey,
+          manifest.name,
+          manifest.version,
+          manifest.packageType ??
+            "CONTENT",
+          manifest.priority ?? 100,
+          "ACTIVE",
+          sourceFile,
+          sourceSha256,
+          JSON.stringify(
+            manifest.categories ?? [],
+          ),
+          manifest.description ?? null,
+          manifest.schemaVersion,
+          now,
+          now,
+          now,
+        );
 
-  private persistIdentity(tableName: string, rowId: number, row: Record<string, unknown>): void {
-    const policy = IDENTITY_POLICIES[tableName];
-    if (!policy) return;
-    let naturalKey: string | null = null;
-    try { naturalKey = policy.naturalKey(row, (table, id) => this.lookupRowById(table, id)); } catch { naturalKey = null; }
-    const uuid = policy.uuidColumn && row[policy.uuidColumn] ? String(row[policy.uuidColumn]) : (policy.uuidColumn ? generateUuid() : null);
-    if (policy.uuidColumn) {
-      const tableSchema = this.world.tableSchema(tableName);
-      if (tableSchema.columns.some(column => column.name === policy.uuidColumn)) {
-        this.world.connection.prepare(`UPDATE "${quote(tableName)}" SET "${quote(policy.uuidColumn)}" = COALESCE("${quote(policy.uuidColumn)}", ?) WHERE id=?`).run(uuid, rowId);
-      }
+      packageId = Number(
+        result.lastInsertRowid,
+      );
+
+      this.world.connection
+        .prepare(
+          "INSERT INTO world_package_load_order(package_id,load_order) VALUES(?,?)",
+        )
+        .run(
+          packageId,
+          nextOrder,
+        );
     }
-    this.world.connection.prepare(`INSERT OR REPLACE INTO world_entity_identity(table_name,row_id,entity_uuid,natural_key) VALUES(?,?,?,?)`).run(tableName,rowId,uuid,naturalKey);
+
+    this.replacePackageCapabilities(
+      packageId,
+      manifest,
+    );
+
+    this.setBuildDirty();
+    return packageId;
   }
 
-  private recordConflict(sessionId: number, tableName: string, row: Record<string, unknown>, worldId: number): void {
-    const current = this.world.connection.prepare(`SELECT * FROM "${quote(tableName)}" WHERE id=? LIMIT 1`).get(worldId) as Record<string, unknown> | undefined;
-    if (!current) return;
+  private replacePackageCapabilities(
+    packageId: number,
+    manifest: PackageManifest,
+  ): void {
+    this.world.connection
+      .prepare(
+        "DELETE FROM world_package_provides WHERE package_id=?",
+      )
+      .run(packageId);
 
-    for (const [column, value] of Object.entries(row)) {
-      if (column === "id" || ["created_at","updated_at"].includes(column)) continue;
-      const existingValue = current[column];
-      if (String(existingValue ?? "") === String(value ?? "")) continue;
-      this.world.connection.prepare(`
-        INSERT INTO world_import_conflict(
-          import_session_id, table_name, incoming_id, world_id, conflict_type,
-          column_name, existing_value, incoming_value
-        ) VALUES (?, ?, ?, ?, 'ATTRIBUTE', ?, ?, ?)
-      `).run(
-        sessionId,
-        tableName,
-        row.id == null ? null : Number(row.id),
-        worldId,
-        column,
-        existingValue == null ? null : String(existingValue),
-        value == null ? null : String(value),
+    for (const provide of manifest.provides ?? []) {
+      this.world.connection
+        .prepare(
+          "INSERT INTO world_package_provides(package_id,provide_key) VALUES(?,?)",
+        )
+        .run(packageId, provide);
+    }
+
+    this.world.connection
+      .prepare(
+        "DELETE FROM world_package_dependency WHERE package_id=?",
+      )
+      .run(packageId);
+
+    for (const dependency of manifest.dependencies ?? []) {
+      this.world.connection
+        .prepare(
+          "INSERT INTO world_package_dependency(package_id,dependency_key,min_version) VALUES(?,?,?)",
+        )
+        .run(
+          packageId,
+          dependency.key,
+          dependency.minVersion ?? null,
+        );
+    }
+
+    this.world.connection
+      .prepare(
+        "DELETE FROM world_package_conflict WHERE package_id=?",
+      )
+      .run(packageId);
+
+    for (const conflict of manifest.conflicts ?? []) {
+      this.world.connection
+        .prepare(
+          "INSERT INTO world_package_conflict(package_id,conflict_key) VALUES(?,?)",
+        )
+        .run(packageId, conflict);
+    }
+  }
+
+  private createSession(
+    packageId: number,
+    sourceFile: string,
+    sourceSha256: string,
+  ): number {
+    const result = this.world.connection
+      .prepare(
+        `INSERT INTO world_import_session(
+          status,package_id,source_file,source_sha256,started_at
+        ) VALUES('CREATED',?,?,?,?)`,
+      )
+      .run(
+        packageId,
+        sourceFile,
+        sourceSha256,
+        new Date().toISOString(),
+      );
+
+    return Number(
+      result.lastInsertRowid,
+    );
+  }
+
+  private setSessionStatus(
+    id: number,
+    status: string,
+    summary?: Record<string, unknown>,
+    error?: string,
+  ): void {
+    const terminal =
+      status === "COMPLETED" ||
+      status === "FAILED";
+
+    this.world.connection
+      .prepare(
+        "UPDATE world_import_session SET status=?,summary_json=?,error_message=?,completed_at=? WHERE id=?",
+      )
+      .run(
+        status,
+        JSON.stringify(summary ?? {}),
+        error ?? null,
+        terminal
+          ? new Date().toISOString()
+          : null,
+        id,
+      );
+  }
+
+  private validateManifest(
+    manifest: PackageManifest,
+  ): void {
+    if (!manifest.packageKey?.trim()) {
+      throw new Error(
+        "Package manifest packageKey is required.",
       );
     }
-  }
 
-  private recordProvenance(tableName: string, rowId: number, packageId: number, resolution: string, row: Record<string, unknown>): void {
-    const now = new Date().toISOString();
-    this.world.connection.prepare(`INSERT OR REPLACE INTO world_entity_provenance(table_name,row_id,package_id,resolution,imported_at) VALUES(?,?,?,?,?)`).run(tableName,rowId,packageId,resolution,now);
-    for (const [column,value] of Object.entries(row)) {
-      this.world.connection.prepare(`INSERT OR REPLACE INTO world_attribute_provenance(table_name,row_id,column_name,package_id,value_hash,resolution,updated_at) VALUES(?,?,?,?,?,?,?)`)
-        .run(tableName,rowId,column,packageId,crypto.createHash("sha256").update(JSON.stringify(value)).digest("hex"),resolution,now);
+    if (!manifest.name?.trim()) {
+      throw new Error(
+        "Package manifest name is required.",
+      );
+    }
+
+    if (!manifest.version?.trim()) {
+      throw new Error(
+        "Package manifest version is required.",
+      );
+    }
+
+    const worldSchema = Number(
+      this.world.metadata("schema_version") ??
+        0,
+    );
+
+    if (
+      Number(manifest.schemaVersion) !==
+      worldSchema
+    ) {
+      throw new Error(
+        "Package schema v" +
+          manifest.schemaVersion +
+          " is incompatible with World schema v" +
+          worldSchema +
+          ".",
+      );
+    }
+
+    const priority = Number(
+      manifest.priority ?? 100,
+    );
+    if (!Number.isFinite(priority)) {
+      throw new Error(
+        "Package priority must be numeric.",
+      );
+    }
+
+    const installed = this.world.connection
+      .prepare(
+        "SELECT id,package_key AS packageKey,version,enabled FROM world_package",
+      )
+      .all() as Array<{
+      id: number;
+      packageKey: string;
+      version: string;
+      enabled: number;
+    }>;
+
+    const ownId =
+      installed.find(
+        item =>
+          item.packageKey ===
+          manifest.packageKey,
+      )?.id ?? null;
+
+    for (const dependency of
+      manifest.dependencies ?? []) {
+      const candidate = installed.find(
+        item =>
+          item.enabled === 1 &&
+          item.packageKey ===
+            dependency.key,
+      );
+
+      if (!candidate) {
+        const provider = this.world.connection
+          .prepare(
+            `SELECT 1
+             FROM world_package_provides pr
+             JOIN world_package p ON p.id=pr.package_id
+             WHERE p.enabled=1
+               AND pr.provide_key=?
+             LIMIT 1`,
+          )
+          .get(dependency.key);
+
+        if (!provider) {
+          throw new Error(
+            "Missing package dependency: " +
+              dependency.key,
+          );
+        }
+      } else if (
+        dependency.minVersion &&
+        compareVersions(
+          candidate.version,
+          dependency.minVersion,
+        ) < 0
+      ) {
+        throw new Error(
+          "Package " +
+            manifest.packageKey +
+            " requires " +
+            dependency.key +
+            " >= " +
+            dependency.minVersion +
+            ", but " +
+            candidate.version +
+            " is installed.",
+        );
+      }
+    }
+
+    for (const conflictKey of
+      manifest.conflicts ?? []) {
+      const conflict = this.world.connection
+        .prepare(
+          `SELECT 1
+           FROM world_package p
+           LEFT JOIN world_package_provides pr
+             ON pr.package_id=p.id
+           WHERE p.enabled=1
+             AND p.id<>?
+             AND (
+               p.package_key=?
+               OR pr.provide_key=?
+             )
+           LIMIT 1`,
+        )
+        .get(
+          ownId ?? -1,
+          conflictKey,
+          conflictKey,
+        );
+
+      if (conflict) {
+        throw new Error(
+          "Package conflict detected: " +
+            manifest.packageKey +
+            " conflicts with " +
+            conflictKey +
+            ".",
+        );
+      }
+    }
+
+    for (const provide of
+      manifest.provides ?? []) {
+      const duplicateProvider =
+        this.world.connection
+          .prepare(
+            `SELECT 1
+             FROM world_package_provides pr
+             JOIN world_package p ON p.id=pr.package_id
+             WHERE p.enabled=1
+               AND p.id<>?
+               AND pr.provide_key=?
+             LIMIT 1`,
+          )
+          .get(
+            ownId ?? -1,
+            provide,
+          );
+
+      if (duplicateProvider) {
+        throw new Error(
+          "Logical package scope already provided by another enabled package: " +
+            provide,
+        );
+      }
     }
   }
 
-  private getSession(id: number): { id: number; source_file: string } | undefined {
-    return this.world.connection.prepare("SELECT id,source_file FROM world_import_session WHERE id=?").get(id) as { id: number; source_file: string } | undefined;
+  private validateCompatibleTables(
+    tableInfos: Map<string, TableInfo>,
+  ): void {
+    for (const table of tableInfos.values()) {
+      if (!this.world.tableExists(table.name)) {
+        throw new Error(
+          "Package table is not part of World schema: " +
+            table.name,
+        );
+      }
+
+      const worldSchema =
+        this.world.tableSchema(
+          table.name,
+        );
+
+      const worldColumns = new Set(
+        worldSchema.columns.map(
+          column => column.name,
+        ),
+      );
+
+      for (const column of table.columns) {
+        if (!worldColumns.has(column.name)) {
+          throw new Error(
+            "Package table " +
+              table.name +
+              " contains unsupported column: " +
+              column.name,
+          );
+        }
+      }
+
+      const worldPk =
+        worldSchema.primaryKey;
+      if (
+        worldPk.length !==
+          table.primaryKey.length ||
+        worldPk.some(
+          (column, index) =>
+            table.primaryKey[index] !==
+            column,
+        )
+      ) {
+        throw new Error(
+          "Package primary key differs from World schema for table " +
+            table.name +
+            ".",
+        );
+      }
+    }
+  }
+
+  private loadTableInfos(
+    alias: string,
+  ): Map<string, TableInfo> {
+    const infos = new Map<string, TableInfo>();
+
+    for (const table of this.listIncomingTables(
+      alias,
+    )) {
+      infos.set(
+        table.name,
+        this.readTableInfo(
+          alias,
+          table.name,
+        ),
+      );
+    }
+
+    return infos;
+  }
+
+  private listIncomingTables(
+    alias: string,
+  ): Array<{ name: string }> {
+    return (
+      this.world.connection
+        .prepare(
+          "SELECT name " +
+            "FROM " +
+            quoteIdentifier(alias) +
+            ".sqlite_master " +
+            "WHERE type='table' " +
+            "AND name NOT LIKE 'sqlite_%' " +
+            "ORDER BY name",
+        )
+        .all() as Array<{
+        name: string;
+      }>
+    ).filter(
+      table =>
+        !INTERNAL_TABLES.has(
+          table.name,
+        ),
+    );
+  }
+
+  private readTableInfo(
+    alias: string,
+    tableName: string,
+  ): TableInfo {
+    const columns = this.world.connection
+      .prepare(
+        "PRAGMA " +
+          quoteIdentifier(alias) +
+          ".table_info(" +
+          quoteIdentifier(tableName) +
+          ")",
+      )
+      .all() as Array<{
+      name: string;
+      type: string;
+      notnull: number;
+      dflt_value: unknown;
+      pk: number;
+    }>;
+
+    const foreignKeys =
+      this.world.connection
+        .prepare(
+          "PRAGMA " +
+            quoteIdentifier(alias) +
+            ".foreign_key_list(" +
+            quoteIdentifier(tableName) +
+            ")",
+        )
+        .all() as Array<{
+        id: number;
+        seq: number;
+        table: string;
+        from: string;
+        to: string;
+      }>;
+
+    const worldSchema =
+      this.world.tableSchema(
+        tableName,
+      );
+
+    return {
+      name: tableName,
+      columns: columns.map(
+        column => ({
+          name: column.name,
+          type: column.type,
+          notNull:
+            column.notnull === 1,
+          defaultValue:
+            column.dflt_value,
+          primaryKeyOrder:
+            column.pk,
+        }),
+      ),
+      primaryKey: columns
+        .filter(column => column.pk > 0)
+        .sort(
+          (a, b) =>
+            a.pk - b.pk,
+        )
+        .map(
+          column =>
+            column.name,
+        ),
+      foreignKeys:
+        foreignKeys.map(
+          fk => ({
+            id: fk.id,
+            sequence: fk.seq,
+            table: fk.table,
+            from: fk.from,
+            to: fk.to,
+          }),
+        ),
+      uniqueColumns:
+        worldSchema.uniqueColumns,
+      rowIdPrimaryKey:
+        worldSchema.primaryKey.length ===
+          1 &&
+        worldSchema.columns.find(
+          column =>
+            column.name ===
+            worldSchema.primaryKey[0],
+        )?.type.toUpperCase() ===
+          "INTEGER",
+    };
+  }
+
+  private createIdentityContext(
+    alias: string,
+    tableInfos: Map<string, TableInfo>,
+  ): IdentityContext {
+    const cache = new Map<
+      string,
+      string | null
+    >();
+    const visiting = new Set<string>();
+
+    const token = (
+      tableName: string,
+      keyObject: KeyObject,
+    ): string | null => {
+      const table =
+        tableInfos.get(tableName);
+      if (!table) return null;
+
+      const rawKey = serializeKey(
+        table,
+        keyObject,
+      );
+      const cacheKey =
+        tableName + ":" + rawKey;
+
+      if (cache.has(cacheKey)) {
+        return cache.get(cacheKey) ?? null;
+      }
+
+      if (visiting.has(cacheKey)) {
+        return "pk:" + rawKey;
+      }
+
+      visiting.add(cacheKey);
+
+      const row =
+        this.findAttachedRow(
+          alias,
+          table,
+          keyObject,
+        );
+
+      if (!row) {
+        visiting.delete(cacheKey);
+        return null;
+      }
+
+      const policy =
+        identityPolicy(tableName);
+
+      let result: string | null = null;
+
+      if (
+        policy?.uuidColumn &&
+        row[policy.uuidColumn]
+      ) {
+        result =
+          "uuid:" +
+          String(
+            row[
+              policy.uuidColumn
+            ],
+          );
+      } else if (policy) {
+        const natural =
+          safeNaturalKey(
+            policy,
+            row,
+            { token },
+          );
+
+        result = natural
+          ? "natural:" + natural
+          : "pk:" + rawKey;
+      } else {
+        result = "pk:" + rawKey;
+      }
+
+      visiting.delete(cacheKey);
+      cache.set(
+        cacheKey,
+        result,
+      );
+      return result;
+    };
+
+    return { token };
+  }
+
+  private findAttachedRow(
+    alias: string,
+    table: TableInfo,
+    keyObject: KeyObject,
+  ): Row | undefined {
+    if (
+      table.primaryKey.length === 0
+    ) {
+      return undefined;
+    }
+
+    const where = table.primaryKey
+      .map(
+        column =>
+          quoteIdentifier(column) +
+          "=?",
+      )
+      .join(" AND ");
+
+    return this.world.connection
+      .prepare(
+        "SELECT * FROM " +
+          quoteIdentifier(alias) +
+          "." +
+          quoteIdentifier(table.name) +
+          " WHERE " +
+          where +
+          " LIMIT 1",
+      )
+      .get(
+        ...table.primaryKey.map(
+          column =>
+            keyObject[column],
+        ),
+      ) as Row | undefined;
+  }
+
+  private orderTables(
+    tableInfos: Map<string, TableInfo>,
+  ): TableInfo[] {
+    const tables =
+      Array.from(
+        tableInfos.values(),
+      );
+    const names = new Set(
+      tables.map(
+        table => table.name,
+      ),
+    );
+
+    const dependencies =
+      new Map<
+        string,
+        Set<string>
+      >();
+
+    for (const table of tables) {
+      const deps = new Set<string>();
+
+      for (const fk of table.foreignKeys) {
+        if (
+          fk.table !== table.name &&
+          names.has(fk.table)
+        ) {
+          deps.add(fk.table);
+        }
+      }
+
+      dependencies.set(
+        table.name,
+        deps,
+      );
+    }
+
+    const result: TableInfo[] = [];
+    const remaining = new Set(
+      tables.map(
+        table => table.name,
+      ),
+    );
+
+    while (remaining.size > 0) {
+      const ready =
+        Array.from(remaining)
+          .filter(
+            tableName =>
+              Array.from(
+                dependencies.get(
+                  tableName,
+                ) ?? [],
+              ).every(
+                dep =>
+                  result.some(
+                    table =>
+                      table.name ===
+                      dep,
+                  ),
+              ),
+          )
+          .sort();
+
+      if (ready.length === 0) {
+        for (const tableName of Array.from(
+          remaining,
+        ).sort()) {
+          result.push(
+            tableInfos.get(
+              tableName,
+            )!,
+          );
+          remaining.delete(
+            tableName,
+          );
+        }
+        continue;
+      }
+
+      for (const tableName of ready) {
+        result.push(
+          tableInfos.get(
+            tableName,
+          )!,
+        );
+        remaining.delete(
+          tableName,
+        );
+      }
+    }
+
+    return result;
+  }
+
+  private clearBuiltWorld(): void {
+    const tables =
+      this.world
+        .listTables()
+        .filter(
+          table =>
+            !INTERNAL_TABLES.has(
+              table,
+            ),
+        );
+
+    this.world.connection
+      .prepare(
+        "DELETE FROM world_import_conflict",
+      )
+      .run();
+
+    this.world.connection
+      .prepare(
+        "DELETE FROM world_import_id_map",
+      )
+      .run();
+
+    this.world.connection
+      .prepare(
+        "DELETE FROM world_attribute_provenance",
+      )
+      .run();
+
+    this.world.connection
+      .prepare(
+        "DELETE FROM world_entity_provenance",
+      )
+      .run();
+
+    this.world.connection
+      .prepare(
+        "DELETE FROM world_entity_identity",
+      )
+      .run();
+
+    for (const table of tables) {
+      this.world.connection
+        .prepare(
+          "DELETE FROM " +
+            quoteIdentifier(table),
+        )
+        .run();
+    }
+  }
+
+  private setBuildDirty(): void {
+    this.world.setMetadata(
+      "world_build_status",
+      "DIRTY",
+    );
+  }
+
+  private detach(alias: string): void {
+    try {
+      this.world.connection.exec(
+        "DETACH DATABASE " +
+          quoteIdentifier(alias),
+      );
+    } catch {
+      // no-op if the alias was already detached
+    }
+  }
+
+  private attach(
+    alias: string,
+    sourceFile: string,
+  ): void {
+    const escaped =
+      sourceFile.replaceAll(
+        "'",
+        "''",
+      );
+
+    this.world.connection.exec(
+      "ATTACH DATABASE '" +
+        escaped +
+        "' AS " +
+        quoteIdentifier(alias),
+    );
+  }
+
+  private resolveSource(
+    sourceFile: string,
+  ): string {
+    const absolute =
+      path.resolve(sourceFile);
+
+    if (!fs.existsSync(absolute)) {
+      throw new Error(
+        "Package file not found: " +
+          absolute,
+      );
+    }
+
+    return absolute;
+  }
+
+  private readManifest(
+    alias: string,
+  ): PackageManifest {
+    const manifestTable =
+      this.world.connection
+        .prepare(
+          "SELECT 1 FROM " +
+            quoteIdentifier(alias) +
+            ".sqlite_master " +
+            "WHERE type='table' " +
+            "AND name='package_manifest' " +
+            "LIMIT 1",
+        )
+        .get();
+
+    if (manifestTable) {
+      const row =
+        this.world.connection
+          .prepare(
+            "SELECT manifest_json FROM " +
+              quoteIdentifier(alias) +
+              ".package_manifest LIMIT 1",
+          )
+          .get() as
+          | {
+              manifest_json?: string;
+            }
+          | undefined;
+
+      if (row?.manifest_json) {
+        return JSON.parse(
+          row.manifest_json,
+        ) as PackageManifest;
+      }
+    }
+
+    const metadataTable =
+      this.world.connection
+        .prepare(
+          "SELECT 1 FROM " +
+            quoteIdentifier(alias) +
+            ".sqlite_master " +
+            "WHERE type='table' " +
+            "AND name='database_metadata' " +
+            "LIMIT 1",
+        )
+        .get();
+
+    if (!metadataTable) {
+      throw new Error(
+        "Package manifest is missing. Expected package_manifest or database_metadata.",
+      );
+    }
+
+    const metadata =
+      this.world.connection
+        .prepare(
+          "SELECT key,value FROM " +
+            quoteIdentifier(alias) +
+            ".database_metadata",
+        )
+        .all() as Array<{
+        key: string;
+        value: string;
+      }>;
+
+    const values = new Map(
+      metadata.map(item => [
+        item.key,
+        item.value,
+      ]),
+    );
+
+    const packageKey =
+      values.get("package_key");
+    const name =
+      values.get("package_name");
+
+    if (!packageKey || !name) {
+      throw new Error(
+        "Package manifest is incomplete: package_key and package_name are required.",
+      );
+    }
+
+    return {
+      packageKey,
+      name,
+      version:
+        values.get(
+          "package_version",
+        ) ?? "1.0.0",
+      packageType:
+        values.get(
+          "package_type",
+        ) ?? "CONTENT",
+      priority: Number(
+        values.get(
+          "package_priority",
+        ) ?? 100,
+      ),
+      schemaVersion:
+        Number(
+          values.get(
+            "schema_version",
+          ) ?? 0,
+        ),
+      categories:
+        parseJsonArray(
+          values.get(
+            "package_categories",
+          ),
+        ),
+      description:
+        values.get(
+          "package_description",
+        ) ?? null,
+      provides:
+        parseJsonArray(
+          values.get(
+            "package_provides",
+          ),
+        ),
+      dependencies:
+        parseJsonDependencies(
+          values.get(
+            "package_dependencies",
+          ),
+        ),
+      conflicts:
+        parseJsonArray(
+          values.get(
+            "package_conflicts",
+          ),
+        ),
+    };
   }
 }
 
-function quote(value: string): string {
-  if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(value)) throw new Error(`Invalid identifier: ${value}`);
-  return value;
+function mapKey(
+  tableName: string,
+  incomingKey: string,
+): string {
+  return (
+    tableName +
+    "::" +
+    incomingKey
+  );
 }
 
-function quoteString(value: string): string {
-  return "'" + value.replaceAll("'", "''") + "'";
+function serializeKey(
+  table: TableInfo,
+  row: Row | KeyObject,
+): string {
+  const values: KeyObject = {};
+
+  for (const column of table.primaryKey) {
+    values[column] =
+      row[column];
+  }
+
+  return JSON.stringify(
+    values,
+  );
 }
 
-function sha256File(filePath: string): string {
-  return crypto.createHash("sha256").update(fs.readFileSync(filePath)).digest("hex");
+function virtualKey(
+  table: TableInfo,
+  incomingKey: string,
+): KeyObject {
+  return Object.fromEntries(
+    table.primaryKey.map(
+      column => [
+        column,
+        "__NEW__:" +
+          table.name +
+          ":" +
+          incomingKey,
+      ],
+    ),
+  );
+}
+
+function pickKey(
+  table: TableInfo,
+  row: Row,
+): KeyObject {
+  const values: KeyObject = {};
+
+  for (const column of table.primaryKey) {
+    values[column] =
+      row[column];
+  }
+
+  return values;
+}
+
+function groupForeignKeys(
+  foreignKeys: ForeignKeyInfo[],
+): ForeignKeyInfo[][] {
+  const groups =
+    new Map<
+      number,
+      ForeignKeyInfo[]
+    >();
+
+  for (const fk of foreignKeys) {
+    const group =
+      groups.get(fk.id) ?? [];
+    group.push(fk);
+    groups.set(
+      fk.id,
+      group,
+    );
+  }
+
+  return Array.from(
+    groups.values(),
+  ).map(
+    group =>
+      group.sort(
+        (a, b) =>
+          a.sequence -
+          b.sequence,
+      ),
+  );
+}
+
+function infoToTableInfo(schema: {
+  name: string;
+  columns: Array<{
+    name: string;
+    type: string;
+    notNull: boolean;
+    defaultValue: unknown;
+    primaryKey: boolean;
+  }>;
+  primaryKey: string[];
+  foreignKeys: Array<{
+    id: number;
+    sequence: number;
+    table: string;
+    from: string;
+    to: string;
+    onUpdate: string;
+    onDelete: string;
+  }>;
+  uniqueColumns: string[][];
+}): TableInfo {
+  return {
+    name: schema.name,
+    columns: schema.columns.map(
+      column => ({
+        name: column.name,
+        type: column.type,
+        notNull:
+          column.notNull,
+        defaultValue:
+          column.defaultValue,
+        primaryKeyOrder:
+          column.primaryKey
+            ? schema.primaryKey.indexOf(
+                column.name,
+              ) + 1
+            : 0,
+      }),
+    ),
+    primaryKey:
+      schema.primaryKey,
+    foreignKeys:
+      schema.foreignKeys.map(
+        fk => ({
+          id: fk.id,
+          sequence: fk.sequence,
+          table: fk.table,
+          from: fk.from,
+          to: fk.to,
+        }),
+      ),
+    uniqueColumns:
+      schema.uniqueColumns,
+    rowIdPrimaryKey:
+      schema.primaryKey.length ===
+        1 &&
+      schema.columns.find(
+        column =>
+          column.name ===
+          schema.primaryKey[0],
+      )?.type.toUpperCase() ===
+        "INTEGER",
+  };
+}
+
+function safeNaturalKey(
+  policy: IdentityPolicy | undefined,
+  row: Row,
+  context: IdentityContext,
+): string | null {
+  if (!policy) return null;
+
+  try {
+    return policy.naturalKey(
+      row,
+      context,
+    );
+  } catch {
+    return null;
+  }
+}
+
+function normalizeComparable(
+  value: unknown,
+): string {
+  if (value == null) return "";
+  if (typeof value === "bigint") {
+    return value.toString();
+  }
+  if (Buffer.isBuffer(value)) {
+    return value.toString("hex");
+  }
+  return String(value);
+}
+
+function toNumberOrNull(
+  value: unknown,
+): number | null {
+  if (
+    typeof value === "number" &&
+    Number.isFinite(value)
+  ) {
+    return value;
+  }
+
+  if (typeof value === "bigint") {
+    const number = Number(value);
+    return Number.isFinite(number)
+      ? number
+      : null;
+  }
+
+  const number = Number(value);
+  return Number.isFinite(number)
+    ? number
+    : null;
+}
+
+function sha256File(
+  filePath: string,
+): string {
+  return crypto
+    .createHash("sha256")
+    .update(
+      fs.readFileSync(
+        filePath,
+      ),
+    )
+    .digest("hex");
+}
+
+function sha256Value(
+  value: unknown,
+): string {
+  return crypto
+    .createHash("sha256")
+    .update(
+      JSON.stringify(value),
+    )
+    .digest("hex");
+}
+
+function compareVersions(
+  a: string,
+  b: string,
+): number {
+  const left =
+    a.split(".").map(
+      part =>
+        Number(part) || 0,
+    );
+  const right =
+    b.split(".").map(
+      part =>
+        Number(part) || 0,
+    );
+
+  const length = Math.max(
+    left.length,
+    right.length,
+  );
+
+  for (
+    let index = 0;
+    index < length;
+    index += 1
+  ) {
+    const l =
+      left[index] ?? 0;
+    const r =
+      right[index] ?? 0;
+
+    if (l !== r) {
+      return l > r ? 1 : -1;
+    }
+  }
+
+  return 0;
+}
+
+function parseJsonArray(
+  value?: string,
+): string[] {
+  if (!value) return [];
+
+  try {
+    const parsed =
+      JSON.parse(value);
+
+    return Array.isArray(parsed)
+      ? parsed.map(String)
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+function parseJsonDependencies(
+  value?: string,
+): Array<{
+  key: string;
+  minVersion?: string | null;
+}> {
+  if (!value) return [];
+
+  try {
+    const parsed =
+      JSON.parse(value);
+
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+
+    return parsed
+      .map(item => ({
+        key: String(
+          item?.key ?? "",
+        ),
+        minVersion:
+          item?.minVersion == null
+            ? null
+            : String(
+                item.minVersion,
+              ),
+      }))
+      .filter(
+        item =>
+          item.key.length > 0,
+      );
+  } catch {
+    return [];
+  }
+}
+
+export function quoteIdentifier(
+  value: string,
+): string {
+  if (
+    !/^[A-Za-z_][A-Za-z0-9_]*$/.test(
+      value,
+    )
+  ) {
+    throw new Error(
+      "Invalid SQL identifier: " +
+        value,
+    );
+  }
+
+  return '"' + value + '"';
 }
