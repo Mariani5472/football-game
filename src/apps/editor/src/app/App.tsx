@@ -10,7 +10,7 @@ import { TeamsPage } from "../features/teams/pages";
 import { TemplatesPage } from "../features/templates/pages/TemplatesPage";
 import { WorldSystemsPage } from "../features/world-systems/pages/WorldSystemsPage";
 import { ValidationPage } from "../features/validation/pages/ValidationPage";
-import { ExportGatePage } from "../features/validation/pages/ExportGatePage";
+import { ExportPage } from "../features/export/pages/ExportPage";
 import { StadiumsPage } from "../features/stadiums/pages";
 import {
   CitiesPage,
@@ -79,7 +79,7 @@ function renderRoute(route: EditorRoute) {
     case "fast-create":
       return <ComingSoon title="Quick Create" />;
     case "export":
-      return <ExportGatePage />;
+      return <ExportPage />;
   }
 }
 
