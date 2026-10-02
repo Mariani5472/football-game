@@ -23,21 +23,21 @@ export function TransfersPage() {
             <label className="flex items-center gap-2 text-xs text-slate-400"><input type="checkbox" checked={transfer.permanent} onChange={e => setTransfer({...transfer, permanent:e.target.checked})}/> Transferência definitiva</label>
             <label className="flex items-center gap-2 text-xs text-slate-400"><input type="checkbox" checked={transfer.loan} onChange={e => setTransfer({...transfer, loan:e.target.checked})}/> É empréstimo</label>
             <button onClick={() => void submit(() => editorApi.domainTransfer({
-              playerId:id(transfer.player)!, originClubId:id(transfer.origin), destinationClubId:id(transfer.destination),
-              transferTypeId:id(transfer.type), transferStatusId:id(transfer.status), transferWindowId:id(transfer.window),
-              transferDate:transfer.date || undefined, fee:id(transfer.fee), currencyId:id(transfer.currency), permanent:transfer.permanent,
+              playerId:toId(transfer.player)!, originClubId:toId(transfer.origin), destinationClubId:toId(transfer.destination),
+              transferTypeId:toId(transfer.type), transferStatusId:toId(transfer.status), transferWindowId:toId(transfer.window),
+              transferDate:transfer.date || undefined, fee:toId(transfer.fee), currencyId:toId(transfer.currency), permanent:transfer.permanent,
               loan:transfer.loan ? {} : undefined,
               installments: transfer.installmentAmount && transfer.installmentPeriods && transfer.interval
-                ? [{ directionId:id(transfer.installmentDirection)!, amountPerPeriod:Number(transfer.installmentAmount), numberOfPeriods:Number(transfer.installmentPeriods), intervalId:id(transfer.interval)! }]
+                ? [{ directionId:toId(transfer.installmentDirection)!, amountPerPeriod:Number(transfer.installmentAmount), numberOfPeriods:Number(transfer.installmentPeriods), intervalId:toId(transfer.interval)! }]
                 : undefined,
               wageContribution: transfer.wageContribution
-                ? { directionId:id(transfer.wageDirection)!, salary:Number(transfer.wageContribution) }
+                ? { directionId:toId(transfer.wageDirection)!, salary:Number(transfer.wageContribution) }
                 : undefined,
               resaleClause: transfer.resale
-                ? { targetClubFinanceId:id(transfer.destination)!, percentage:Number(transfer.resale) }
+                ? { targetClubFinanceId:toId(transfer.destination)!, percentage:Number(transfer.resale) }
                 : undefined,
               saleClause: transfer.sale
-                ? { targetClubFinanceId:id(transfer.destination)!, percentage:Number(transfer.sale) }
+                ? { targetClubFinanceId:toId(transfer.destination)!, percentage:Number(transfer.sale) }
                 : undefined,
             }))} className="mt-2 rounded-lg bg-emerald-500 px-4 py-2 text-sm font-medium text-slate-950">Registrar transferência</button>
           </Card>
@@ -47,14 +47,16 @@ export function TransfersPage() {
             <Field label="Nome da janela" value={windowConfig.name} onChange={v=>setWindowConfig({...windowConfig,name:v})} />
             <Field label="Início" type="date" value={windowConfig.start} onChange={v=>setWindowConfig({...windowConfig,start:v})} />
             <Field label="Fim" type="date" value={windowConfig.end} onChange={v=>setWindowConfig({...windowConfig,end:v})} />
-            <button onClick={() => void submit(() => editorApi.create("transfer_window",{competition_id:id(windowConfig.competition),nation_id:id(windowConfig.nation),name:windowConfig.name,start_date:windowConfig.start,end_date:windowConfig.end}))} className="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-medium text-slate-950">Criar janela</button>
+            <button onClick={() => void submit(() => editorApi.create("transfer_window",{competition_id:toId(windowConfig.competition),nation_id:toId(windowConfig.nation),name:windowConfig.name,start_date:windowConfig.start,end_date:windowConfig.end}))} className="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-medium text-slate-950">Criar janela</button>
           </Card>
 
           <Card title="Condições financeiras" description="Parcelas, participação salarial e cláusulas são gravadas junto com a operação.">
             <Field label="Valor por parcela" type="number" value={transfer.installmentAmount} onChange={v => setTransfer({...transfer, installmentAmount:v})} />
             <Field label="Número de parcelas" type="number" value={transfer.installmentPeriods} onChange={v => setTransfer({...transfer, installmentPeriods:v})} />
-            <Field label="Intervalo de pagamento" value={transfer.interval} onChange={v => setTransfer({...transfer, interval:v})} />\n            <Field label="Direção do pagamento" value={transfer.installmentDirection} onChange={v => setTransfer({...transfer, installmentDirection:v})} />
-            <Field label="Contribuição salarial mensal" type="number" value={transfer.wageContribution} onChange={v => setTransfer({...transfer, wageContribution:v})} />\n            <Field label="Direção da contribuição" value={transfer.wageDirection} onChange={v => setTransfer({...transfer, wageDirection:v})} />
+            <Field label="Intervalo de pagamento" value={transfer.interval} onChange={v => setTransfer({...transfer, interval:v})} />
+            <Field label="Direção do pagamento" value={transfer.installmentDirection} onChange={v => setTransfer({...transfer, installmentDirection:v})} />
+            <Field label="Contribuição salarial mensal" type="number" value={transfer.wageContribution} onChange={v => setTransfer({...transfer, wageContribution:v})} />
+            <Field label="Direção da contribuição" value={transfer.wageDirection} onChange={v => setTransfer({...transfer, wageDirection:v})} />
             <Field label="Percentual de revenda" type="number" value={transfer.resale} onChange={v => setTransfer({...transfer, resale:v})} />
             <Field label="Percentual de venda futura" type="number" value={transfer.sale} onChange={v => setTransfer({...transfer, sale:v})} />
             <div className="rounded-lg border border-white/5 bg-black/10 p-3 text-xs text-slate-500">
@@ -74,14 +76,13 @@ export function TransfersPage() {
             <Field label="Valor da cláusula" type="number" value={contract.clauseValue} onChange={v => setContract({...contract, clauseValue:v})} />
             <Field label="Percentual da cláusula" type="number" value={contract.clausePercentage} onChange={v => setContract({...contract, clausePercentage:v})} />
             <button onClick={() => void submit(() => editorApi.domainContract({
-              personId:id(contract.person)!, clubId:id(contract.club)!, employmentId:id(contract.employment),
+              personId:toId(contract.person)!, clubId:toId(contract.club)!, employmentId:toId(contract.employment),
               startDate:contract.start || undefined, endDate:contract.end || undefined, contractType:contract.type || undefined,
-              salary:id(contract.salary), squadNumber:id(contract.squad),
-              clauses:contract.clauseType ? [{ clauseTypeId:id(contract.clauseType)!, value:id(contract.clauseValue), percentage:Number(contract.clausePercentage)||undefined }] : [],
+              salary:toId(contract.salary), squadNumber:toId(contract.squad),
+              clauses:contract.clauseType ? [{ clauseTypeId:toId(contract.clauseType)!, value:toId(contract.clauseValue), percentage:Number(contract.clausePercentage)||undefined }] : [],
             }))} className="mt-2 rounded-lg bg-emerald-500 px-4 py-2 text-sm font-medium text-slate-950">Criar contrato</button>
           </Card>
         </div>
-      )}
     </div>
   );
 }
