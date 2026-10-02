@@ -17,8 +17,8 @@ export function WorldHeader({
   world: WorldDashboard["world"];
   build: WorldDashboard["build"];
 }) {
-  const valid = world.status === "VALID";
-  const buildValid = build.status === "VALID";
+  const valid = world?.status === "VALID";
+  const buildValid = build?.status === "VALID";
 
   return (
     <section className="rounded-2xl border border-white/10 bg-white/[0.02] p-6">
@@ -37,18 +37,18 @@ export function WorldHeader({
 
         <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
           <Meta icon={<Database size={14} />} label="Schema" value={String(world.schemaVersion)} />
-          <Meta icon={<GitBranch size={14} />} label="Packages" value={String(build.enabledPackages)} />
-          <Meta icon={<Save size={14} />} label="Last build" value={formatDate(build.lastBuildAt)} />
-          <StatusMeta valid={buildValid} label="Build" value={build.status} />
+          <Meta icon={<GitBranch size={14} />} label="Packages" value={String(build?.enabledPackages)} />
+          <Meta icon={<Save size={14} />} label="Last build" value={formatDate(build?.lastBuildAt)} />
+          <StatusMeta valid={buildValid} label="Build" value={build?.status} />
         </div>
       </div>
 
       <div className="mt-5 flex flex-wrap items-center gap-3 border-t border-white/5 pt-4 text-xs">
         <StatusBadge valid={valid} label={valid ? "Database valid" : "Database invalid"} />
-        {build.unresolvedConflicts > 0 && (
-          <StatusBadge valid={false} label={build.unresolvedConflicts + " unresolved conflicts"} />
+        {build?.unresolvedConflicts > 0 && (
+          <StatusBadge valid={false} label={build?.unresolvedConflicts + " unresolved conflicts"} />
         )}
-        {build.status === "DIRTY" && (
+        {build?.status === "DIRTY" && (
           <span className="rounded-full border border-amber-400/15 bg-amber-400/5 px-3 py-1.5 text-amber-300">
             World requires a rebuild or contains direct edits.
           </span>

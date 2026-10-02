@@ -12,7 +12,6 @@ const server = createEditorApiServer({
   port: 4179,
 });
 
-// 1. Alterado de '127.0.0.1' para 'localhost'
 server.listen(4179, "localhost", () => {
   console.log("[editor] API: http://localhost:4179/api");
   console.log("[editor] World DB:", databasePath);
