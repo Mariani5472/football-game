@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { WorldDatabase } from "../database/world/WorldDatabase.js";
+import { validatePackageIdentity } from "./WorldPackageIdentityService.js";
 import {
   WorldPackageImportService,
   type ConflictPolicy,
@@ -220,6 +221,25 @@ export class WorldPackageService {
       );
     }
 
+    const identity = validatePackageIdentity(
+      this.database,
+      {
+        packageKey,
+        packageType: input.packageType ?? "CONTENT",
+        version: input.version?.trim() || "1.0.0",
+        provides: input.provides ?? [],
+        dependencies: input.dependencies ?? [],
+        conflicts: input.conflicts ?? [],
+      },
+      input.sourceSha256 ?? "",
+    );
+
+    if (identity.issues.length > 0) {
+      throw new Error(
+        identity.issues.map(issue => issue.message).join(" "),
+      );
+    }
+
     const existing = this.database.connection
       .prepare(
         "SELECT id FROM world_package WHERE package_key=?",
@@ -342,6 +362,27 @@ export class WorldPackageService {
       throw new Error(
         "Package priority must be numeric.",
       );
+    }
+
+    if (enabled) {
+      const identity = validatePackageIdentity(
+        this.database,
+        {
+          packageKey: current.packageKey,
+          packageType: current.packageType,
+          version: current.version,
+          provides: current.provides,
+          dependencies: current.dependencies,
+          conflicts: current.conflicts,
+        },
+        current.sourceSha256 ?? "",
+      );
+
+      if (identity.issues.length > 0) {
+        throw new Error(
+          identity.issues.map(issue => issue.message).join(" "),
+        );
+      }
     }
 
     this.database.transaction(
