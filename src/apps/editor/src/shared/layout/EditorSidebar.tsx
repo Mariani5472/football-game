@@ -30,6 +30,7 @@ const worldItems: NavItem[] = [
   { id: "dashboard", label: "Dashboard", icon: CircleDot },
   { id: "geography", label: "Geography", icon: Globe2 },
   { id: "continents", label: "Continents", icon: Globe2 },
+  { id: "confederations", label: "Confederations", icon: Trophy },
   { id: "countries", label: "Countries", icon: Globe2 },
   { id: "regions", label: "Regions", icon: Map },
   { id: "cities", label: "Cities", icon: Map },
@@ -101,7 +102,7 @@ export function EditorSidebar({
           <div className="h-8 w-8 rounded-full bg-gradient-to-br from-emerald-400/60 to-cyan-400/20" />
           <div className="min-w-0">
             <div className="truncate text-xs font-medium text-slate-200">World Studio</div>
-            <div className="truncate text-[11px] text-slate-500">SQLite · schema v2</div>
+            <div className="truncate text-[11px] text-slate-500">SQLite · schema v4</div>
           </div>
         </div>
       </div>
