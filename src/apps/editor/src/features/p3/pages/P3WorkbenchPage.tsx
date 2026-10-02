@@ -49,6 +49,7 @@ export function P3WorkbenchPage() {
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  const [windowConfig, setWindowConfig] = useState({ competition:"", nation:"", name:"", start:"", end:"" });
   const [transfer, setTransfer] = useState({
     player: "", origin: "", destination: "", type: "", status: "", window: "", date: "", fee: "", currency: "",
     permanent: true, loan: false, installment: false, installmentAmount: "", installmentPeriods: "", interval: "", installmentDirection: "",
@@ -154,6 +155,15 @@ export function P3WorkbenchPage() {
                 : undefined,
             }))} className="mt-2 rounded-lg bg-emerald-500 px-4 py-2 text-sm font-medium text-slate-950">Registrar transferência</button>
           </Card>
+          <Card title="Janela de transferências" description="Defina quando clubes de uma competição ou nação podem registrar movimentações.">
+            <Field label="Competição" value={windowConfig.competition} onChange={v=>setWindowConfig({...windowConfig,competition:v})} />
+            <Field label="Nação" value={windowConfig.nation} onChange={v=>setWindowConfig({...windowConfig,nation:v})} />
+            <Field label="Nome da janela" value={windowConfig.name} onChange={v=>setWindowConfig({...windowConfig,name:v})} />
+            <Field label="Início" type="date" value={windowConfig.start} onChange={v=>setWindowConfig({...windowConfig,start:v})} />
+            <Field label="Fim" type="date" value={windowConfig.end} onChange={v=>setWindowConfig({...windowConfig,end:v})} />
+            <button onClick={() => void submit(() => editorApi.create("transfer_window",{competition_id:id(windowConfig.competition),nation_id:id(windowConfig.nation),name:windowConfig.name,start_date:windowConfig.start,end_date:windowConfig.end}))} className="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-medium text-slate-950">Criar janela</button>
+          </Card>
+
           <Card title="Condições financeiras" description="Parcelas, participação salarial e cláusulas são gravadas junto com a operação.">
             <Field label="Valor por parcela" type="number" value={transfer.installmentAmount} onChange={v => setTransfer({...transfer, installmentAmount:v})} />
             <Field label="Número de parcelas" type="number" value={transfer.installmentPeriods} onChange={v => setTransfer({...transfer, installmentPeriods:v})} />
