@@ -1,10 +1,33 @@
 import path from "node:path";
+import fs from "node:fs";
 import { WorldDatabase } from "../database/world/WorldDatabase.js";
 import type { ListOptions, SqlKey, SqlRow, SqlValue, TableSchema } from "../database/Database.js";
 import { WorldTemplateService, type TemplateRecord, type TemplateRelationOption } from "./WorldTemplateService.js";
 import { WorldDomainService } from "./WorldDomainService.js";
 import { WorldValidator, type ValidationIssue, type ValidationProfile } from "./WorldValidator.js";
 import { WorldPackageService, type WorldExportResult, type WorldPackageIssue } from "./WorldPackageService.js";
+
+export interface WorldDashboardSummary {
+  world: {
+    name: string;
+    year: number;
+    schemaVersion: number;
+    packageVersion: string;
+    status: "VALID" | "INVALID" | "UNKNOWN";
+    lastSavedAt: string | null;
+    databasePath: string;
+  };
+  packages: Array<{
+    id: number;
+    packageKey: string;
+    name: string;
+    version: string;
+    status: "ACTIVE" | "CONFLICT" | "ERROR";
+    icon: string | null;
+    categories: string[];
+    description: string | null;
+  }>;
+}
 
 export interface WorldEditorServiceOptions {
   filePath: string;
@@ -17,9 +40,11 @@ export class WorldEditorService {
   private readonly domainService: WorldDomainService;
   private readonly validator: WorldValidator;
   private readonly packageService: WorldPackageService;
+  private readonly filePath: string;
 
   constructor(options: WorldEditorServiceOptions) {
     const create = options.createIfMissing ?? false;
+    this.filePath = path.resolve(options.filePath);
 
     this.database = create
       ? WorldDatabase.create(path.resolve(options.filePath))
@@ -106,6 +131,53 @@ export class WorldEditorService {
   createClimateProfile(input: Parameters<WorldDomainService["createClimateProfile"]>[0]) { return this.domainService.createClimateProfile(input); }
   createNationalityRule(input: Parameters<WorldDomainService["createNationalityRule"]>[0]) { return this.domainService.createNationalityRule(input); }
   validate(profileId?: number): ValidationIssue[] { return this.validator.validate(profileId); }
+
+  dashboard(): WorldDashboardSummary {
+    const issues = this.validator.validate();
+    const hasErrors = issues.some(issue => issue.severity === "ERROR");
+    const stat = fs.existsSync(this.filePath) ? fs.statSync(this.filePath) : null;
+    return {
+      world: {
+        name: this.database.metadata("world_name") ?? "Unnamed World",
+        year: Number(this.database.metadata("world_year") ?? new Date().getFullYear()),
+        schemaVersion: Number(this.database.metadata("schema_version") ?? 0),
+        packageVersion: this.database.metadata("package_version") ?? "0.2.0",
+        status: hasErrors ? "INVALID" : "VALID",
+        lastSavedAt: stat?.mtime.toISOString() ?? null,
+        databasePath: this.filePath,
+      },
+      packages: this.packageService.listPackages().map(packageItem => ({
+        id: packageItem.id,
+        packageKey: packageItem.packageKey,
+        name: packageItem.name,
+        version: packageItem.version,
+        status: packageItem.status,
+        icon: packageItem.icon,
+        categories: packageItem.categories,
+        description: packageItem.description,
+      })),
+    };
+  }
+
+  worldSettings(): { name: string; year: number } {
+    return {
+      name: this.database.metadata("world_name") ?? "Unnamed World",
+      year: Number(this.database.metadata("world_year") ?? new Date().getFullYear()),
+    };
+  }
+
+  updateWorldSettings(name: string, year: number): { name: string; year: number } {
+    const normalizedName = name.trim();
+    if (!normalizedName) throw new Error("World name is required.");
+    if (!Number.isInteger(year) || year < 1900 || year > 3000) throw new Error("World year is invalid.");
+    this.database.setMetadata("world_name", normalizedName);
+    this.database.setMetadata("world_year", String(year));
+    return this.worldSettings();
+  }
+
+  listPackages() { return this.packageService.listPackages(); }
+  registerPackage(input: Parameters<WorldPackageService["registerPackage"]>[0]) { return this.packageService.registerPackage(input); }
+  removePackage(id: number) { return this.packageService.removePackage(id); }
   exportWorld(outputPath: string): WorldExportResult {
     const validationIssues = this.validator.validate().map(issue => ({
       severity: issue.severity === "ERROR" ? "ERROR" as const : "WARNING" as const,
