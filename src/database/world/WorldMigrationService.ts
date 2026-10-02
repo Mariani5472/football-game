@@ -4,7 +4,7 @@ import { initializeWorldCompositionSchema } from "./WorldCompositionSchema.js";
 import { WorldDatabase } from "./WorldDatabase.js";
 
 export const WORLD_BASE_SCHEMA_VERSION = 2;
-export const WORLD_SCHEMA_VERSION = 3;
+export const WORLD_SCHEMA_VERSION = 4;
 
 export interface WorldMigration {
   from: number;
@@ -33,6 +33,22 @@ const IDENTITY_TABLES = [
 ] as const;
 
 const MIGRATIONS: WorldMigration[] = [
+  {
+    from: 3,
+    to: 4,
+    name: "p6-package-identity",
+    migrate: database => {
+      initializeWorldCompositionSchema(database.connection);
+
+      database.connection.exec(
+        "CREATE UNIQUE INDEX IF NOT EXISTS ux_world_package_identity_normalized ON world_package(lower(package_key))",
+      );
+
+      database.connection.exec(
+        "CREATE INDEX IF NOT EXISTS idx_world_package_enabled_identity ON world_package(enabled, package_key)",
+      );
+    },
+  },
   {
     from: 2,
     to: 3,
