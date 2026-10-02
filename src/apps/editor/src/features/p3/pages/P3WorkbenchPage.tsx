@@ -171,7 +171,8 @@ export function P3WorkbenchPage() {
             <Field label="Contribuição salarial mensal" type="number" value={transfer.wageContribution} onChange={v => setTransfer({...transfer, wageContribution:v})} />\n            <Field label="Direção da contribuição" value={transfer.wageDirection} onChange={v => setTransfer({...transfer, wageDirection:v})} />
             <Field label="Percentual de revenda" type="number" value={transfer.resale} onChange={v => setTransfer({...transfer, resale:v})} />
             <Field label="Percentual de venda futura" type="number" value={transfer.sale} onChange={v => setTransfer({...transfer, sale:v})} />
-            <div className="rounded-lg border border-white/5 bg-black/10 p-3 text-xs text-slate-500">
+            <button onClick={() => void submit(() => editorApi.create("nationality_method",{name:nationality.ruleType}))} className="rounded-lg border border-white/10 px-4 py-2 text-sm text-slate-300">Salvar método de nacionalidade</button>
+          <div className="rounded-lg border border-white/5 bg-black/10 p-3 text-xs text-slate-500">
               A mesma operação pode conter parcelas, contribuição salarial e cláusulas de revenda/venda.
             </div>
           </Card>
