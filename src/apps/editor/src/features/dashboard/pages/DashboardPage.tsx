@@ -18,7 +18,11 @@ export function DashboardPage() {
       <WorldMetrics counts={data.counts} />
 
       <div className="grid gap-5 lg:grid-cols-[1.4fr_0.8fr]">
-        <QuickActions onAction={action => { if (action === "create") setQuickCreateOpen(true); }} />
+        <QuickActions
+          onAction={action => {
+            if (action === "create") setQuickCreateOpen(true);
+          }}
+        />
 
         <ValidationSummary
           warnings={data.world.warnings}
@@ -26,11 +30,12 @@ export function DashboardPage() {
         />
       </div>
 
-      <RecentEntities
-        entities={data.recentEntities}
+      <RecentEntities entities={data.recentEntities} />
+
+      <QuickCreateModal
+        open={quickCreateOpen}
+        onClose={() => setQuickCreateOpen(false)}
       />
-    </div>
-      <QuickCreateModal open={quickCreateOpen} onClose={() => setQuickCreateOpen(false)} />
     </div>
   );
 }
