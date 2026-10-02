@@ -13,8 +13,6 @@ import {
 } from "../database/world/WorldIdentity.js";
 import {
   type PackageIdentityIssue,
-  comparePackageVersions,
-  normalizePackageIdentity,
   validatePackageIdentity,
 } from "./WorldPackageIdentityService.js";
 
