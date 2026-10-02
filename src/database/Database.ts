@@ -60,6 +60,24 @@ export abstract class Database {
     return this.db;
   }
 
+  metadata(key: string): string | undefined {
+    if (!this.tableExists("database_metadata")) return undefined;
+    const row = this.db
+      .prepare("SELECT value FROM database_metadata WHERE key = ? LIMIT 1")
+      .get(key) as { value: string } | undefined;
+    return row?.value;
+  }
+
+  setMetadata(key: string, value: string): void {
+    this.db
+      .prepare(`
+        INSERT INTO database_metadata (key, value)
+        VALUES (?, ?)
+        ON CONFLICT(key) DO UPDATE SET value = excluded.value
+      `)
+      .run(key, value);
+  }
+
   execute(sql: string): DatabaseConnection.RunResult {
     return this.db.prepare(sql).run();
   }
