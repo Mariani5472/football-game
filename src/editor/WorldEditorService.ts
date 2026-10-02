@@ -1,6 +1,7 @@
 import path from "node:path";
 import { WorldDatabase } from "../database/world/WorldDatabase.js";
 import type { ListOptions, SqlKey, SqlRow, SqlValue, TableSchema } from "../database/Database.js";
+import { WorldTemplateService, type TemplateRecord, type TemplateRelationOption } from "./WorldTemplateService.js";
 
 export interface WorldEditorServiceOptions {
   filePath: string;
@@ -9,6 +10,7 @@ export interface WorldEditorServiceOptions {
 
 export class WorldEditorService {
   private readonly database: WorldDatabase;
+  private readonly templatesService: WorldTemplateService;
 
   constructor(options: WorldEditorServiceOptions) {
     const create = options.createIfMissing ?? false;
@@ -16,6 +18,7 @@ export class WorldEditorService {
     this.database = create
       ? WorldDatabase.create(path.resolve(options.filePath))
       : WorldDatabase.open(path.resolve(options.filePath));
+    this.templatesService = new WorldTemplateService(this.database);
   }
 
   list<T extends SqlRow = SqlRow>(table: string, options?: ListOptions) {
@@ -51,6 +54,30 @@ export class WorldEditorService {
 
   delete(table: string, id: SqlKey): boolean {
     return this.database.delete(table, id);
+  }
+
+  templateRelations(rootTable: string, rootKey: SqlKey): TemplateRelationOption[] {
+    return this.templatesService.relationOptions(rootTable, rootKey);
+  }
+
+  createTemplate(name: string, rootTable: string, rootKey: SqlKey, relations: string[]): TemplateRecord {
+    return this.templatesService.createTemplate(name, rootTable, rootKey, relations);
+  }
+
+  listTemplates(): TemplateRecord[] {
+    return this.templatesService.listTemplates();
+  }
+
+  deleteTemplate(id: number): boolean {
+    return this.templatesService.deleteTemplate(id);
+  }
+
+  duplicateFromSource(rootTable: string, rootKey: SqlKey, relations: string[]) {
+    return this.templatesService.duplicateFromSource(rootTable, rootKey, relations);
+  }
+
+  duplicateFromTemplate(templateId: number) {
+    return this.templatesService.duplicateFromTemplate(templateId);
   }
 
   close(): void {
