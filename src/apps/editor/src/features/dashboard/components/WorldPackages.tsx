@@ -143,10 +143,26 @@ export function WorldPackages({
                 ))}
                 {pkg.provides.map(scope => (
                   <span
-                    key={scope}
+                    key={"provide:" + scope}
                     className="rounded-md border border-emerald-400/10 bg-emerald-400/5 px-2 py-1 font-mono text-[10px] text-emerald-300"
                   >
                     provides:{scope}
+                  </span>
+                ))}
+                {pkg.dependencies.map(dependency => (
+                  <span
+                    key={"dependency:" + dependency.key}
+                    className="rounded-md border border-sky-400/10 bg-sky-400/5 px-2 py-1 font-mono text-[10px] text-sky-300"
+                  >
+                    requires:{dependency.key}{dependency.minVersion ? " ≥ " + dependency.minVersion : ""}
+                  </span>
+                ))}
+                {pkg.conflicts.map(conflict => (
+                  <span
+                    key={"conflict:" + conflict}
+                    className="rounded-md border border-amber-400/10 bg-amber-400/5 px-2 py-1 font-mono text-[10px] text-amber-300"
+                  >
+                    conflicts:{conflict}
                   </span>
                 ))}
               </div>
