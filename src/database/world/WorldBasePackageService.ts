@@ -364,7 +364,6 @@ export class WorldBasePackageService {
         "nation",
         "nation_region",
         "city",
-        "climate",
         "gender",
         "weekday",
         "nationality_method",
@@ -458,10 +457,10 @@ export class WorldBasePackageService {
       }
 
       const insertClimate = db.prepare(
-        "INSERT INTO climate(uuid,name) VALUES(?,?)",
+        "INSERT INTO climate(name) VALUES(?)",
       );
       for (const name of CLIMATES) {
-        insertClimate.run(crypto.randomUUID(), name);
+        insertClimate.run(name);
       }
 
       const insertGender = db.prepare(
