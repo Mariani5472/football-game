@@ -215,6 +215,7 @@ export class WorldPackageImportService {
         manifest,
         absolute,
         sourceSha256,
+        false,
       );
       const sessionId = this.createSession(
         packageId,
@@ -380,13 +381,20 @@ export class WorldPackageImportService {
 
     try {
       const manifest = this.readManifest(alias);
-      this.validateManifest(manifest);
+      this.validateManifest(manifest, sourceHash);
+
+      this.ensurePackage(
+        manifest,
+        absolute,
+        sourceHash,
+        true,
+      );
 
       const packageRow = this.world.connection
         .prepare(
-          "SELECT id, priority FROM world_package WHERE package_key=?",
+          "SELECT id, priority FROM world_package WHERE lower(package_key)=?",
         )
-        .get(manifest.packageKey) as
+        .get(manifest.packageKey.trim().toLowerCase()) as
         | { id: number; priority: number }
         | undefined;
 
@@ -2454,6 +2462,7 @@ export class WorldPackageImportService {
     manifest: PackageManifest,
     sourceFile: string,
     sourceSha256: string,
+    applyUpdate = true,
   ): number {
     const now = new Date().toISOString();
     const packageKey = manifest.packageKey.trim().toLowerCase();
@@ -2476,6 +2485,10 @@ export class WorldPackageImportService {
 
     if (existing) {
       packageId = existing.id;
+
+      if (!applyUpdate) {
+        return packageId;
+      }
 
       if (existing.version !== manifest.version || existing.sourceSha256 !== sourceSha256) {
         this.world.connection
