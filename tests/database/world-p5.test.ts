@@ -70,23 +70,25 @@ function createPackage(
       FOREIGN KEY (base_nation_id) REFERENCES nation(id)
     );
 
-    CREATE TABLE competition (
-      id INTEGER PRIMARY KEY,
-      uuid TEXT,
-      name TEXT NOT NULL,
-      gender_id INTEGER,
-      nation_id INTEGER,
-      FOREIGN KEY (gender_id) REFERENCES gender(id),
-      FOREIGN KEY (nation_id) REFERENCES nation(id),
-      UNIQUE (name, gender_id)
+    CREATE TABLE club_finance (
+      club_id INTEGER PRIMARY KEY,
+      balance INTEGER,
+      transfer_budget INTEGER,
+      wage_budget INTEGER,
+      FOREIGN KEY (club_id) REFERENCES club(team_id)
     );
 
-    CREATE TABLE competition_reserve_team_level (
-      competition_id INTEGER NOT NULL,
-      reserve_level INTEGER NOT NULL,
-      allowed INTEGER NOT NULL DEFAULT 1,
-      PRIMARY KEY (competition_id, reserve_level),
-      FOREIGN KEY (competition_id) REFERENCES competition(id)
+    CREATE TABLE embargo_type (
+      id INTEGER PRIMARY KEY,
+      name TEXT NOT NULL UNIQUE
+    );
+
+    CREATE TABLE club_finance_embargo (
+      club_id INTEGER NOT NULL,
+      embargo_type_id INTEGER NOT NULL,
+      PRIMARY KEY (club_id, embargo_type_id),
+      FOREIGN KEY (club_id) REFERENCES club_finance(club_id),
+      FOREIGN KEY (embargo_type_id) REFERENCES embargo_type(id)
     );
   `);
 
@@ -131,18 +133,21 @@ function createPackage(
     ).run(10, null, 1);
 
     db.prepare(
-      "INSERT INTO competition(id,uuid,name,gender_id,nation_id) VALUES(?,?,?,?,?)",
+      "INSERT INTO club_finance(club_id,balance,transfer_budget,wage_budget) VALUES(?,?,?,?)",
     ).run(
-      20,
-      "competition-brazil-uuid",
-      "Brazilian League",
-      1,
-      1,
+      10,
+      100000,
+      50000,
+      25000,
     );
 
     db.prepare(
-      "INSERT INTO competition_reserve_team_level(competition_id,reserve_level,allowed) VALUES(?,?,?)",
-    ).run(20, 1, 1);
+      "INSERT INTO embargo_type(id,name) VALUES(?,?)",
+    ).run(30, "Transfer Embargo");
+
+    db.prepare(
+      "INSERT INTO club_finance_embargo(club_id,embargo_type_id) VALUES(?,?)",
+    ).run(10, 30);
   }
 
   db.close();
@@ -256,25 +261,37 @@ describe("P5 world composition", () => {
       brazil.id,
     );
 
-    const competition = world.connection
+    const embargoType = world.connection
       .prepare(
-        "SELECT id FROM competition WHERE uuid=?",
+        "SELECT id FROM embargo_type WHERE name=?",
       )
-      .get("competition-brazil-uuid") as {
+      .get("Transfer Embargo") as {
       id: number;
     };
 
-    const reserve = world.connection
+    const clubFinance = world.connection
       .prepare(
-        "SELECT competition_id,reserve_level FROM competition_reserve_team_level WHERE reserve_level=1",
+        "SELECT club_id FROM club_finance WHERE club_id=?",
       )
-      .get() as {
-      competition_id: number;
-      reserve_level: number;
+      .get(team.id) as {
+      club_id: number;
     };
 
-    expect(reserve.competition_id).toBe(
-      competition.id,
+    const financeEmbargo = world.connection
+      .prepare(
+        "SELECT club_id,embargo_type_id FROM club_finance_embargo WHERE club_id=? AND embargo_type_id=?",
+      )
+      .get(team.id, embargoType.id) as {
+      club_id: number;
+      embargo_type_id: number;
+    };
+
+    expect(clubFinance.club_id).toBe(team.id);
+    expect(financeEmbargo.club_id).toBe(
+      clubFinance.club_id,
+    );
+    expect(financeEmbargo.embargo_type_id).toBe(
+      embargoType.id,
     );
 
     const mappedNation = world.connection
