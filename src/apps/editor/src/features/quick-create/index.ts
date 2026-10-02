@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { editorApi, type Scalar } from "../../shared/api/editorApi";
 
-export type QuickCreatePreset =
+export interface QuickCreatePreset {}\n\nexport type QuickCreatePreset =
   | "federation" | "continent" | "region" | "nation" | "city"
   | "person" | "player" | "staff"
   | "team" | "club" | "national-team"
