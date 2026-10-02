@@ -1,6 +1,13 @@
 import { useEffect, useState } from "react";
 import { editorApi } from "../../../shared/api/editorApi";
-import type { Formation, FormationPosition, Role, RoleKeyAttribute } from "../types";
+import type {
+  Formation,
+  FormationInstruction,
+  FormationPosition,
+  Role,
+  RoleKeyAttribute,
+  TacticalInstruction,
+} from "../types";
 
 interface ReferenceEntity {
   id: number;
@@ -22,16 +29,28 @@ function toText(value: unknown, fallback: string): string {
   return value == null ? fallback : String(value);
 }
 
-export function useFormationEditor(formation?: Formation) {
+export function useFormationEditor(
+  formation?: Formation,
+  onSaved?: () => void,
+) {
   const [draft, setDraft] = useState<Formation>(
-    formation ?? { id: 0, name: "", description: "", positions: [] },
+    formation ?? {
+      id: 0,
+      name: "",
+      description: "",
+      positions: [],
+      instructions: [],
+    },
   );
   const [roles, setRoles] = useState<Role[]>([]);
   const [duties, setDuties] = useState<ReferenceEntity[]>([]);
   const [positions, setPositions] = useState<ReferenceEntity[]>([]);
+  const [instructions, setInstructions] = useState<TacticalInstruction[]>([]);
   const [positionNames, setPositionNames] = useState<Map<number, string>>(new Map());
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -41,28 +60,29 @@ export function useFormationEditor(formation?: Formation) {
       setError(null);
 
       try {
-        const [roleResult, dutyResult, positionResult] = await Promise.all([
-          editorApi.list("player_role", {
-            page: 1,
-            pageSize: 1000,
-            orderBy: "name",
-            orderDirection: "ASC",
-          }),
-          editorApi.list("role_duty", {
-            page: 1,
-            pageSize: 1000,
-            orderBy: "name",
-            orderDirection: "ASC",
-          }),
-          editorApi.list("position_definition", {
-            page: 1,
-            pageSize: 1000,
-            orderBy: "name",
-            orderDirection: "ASC",
-          }),
+        const [
+          roleResult,
+          dutyResult,
+          positionResult,
+          roleDutyResult,
+          instructionResult,
+        ] = await Promise.all([
+          editorApi.list("player_role", { page: 1, pageSize: 1000, orderBy: "name", orderDirection: "ASC" }),
+          editorApi.list("role_duty", { page: 1, pageSize: 1000, orderBy: "name", orderDirection: "ASC" }),
+          editorApi.list("position_definition", { page: 1, pageSize: 1000, orderBy: "name", orderDirection: "ASC" }),
+          editorApi.list("player_role_duty", { page: 1, pageSize: 1000 }),
+          editorApi.list("tactical_instruction", { page: 1, pageSize: 1000, orderBy: "category", orderDirection: "ASC" }),
         ]);
 
         if (!active) return;
+
+        const roleDutyMap = new Map<number, number[]>();
+        for (const row of roleDutyResult.rows) {
+          const roleId = toId(row.role_id);
+          const dutyId = toId(row.duty_id);
+          if (roleId == null || dutyId == null) continue;
+          roleDutyMap.set(roleId, [...(roleDutyMap.get(roleId) ?? []), dutyId]);
+        }
 
         const nextRoles = roleResult.rows
           .map(row => {
@@ -74,9 +94,8 @@ export function useFormationEditor(formation?: Formation) {
               id,
               positionId,
               name: toText(row.name, `#${id}`),
-              description:
-                row.description == null ? undefined : String(row.description),
-              dutyIds: [],
+              description: row.description == null ? undefined : String(row.description),
+              dutyIds: roleDutyMap.get(id) ?? [],
               keyAttributes: [] satisfies RoleKeyAttribute[],
             } satisfies Role;
           })
@@ -96,78 +115,95 @@ export function useFormationEditor(formation?: Formation) {
           })
           .filter((row): row is ReferenceEntity => row !== null);
 
+        const nextInstructions = instructionResult.rows
+          .map(row => {
+            const id = toId(row.id);
+            if (id == null) return null;
+            return {
+              id,
+              name: toText(row.name, `#${id}`),
+              category: toText(row.category, "General"),
+              valueType: toText(row.value_type, "TEXT"),
+            } satisfies TacticalInstruction;
+          })
+          .filter((item): item is TacticalInstruction => item !== null);
+
+        const nextPositionNames = new Map(
+          nextPositions.map(position => [position.id, position.name]),
+        );
+
         setRoles(nextRoles);
         setDuties(nextDuties);
         setPositions(nextPositions);
-        setPositionNames(
-          new Map(nextPositions.map(position => [position.id, position.name])),
-        );
+        setInstructions(nextInstructions);
+        setPositionNames(nextPositionNames);
 
-        if (formation?.id) {
-          const [formationPositionResult, assignmentResult] = await Promise.all([
+        if (!formation?.id) return;
+
+        const [formationPositionResult, assignmentResult, instructionValues] =
+          await Promise.all([
             editorApi.list("formation_position", { page: 1, pageSize: 1000 }),
-            editorApi.list("formation_position_assignment", {
-              page: 1,
-              pageSize: 1000,
-            }),
+            editorApi.list("formation_position_assignment", { page: 1, pageSize: 1000 }),
+            editorApi.list("formation_instruction", { page: 1, pageSize: 1000 }),
           ]);
 
-          if (!active) return;
-
-          const assignments = new Map<number, { roleId: number; dutyId: number }>();
-
-          for (const row of assignmentResult.rows) {
-            const formationPositionId = toId(row.formation_position_id);
-            const roleId = toId(row.role_id);
-            const dutyId = toId(row.duty_id);
-
-            if (
-              formationPositionId == null ||
-              roleId == null ||
-              dutyId == null
-            ) {
-              continue;
-            }
-
-            assignments.set(formationPositionId, { roleId, dutyId });
-          }
-
-          const loadedPositions = formationPositionResult.rows
-            .filter(row => toId(row.formation_id) === formation.id)
-            .map(row => {
-              const id = toId(row.id);
-              const positionId = toId(row.position_id);
-              if (id == null || positionId == null) return null;
-
-              const assignment = assignments.get(id);
-
-              return {
-                id,
-                positionId,
-                label: toText(row.label, `P${id}`),
-                side: toText(row.side, "center") as FormationPosition["side"],
-                x: toNumber(row.x, 50),
-                y: toNumber(row.y, 50),
-                roleId: assignment?.roleId ?? 0,
-                dutyId: assignment?.dutyId ?? 0,
-              } satisfies FormationPosition;
-            })
-            .filter(
-              (position): position is FormationPosition => position !== null,
-            );
-
-          setDraft(current => ({ ...current, positions: loadedPositions }));
-        }
-      } catch (cause) {
         if (!active) return;
-        setError(cause instanceof Error ? cause.message : String(cause));
+
+        const assignments = new Map<number, { roleId: number; dutyId: number }>();
+        for (const row of assignmentResult.rows) {
+          const formationPositionId = toId(row.formation_position_id);
+          const roleId = toId(row.role_id);
+          const dutyId = toId(row.duty_id);
+          if (formationPositionId == null || roleId == null || dutyId == null) continue;
+          assignments.set(formationPositionId, { roleId, dutyId });
+        }
+
+        const loadedPositions = formationPositionResult.rows
+          .filter(row => toId(row.formation_id) === formation.id)
+          .map(row => {
+            const id = toId(row.id);
+            const positionId = toId(row.position_id);
+            if (id == null || positionId == null) return null;
+            const assignment = assignments.get(id);
+
+            return {
+              id,
+              positionId,
+              label: nextPositionNames.get(positionId) ?? `P${id}`,
+              side: toText(row.side, "center") as FormationPosition["side"],
+              x: toNumber(row.x, 50),
+              y: toNumber(row.y, 50),
+              roleId: assignment?.roleId ?? 0,
+              dutyId: assignment?.dutyId ?? 0,
+            } satisfies FormationPosition;
+          })
+          .filter((position): position is FormationPosition => position !== null);
+
+        const loadedInstructions = instructionValues.rows
+          .filter(row => toId(row.formation_id) === formation.id)
+          .map(row => {
+            const instructionId = toId(row.instruction_id);
+            if (instructionId == null) return null;
+            return {
+              instructionId,
+              value: toText(row.value, ""),
+            } satisfies FormationInstruction;
+          })
+          .filter((item): item is FormationInstruction => item !== null);
+
+        setDraft(current => ({
+          ...current,
+          positions: loadedPositions,
+          instructions: loadedInstructions,
+        }));
+      } catch (cause) {
+        if (active) setError(cause instanceof Error ? cause.message : String(cause));
       } finally {
         if (active) setLoading(false);
       }
     }
 
     void load();
-
     return () => {
       active = false;
     };
@@ -186,47 +222,270 @@ export function useFormationEditor(formation?: Formation) {
     }));
   }
 
+  function addPosition(positionId: number) {
+    const reference = positions.find(position => position.id === positionId);
+    if (!reference) return;
+
+    const index = draft.positions.length;
+    const x = index % 2 === 0 ? 45 : 55;
+    const y = Math.min(90, 8 + index * 8);
+
+    setDraft(current => ({
+      ...current,
+      positions: [
+        ...current.positions,
+        {
+          id: -(index + 1),
+          positionId,
+          label: reference.name,
+          side: x < 33 ? "left" : x > 66 ? "right" : "center",
+          x,
+          y,
+          roleId: 0,
+          dutyId: 0,
+        },
+      ],
+    }));
+  }
+
+  function removePosition(id: number) {
+    setDraft(current => ({
+      ...current,
+      positions: current.positions.filter(position => position.id !== id),
+    }));
+  }
+
   function getAvailableRoles(positionId: number) {
     return roles.filter(role => role.positionId === positionId);
   }
 
   function getAvailableDuties(roleId: number) {
     const role = roles.find(item => item.id === roleId);
-    if (!role) return [];
-    return duties;
-  }
-
-  function getKeyAttributes(roleId: number) {
-    return roles.find(role => role.id === roleId)?.keyAttributes ?? [];
-  }
-
-  function setDuty(positionId: number, dutyId: number) {
-    updatePosition(positionId, { dutyId });
+    return role ? duties.filter(duty => role.dutyIds.includes(duty.id)) : [];
   }
 
   function setRole(positionId: number, roleId: number) {
     const current = draft.positions.find(position => position.id === positionId);
-    if (!getAvailableRoles(current?.positionId ?? 0).some(role => role.id === roleId)) {
-      return;
-    }
+    const role = roles.find(item => item.id === roleId);
+    if (!current || !role || role.positionId !== current.positionId) return;
 
     updatePosition(positionId, {
       roleId,
-      dutyId: current?.dutyId ?? 0,
+      dutyId:
+        current.dutyId && role.dutyIds.includes(current.dutyId)
+          ? current.dutyId
+          : role.dutyIds[0] ?? 0,
+    });
+  }
+
+  function setDuty(positionId: number, dutyId: number) {
+    const position = draft.positions.find(item => item.id === positionId);
+    const role = roles.find(item => item.id === position?.roleId);
+    if (!role?.dutyIds.includes(dutyId)) return;
+    updatePosition(positionId, { dutyId });
+  }
+
+  function setInstruction(instructionId: number, value: string) {
+    setDraft(current => {
+      if (!value) {
+        return {
+          ...current,
+          instructions: current.instructions.filter(
+            instruction => instruction.instructionId !== instructionId,
+          ),
+        };
+      }
+
+      const exists = current.instructions.some(
+        instruction => instruction.instructionId === instructionId,
+      );
+
+      return {
+        ...current,
+        instructions: exists
+          ? current.instructions.map(instruction =>
+              instruction.instructionId === instructionId
+                ? { ...instruction, value }
+                : instruction,
+            )
+          : [...current.instructions, { instructionId, value }],
+      };
     });
   }
 
   async function save() {
-    const payload = {
-      name: draft.name,
-      description: draft.description ?? null,
-    };
+    setSaving(true);
+    setSaveError(null);
 
-    if (draft.id) {
-      await editorApi.update("formation", draft.id, payload);
-    } else {
-      const created = await editorApi.create<{ id: number }>("formation", payload);
-      setDraft(current => ({ ...current, id: Number(created.id) }));
+    try {
+      const payload = {
+        name: draft.name.trim(),
+        description: draft.description?.trim() || null,
+      };
+
+      if (!payload.name) throw new Error("Formation name is required.");
+
+      let formationId = draft.id;
+      if (formationId) {
+        await editorApi.update("formation", formationId, payload);
+      } else {
+        const created = await editorApi.create<{ id: number }>("formation", payload);
+        formationId = Number(created.id);
+      }
+
+      const existingPositions = await editorApi.list("formation_position", {
+        page: 1,
+        pageSize: 1000,
+      });
+      const existingForFormation = existingPositions.rows.filter(
+        row => toId(row.formation_id) === formationId,
+      );
+      const currentIds = new Set(
+        draft.positions.filter(position => position.id > 0).map(position => position.id),
+      );
+
+      for (const row of existingForFormation) {
+        const id = toId(row.id);
+        if (id != null && !currentIds.has(id)) await editorApi.remove("formation_position", id);
+      }
+
+      const persistedPositionIds = new Map<number, number>();
+      for (const position of draft.positions) {
+        const positionPayload = {
+          formation_id: formationId,
+          position_id: position.positionId,
+          x: position.x,
+          y: position.y,
+          side: position.side,
+        };
+
+        if (position.id > 0) {
+          await editorApi.update("formation_position", position.id, {
+            position_id: position.positionId,
+            x: position.x,
+            y: position.y,
+            side: position.side,
+          });
+          persistedPositionIds.set(position.id, position.id);
+        } else {
+          const created = await editorApi.create<{ id: number }>(
+            "formation_position",
+            positionPayload,
+          );
+          persistedPositionIds.set(position.id, Number(created.id));
+        }
+      }
+
+      const existingAssignments = await editorApi.list(
+        "formation_position_assignment",
+        { page: 1, pageSize: 1000 },
+      );
+
+      for (const row of existingAssignments.rows) {
+        const assignmentId = toId(row.formation_position_id);
+        if (
+          assignmentId != null &&
+          existingForFormation.some(item => toId(item.id) === assignmentId) &&
+          !draft.positions.some(
+            position =>
+              (persistedPositionIds.get(position.id) ?? position.id) === assignmentId,
+          )
+        ) {
+          await editorApi.remove("formation_position_assignment", assignmentId);
+        }
+      }
+
+      for (const position of draft.positions) {
+        const formationPositionId = persistedPositionIds.get(position.id);
+        if (formationPositionId == null) continue;
+
+        const role = roles.find(item => item.id === position.roleId);
+        const validAssignment =
+          role?.dutyIds.includes(position.dutyId) ?? false;
+
+        const existingAssignment = existingAssignments.rows.find(
+          row => toId(row.formation_position_id) === formationPositionId,
+        );
+
+        if (!validAssignment) {
+          if (existingAssignment) {
+            await editorApi.remove("formation_position_assignment", formationPositionId);
+          }
+          continue;
+        }
+
+        const assignment = {
+          role_id: position.roleId,
+          duty_id: position.dutyId,
+        };
+
+        if (existingAssignment) {
+          await editorApi.update(
+            "formation_position_assignment",
+            formationPositionId,
+            assignment,
+          );
+        } else {
+          await editorApi.create("formation_position_assignment", {
+            formation_position_id: formationPositionId,
+            ...assignment,
+          });
+        }
+      }
+
+      const existingInstructions = await editorApi.list(
+        "formation_instruction",
+        { page: 1, pageSize: 1000 },
+      );
+      const currentInstructionIds = new Set(
+        draft.instructions.map(instruction => instruction.instructionId),
+      );
+
+      for (const row of existingInstructions.rows) {
+        const instructionId = toId(row.instruction_id);
+        if (
+          toId(row.formation_id) === formationId &&
+          instructionId != null &&
+          !currentInstructionIds.has(instructionId)
+        ) {
+          await editorApi.remove("formation_instruction", {
+            formation_id: formationId,
+            instruction_id: instructionId,
+          });
+        }
+      }
+
+      for (const instruction of draft.instructions) {
+        const key = {
+          formation_id: formationId,
+          instruction_id: instruction.instructionId,
+        };
+        const existing = existingInstructions.rows.find(
+          row =>
+            toId(row.formation_id) === formationId &&
+            toId(row.instruction_id) === instruction.instructionId,
+        );
+
+        if (existing) {
+          await editorApi.update("formation_instruction", key, {
+            value: instruction.value,
+          });
+        } else {
+          await editorApi.create("formation_instruction", {
+            ...key,
+            value: instruction.value,
+          });
+        }
+      }
+
+      setDraft(current => ({ ...current, id: formationId }));
+      onSaved?.();
+    } catch (cause) {
+      const message = cause instanceof Error ? cause.message : String(cause);
+      setSaveError(message);
+      throw new Error(message);
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -235,16 +494,21 @@ export function useFormationEditor(formation?: Formation) {
     roles,
     duties,
     positions,
+    instructions,
     positionNames,
     loading,
+    saving,
     error,
+    saveError,
     setValue,
     updatePosition,
+    addPosition,
+    removePosition,
     setRole,
+    setDuty,
+    setInstruction,
     getAvailableRoles,
     getAvailableDuties,
-    getKeyAttributes,
-    setDuty,
     save,
   };
 }
