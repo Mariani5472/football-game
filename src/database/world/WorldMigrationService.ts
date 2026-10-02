@@ -40,6 +40,25 @@ const MIGRATIONS: WorldMigration[] = [
     migrate: database => {
       initializeWorldCompositionSchema(database.connection);
 
+      database.connection.exec(`
+        CREATE TABLE IF NOT EXISTS confederation (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          uuid TEXT NOT NULL UNIQUE,
+          name TEXT NOT NULL UNIQUE,
+          short_name TEXT NOT NULL UNIQUE,
+          description TEXT
+        );
+
+        CREATE TABLE IF NOT EXISTS confederation_member_nation (
+          confederation_id INTEGER NOT NULL,
+          nation_id INTEGER NOT NULL,
+          joined_at TEXT,
+          PRIMARY KEY(confederation_id, nation_id),
+          FOREIGN KEY(confederation_id) REFERENCES confederation(id) ON DELETE CASCADE,
+          FOREIGN KEY(nation_id) REFERENCES nation(id) ON DELETE CASCADE
+        );
+      `);
+
       const duplicateIdentity = database.connection
         .prepare(
           "SELECT lower(package_key) AS packageKey, COUNT(*) AS count FROM world_package GROUP BY lower(package_key) HAVING COUNT(*) > 1 LIMIT 1",
