@@ -2454,12 +2454,20 @@ export class WorldPackageImportService {
     sourceSha256: string,
   ): number {
     const now = new Date().toISOString();
+    const packageKey = manifest.packageKey.trim().toLowerCase();
     const existing = this.world.connection
       .prepare(
-        "SELECT id FROM world_package WHERE package_key=?",
+        "SELECT id,package_key AS packageKey,version,package_type AS packageType,source_file AS sourceFile,source_sha256 AS sourceSha256 FROM world_package WHERE lower(package_key)=? LIMIT 1",
       )
-      .get(manifest.packageKey) as
-      | { id: number }
+      .get(packageKey) as
+      | {
+          id: number;
+          packageKey: string;
+          version: string;
+          packageType: string;
+          sourceFile: string | null;
+          sourceSha256: string | null;
+        }
       | undefined;
 
     let packageId: number;
@@ -2467,16 +2475,37 @@ export class WorldPackageImportService {
     if (existing) {
       packageId = existing.id;
 
+      if (existing.version !== manifest.version || existing.sourceSha256 !== sourceSha256) {
+        this.world.connection
+          .prepare(
+            `INSERT INTO world_package_version_history(
+              package_id,package_key,version,package_type,
+              source_file,source_sha256,replaced_at,replacement_reason
+            ) VALUES(?,?,?,?,?,?,?,?)`,
+          )
+          .run(
+            existing.id,
+            existing.packageKey,
+            existing.version,
+            existing.packageType,
+            existing.sourceFile,
+            existing.sourceSha256,
+            now,
+            "PACKAGE_UPDATE",
+          );
+      }
+
       this.world.connection
         .prepare(
           `UPDATE world_package
-           SET name=?,version=?,package_type=?,priority=?,
+           SET package_key=?,name=?,version=?,package_type=?,priority=?,
                source_file=?,source_sha256=?,categories_json=?,
-               description=?,schema_version=?,updated_at=?
+               description=?,schema_version=?,updated_at=?,status='ACTIVE',enabled=1
            WHERE id=?`,
         )
         .run(
-          manifest.name,
+          packageKey,
+          manifest.name, 
           manifest.version,
           manifest.packageType ??
             "CONTENT",
@@ -2511,7 +2540,7 @@ export class WorldPackageImportService {
           ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,1)`,
         )
         .run(
-          manifest.packageKey,
+          packageKey,
           manifest.name,
           manifest.version,
           manifest.packageType ??
