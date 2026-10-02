@@ -479,4 +479,202 @@ function quoteString(value: string): string {
 
 function sha256File(filePath: string): string {
   return crypto.createHash("sha256").update(fs.readFileSync(filePath)).digest("hex");
+}  private listIncomingTables(): TableInfo[] {
+    return (
+      this.world.connection
+        .prepare(
+          `SELECT name
+           FROM "incoming_package".sqlite_master
+           WHERE type='table'
+             AND name NOT LIKE 'sqlite_%'
+             AND name NOT IN (
+               'database_metadata','package_manifest',
+               'world_package','world_package_load_order',
+               'world_package_provides','world_package_dependency',
+               'world_package_conflict','world_entity_identity',
+               'world_entity_provenance','world_attribute_provenance',
+               'world_import_session','world_import_id_map','world_import_conflict',
+               'editor_template'
+             )
+           ORDER BY name`,
+        )
+        .all() as Array<{ name: string }>
+    ).map(({ name }) => {
+      const columns = this.world.connection
+        .prepare(`PRAGMA incoming_package.table_info("${quote(name)}")`)
+        .all() as Array<{ name: string; pk: number }>;
+
+      return {
+        name,
+        columns,
+        primaryKey: columns
+          .filter(column => column.pk > 0)
+          .sort((a, b) => a.pk - b.pk)
+          .map(column => column.name),
+      };
+    });
+  }
+
+  private isInternalTable(name: string): boolean {
+    return name.startsWith("world_") || name === "editor_template";
+  }
+
+  private resolveIncomingRow(tableName: string, row: Record<string, unknown>): { worldId: number | null; naturalKey: string | null; policy?: typeof IDENTITY_POLICIES[string] } {
+    const policy = IDENTITY_POLICIES[tableName];
+    if (!policy) return { worldId: null, naturalKey: null };
+    let naturalKey: string | null = null;
+    try { naturalKey = policy.naturalKey(row, (table, id) => this.lookupRowById(table, id)); } catch { naturalKey = null; }
+
+    if (policy.uuidColumn && row[policy.uuidColumn]) {
+      const found = this.world.connection.prepare("SELECT row_id FROM world_entity_identity WHERE entity_uuid = ?").get(String(row[policy.uuidColumn])) as { row_id: number } | undefined;
+      if (found) return { worldId: Number(found.row_id), naturalKey, policy };
+    }
+
+    if (naturalKey) {
+      const found = this.world.connection.prepare("SELECT row_id FROM world_entity_identity WHERE table_name=? AND natural_key=?").get(tableName, naturalKey) as { row_id: number } | undefined;
+      if (found) return { worldId: Number(found.row_id), naturalKey, policy };
+    }
+
+    const directUuidColumn = policy.uuidColumn && row[policy.uuidColumn] ? String(row[policy.uuidColumn]) : null;
+    const rowFound = directUuidColumn ? this.world.connection.prepare(`SELECT id FROM "${quote(tableName)}" WHERE "${quote(policy.uuidColumn!)}" = ?`).get(directUuidColumn) as { id: number } | undefined : undefined;
+    return { worldId: rowFound ? Number(rowFound.id) : null, naturalKey, policy };
+  }
+
+  private lookupRowById(table: string, id: number): Record<string, unknown> | undefined {
+    if (!Number.isFinite(id)) return undefined;
+    return this.world.connection.prepare(`SELECT * FROM "${quote(table)}" WHERE id=? LIMIT 1`).get(id) as Record<string, unknown> | undefined;
+  }
+
+  private rowHasChanged(tableName: string, worldId: number, incoming: Record<string, unknown>): boolean {
+    const current = this.world.connection.prepare(`SELECT * FROM "${quote(tableName)}" WHERE id=? LIMIT 1`).get(worldId) as Record<string, unknown> | undefined;
+    if (!current) return false;
+    return Object.entries(incoming).some(([column, value]) => column !== "id" && !["created_at","updated_at"].includes(column) && String(current[column] ?? "") !== String(value ?? ""));
+  }
+
+  private buildValues(tableName: string, row: Record<string, unknown>, map: Map<string, number>): Record<string, unknown> {
+    const values: Record<string, unknown> = {};
+    for (const [column, value] of Object.entries(row)) {
+      if (column === "id") continue;
+      if (column.endsWith("_id")) {
+        const targetTable = column === "team_id" || column === "club_id" ? (this.targetTableForFk(tableName, column)) : this.targetTableForFk(tableName, column);
+        values[column] = this.findTranslatedFk(targetTable, value, map);
+      } else values[column] = value;
+    }
+    return values;
+  }
+
+  private targetTableForFk(tableName: string, column: string): string {
+    const explicit: Record<string, string> = {
+      person_id: "person", player_id: "player", team_id: "team", club_id: "club", nation_id: "nation", base_nation_id: "nation", international_competition_nation_id: "nation",
+      city_id: "city", birth_city_id: "city", stadium_id: "stadium", alternative_stadium_id: "stadium", competition_id: "competition", parent_competition_id: "competition",
+      competition_season_id: "competition_season", stage_id: "competition_stage", stage_type_id: "competition_stage_type", round_id: "competition_round", formation_id: "formation", position_id: "position_definition",
+      gender_id: "gender", currency_id: "currency", language_id: "language", family_id: "language_family", group_id: "language_group", subgroup_id: "language_subgroup",
+      continent_region_id: "continent_region", nation_region_id: "nation_region", owner_club_id: "club", owner_person_id: "person",
+    };
+    return explicit[column] ?? column.replace(/_id$/, "");
+  }
+
+  private findTranslatedFk(targetTable: string, value: unknown, map: Map<string, number>): unknown {
+    if (value == null) return null;
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric)) return value;
+    return map.get(`${targetTable}:${numeric}`) ?? numeric;
+  }
+
+  private insertResolvedRow(tableName: string, row: Record<string, unknown>, map: Map<string, number>): number {
+    const values = this.buildValues(tableName, row, map);
+    const columns = Object.keys(values).filter(c => this.world.tableSchema(tableName).columns.some(x => x.name === c));
+    const result = this.world.connection.prepare(`INSERT INTO "${quote(tableName)}" (${columns.map(quote).join(",")}) VALUES (${columns.map(()=>"?").join(",")})`).run(...columns.map(c => values[c] ?? null));
+    const id = Number(result.lastInsertRowid);
+    map.set(`${tableName}:${Number(row.id)}`, id);
+    this.persistIdentity(tableName, id, row);
+    return id;
+  }
+
+  private updateResolvedRow(tableName: string, worldId: number, row: Record<string, unknown>, map: Map<string, number>): void {
+    const values = this.buildValues(tableName, row, map);
+    const columns = Object.keys(values).filter(c => c !== "id" && this.world.tableSchema(tableName).columns.some(x => x.name === c));
+    if (!columns.length) return;
+    this.world.connection.prepare(`UPDATE "${quote(tableName)}" SET ${columns.map(c => `"${quote(c)}"=?`).join(",")} WHERE id=?`).run(...columns.map(c => values[c] ?? null), worldId);
+    map.set(`${tableName}:${Number(row.id)}`, worldId);
+    this.persistIdentity(tableName, worldId, row);
+  }
+
+  private mergeRow(tableName: string, worldId: number, row: Record<string, unknown>, map: Map<string, number>): void {
+    const current = this.world.connection.prepare(`SELECT * FROM "${quote(tableName)}" WHERE id=?`).get(worldId) as Record<string, unknown>;
+    const merged = { ...current };
+    for (const [key, value] of Object.entries(row)) if (key !== "id" && (merged[key] == null || merged[key] === "")) merged[key] = value;
+    this.updateResolvedRow(tableName, worldId, merged, map);
+  }
+
+  private recordMap(sessionId: number, tableName: string, row: Record<string, unknown>, worldId: number, resolved: { naturalKey: string | null }): void {
+    this.world.connection.prepare(`INSERT OR REPLACE INTO world_import_id_map(import_session_id,table_name,incoming_id,incoming_uuid,world_id,resolution,natural_key) VALUES(?,?,?,?,?,?,?)`)
+      .run(sessionId, tableName, row.id == null ? null : Number(row.id), row.uuid == null ? null : String(row.uuid), worldId, resolved.worldId == null ? "CREATED" : "RESOLVED", resolved.naturalKey);
+  }
+
+  private persistIdentity(tableName: string, rowId: number, row: Record<string, unknown>): void {
+    const policy = IDENTITY_POLICIES[tableName];
+    if (!policy) return;
+    let naturalKey: string | null = null;
+    try { naturalKey = policy.naturalKey(row, (table, id) => this.lookupRowById(table, id)); } catch { naturalKey = null; }
+    const uuid = policy.uuidColumn && row[policy.uuidColumn] ? String(row[policy.uuidColumn]) : (policy.uuidColumn ? generateUuid() : null);
+    if (policy.uuidColumn) {
+      const tableSchema = this.world.tableSchema(tableName);
+      if (tableSchema.columns.some(column => column.name === policy.uuidColumn)) {
+        this.world.connection.prepare(`UPDATE "${quote(tableName)}" SET "${quote(policy.uuidColumn)}" = COALESCE("${quote(policy.uuidColumn)}", ?) WHERE id=?`).run(uuid, rowId);
+      }
+    }
+    this.world.connection.prepare(`INSERT OR REPLACE INTO world_entity_identity(table_name,row_id,entity_uuid,natural_key) VALUES(?,?,?,?)`).run(tableName,rowId,uuid,naturalKey);
+  }
+
+  private recordConflict(sessionId: number, tableName: string, row: Record<string, unknown>, worldId: number): void {
+    const current = this.world.connection.prepare(`SELECT * FROM "${quote(tableName)}" WHERE id=? LIMIT 1`).get(worldId) as Record<string, unknown> | undefined;
+    if (!current) return;
+
+    for (const [column, value] of Object.entries(row)) {
+      if (column === "id" || ["created_at","updated_at"].includes(column)) continue;
+      const existingValue = current[column];
+      if (String(existingValue ?? "") === String(value ?? "")) continue;
+      this.world.connection.prepare(`
+        INSERT INTO world_import_conflict(
+          import_session_id, table_name, incoming_id, world_id, conflict_type,
+          column_name, existing_value, incoming_value
+        ) VALUES (?, ?, ?, ?, 'ATTRIBUTE', ?, ?, ?)
+      `).run(
+        sessionId,
+        tableName,
+        row.id == null ? null : Number(row.id),
+        worldId,
+        column,
+        existingValue == null ? null : String(existingValue),
+        value == null ? null : String(value),
+      );
+    }
+  }
+
+  private recordProvenance(tableName: string, rowId: number, packageId: number, resolution: string, row: Record<string, unknown>): void {
+    const now = new Date().toISOString();
+    this.world.connection.prepare(`INSERT OR REPLACE INTO world_entity_provenance(table_name,row_id,package_id,resolution,imported_at) VALUES(?,?,?,?,?)`).run(tableName,rowId,packageId,resolution,now);
+    for (const [column,value] of Object.entries(row)) {
+      this.world.connection.prepare(`INSERT OR REPLACE INTO world_attribute_provenance(table_name,row_id,column_name,package_id,value_hash,resolution,updated_at) VALUES(?,?,?,?,?,?,?)`)
+        .run(tableName,rowId,column,packageId,crypto.createHash("sha256").update(JSON.stringify(value)).digest("hex"),resolution,now);
+    }
+  }
+
+  private getSession(id: number): { id: number; source_file: string } | undefined {
+    return this.world.connection.prepare("SELECT id,source_file FROM world_import_session WHERE id=?").get(id) as { id: number; source_file: string } | undefined;
+  }
+}
+
+function quote(value: string): string {
+  if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(value)) throw new Error(`Invalid identifier: ${value}`);
+  return value;
+}
+
+function quoteString(value: string): string {
+  return "'" + value.replaceAll("'", "''") + "'";
+}
+
+function sha256File(filePath: string): string {
+  return crypto.createHash("sha256").update(fs.readFileSync(filePath)).digest("hex");
 }
