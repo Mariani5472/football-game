@@ -154,6 +154,14 @@ export function createEditorApiServer(options: EditorApiServerOptions): http.Ser
         return;
       }
 
+      if (parts[1] === "export" && parts[2] === "world-db" && request.method === "POST") {
+        const body = (await readBody(request)) as { outputPath?: string };
+        if (!body.outputPath) throw new Error("outputPath is required.");
+        const result = service.exportWorld(body.outputPath);
+        jsonResponse(response, result.blocked ? 409 : 201, result);
+        return;
+      }
+
       if (parts[1] === "validation") {
         if (request.method === "GET" && parts[2] === "profiles") {
           jsonResponse(response, 200, { profiles: service.validationProfiles() });
