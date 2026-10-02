@@ -129,11 +129,7 @@ function addUuidColumn(
   }
 
   const missing = database.connection
-    .prepare(
-      'SELECT rowid FROM "' +
-        table +
-        '" WHERE uuid IS NULL OR uuid = ''',
-    )
+    .prepare(`SELECT rowid FROM "${table}" WHERE uuid IS NULL OR uuid = ''`)
     .all() as Array<{ rowid: number }>;
 
   const update = database.connection.prepare(
