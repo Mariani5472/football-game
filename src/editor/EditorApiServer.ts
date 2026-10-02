@@ -86,6 +86,11 @@ export function createEditorApiServer(options: EditorApiServerOptions): http.Ser
           return;
         }
 
+        if (request.method === "GET" && parts[2] === "settings") {
+          jsonResponse(response, 200, service.worldSettings());
+          return;
+        }
+
         if (request.method === "PATCH" && parts[2] === "settings") {
           const body = await readBody(request) as { name?: string; year?: number };
           jsonResponse(response, 200, service.updateWorldSettings(
