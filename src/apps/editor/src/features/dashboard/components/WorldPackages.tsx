@@ -81,7 +81,7 @@ export function WorldPackages({
                       <span>·</span>
                       <span>Priority {pkg.priority}</span>
                       <span>·</span>
-                      <span>{pkg.packageType}</span>
+                      <span>{pkg.packageType === "BASE" ? "Base World" : pkg.packageType}</span>
                     </div>
                   </div>
                 </div>
@@ -116,7 +116,7 @@ export function WorldPackages({
                   </label>
                   <button
                     type="button"
-                    disabled={busyPackageId === pkg.id}
+                    disabled={busyPackageId === pkg.id || pkg.packageType === "BASE"}
                     onClick={() => onToggle(pkg)}
                     className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-xs font-medium text-slate-300 hover:bg-white/[0.06] disabled:opacity-50"
                   >
