@@ -192,7 +192,17 @@ export function P3WorkbenchPage() {
             <Field label="Orçamento de transferências" type="number" value={finance.transferBudget} onChange={v => setFinance({...finance, transferBudget:v})} />
             <Field label="Orçamento salarial" type="number" value={finance.wageBudget} onChange={v => setFinance({...finance, wageBudget:v})} />
             <Field label="Limite salarial mensal" type="number" value={finance.monthlyWage} onChange={v => setFinance({...finance, monthlyWage:v})} />
-            <button onClick={() => void submit(() => editorApi.domainFinance({clubId:id(finance.club)!, balance:id(finance.balance), transferBudget:id(finance.transferBudget), wageBudget:id(finance.wageBudget), monthlyWageBudget:id(finance.monthlyWage)}))} className="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-medium text-slate-950">Salvar finanças</button>
+            <button onClick={() => void submit(() => editorApi.domainFinance({
+              clubId:id(finance.club)!,
+              balance:id(finance.balance),
+              transferBudget:id(finance.transferBudget),
+              wageBudget:id(finance.wageBudget),
+              monthlyWageBudget:id(finance.monthlyWage),
+              transferEmbargo: finance.embargoType ? { startDate:finance.embargoStart || undefined, endDate:finance.embargoEnd || undefined, typeIds:[id(finance.embargoType)!] } : undefined,
+              revenues: finance.revenueAmount && finance.revenueType ? [{ amount:Number(finance.revenueAmount), revenueTypeId:id(finance.revenueType)! }] : undefined,
+              debts: finance.debtAmount && finance.debtSource ? [{ amount:Number(finance.debtAmount), debtSourceId:id(finance.debtSource)!, interestRate:Number(finance.interest)||undefined }] : undefined,
+              ffp: finance.ffpAmount && finance.ffpYear && finance.ffpCompetition ? { amount:Number(finance.ffpAmount), year:Number(finance.ffpYear), competitionId:id(finance.ffpCompetition)! } : undefined,
+            }))} className="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-medium text-slate-950">Salvar finanças</button>
           </Card>
           <Card title="Risco financeiro e FFP" description="Registre embargo, receitas, dívidas e acompanhamento de fair play financeiro.">
             <Field label="Tipo de embargo" value={finance.embargoType} onChange={v => setFinance({...finance, embargoType:v})} />
