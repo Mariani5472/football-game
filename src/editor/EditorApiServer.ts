@@ -100,13 +100,55 @@ export function createEditorApiServer(options: EditorApiServerOptions): http.Ser
           return;
         }
 
+        if (request.method === "GET" && parts[2] === "build") {
+          jsonResponse(response, 200, service.worldBuild());
+          return;
+        }
+
         if (request.method === "GET" && parts[2] === "packages") {
           jsonResponse(response, 200, { packages: service.listPackages() });
           return;
         }
 
-        if (request.method === "POST" && parts[2] === "packages") {
-          jsonResponse(response, 201, service.registerPackage(await readBody(request) as Parameters<WorldEditorService["registerPackage"]>[0]));
+        if (request.method === "POST" && parts[2] === "packages" && parts[3] === "inspect") {
+          const body = await readBody(request) as { sourceFile?: string };
+          if (!body.sourceFile) throw new Error("sourceFile is required.");
+          jsonResponse(response, 200, service.inspectPackage(body.sourceFile));
+          return;
+        }
+
+        if (request.method === "POST" && parts[2] === "packages" && parts[3] === "import") {
+          const body = await readBody(request) as {
+            sessionId?: number;
+            resolutions?: Record<string, "REPLACE" | "MERGE" | "KEEP_EXISTING" | "KEEP_INCOMING" | "MANUAL">;
+          };
+          if (!Number.isInteger(Number(body.sessionId))) {
+            throw new Error("sessionId is required.");
+          }
+          jsonResponse(response, 200, service.importPackage(
+            Number(body.sessionId),
+            body.resolutions ?? {},
+          ));
+          return;
+        }
+
+        if (request.method === "POST" && parts[2] === "rebuild") {
+          jsonResponse(response, 200, service.rebuildWorld());
+          return;
+        }
+
+        if (request.method === "POST" && parts[2] === "packages" && parts[3] === undefined) {
+          jsonResponse(response, 201, service.registerPackage(
+            await readBody(request) as Parameters<WorldEditorService["registerPackage"]>[0],
+          ));
+          return;
+        }
+
+        if (request.method === "PATCH" && parts[2] === "packages" && parts[3]) {
+          jsonResponse(response, 200, service.updatePackage(
+            Number(parts[3]),
+            await readBody(request) as Parameters<WorldEditorService["updatePackage"]>[1],
+          ));
           return;
         }
 
@@ -114,6 +156,35 @@ export function createEditorApiServer(options: EditorApiServerOptions): http.Ser
           jsonResponse(response, 200, { deleted: service.removePackage(Number(parts[3])) });
           return;
         }
+
+        if (request.method === "GET" && parts[1] === "world-import-sessions" && parts[2]) {
+          const session = service.getImportSession(Number(parts[2]));
+          if (!session) {
+            jsonResponse(response, 404, { error: "Import session not found." });
+            return;
+          }
+          if (request.method === "GET" && parts[3] === "conflicts") {
+            jsonResponse(response, 200, { conflicts: service.importConflicts(Number(parts[2])) });
+            return;
+          }
+          jsonResponse(response, 200, session);
+          return;
+        }
+
+        if (request.method === "GET" && parts[2] === "packages" && parts[3] === "sessions" && parts[4]) {
+          const session = service.getImportSession(Number(parts[4]));
+          if (!session) {
+            jsonResponse(response, 404, { error: "Import session not found." });
+            return;
+          }
+          if (parts[5] === "conflicts") {
+            jsonResponse(response, 200, { conflicts: service.importConflicts(Number(parts[4])) });
+            return;
+          }
+          jsonResponse(response, 200, session);
+          return;
+        }
+
       }
 
       if (parts[1] === "tables" && request.method === "GET") {
