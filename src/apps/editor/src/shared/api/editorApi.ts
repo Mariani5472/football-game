@@ -13,6 +13,36 @@ export interface ListOptions {
   orderDirection?: "ASC" | "DESC";
 }
 
+
+export interface WorldPackageRecord {
+  id: number;
+  packageKey: string;
+  name: string;
+  version: string;
+  status: "ACTIVE" | "CONFLICT" | "ERROR";
+  icon: string | null;
+  sourceFile: string | null;
+  sourceSha256: string | null;
+  categories: string[];
+  description: string | null;
+  schemaVersion: number;
+  importedAt: string;
+  updatedAt: string;
+}
+
+export interface WorldDashboard {
+  world: {
+    name: string;
+    year: number;
+    schemaVersion: number;
+    packageVersion: string;
+    status: "VALID" | "INVALID" | "UNKNOWN";
+    lastSavedAt: string | null;
+    databasePath: string;
+  };
+  packages: WorldPackageRecord[];
+}
+
 export interface TemplateRelationOption {
   table: string;
   depth: number;
@@ -75,6 +105,12 @@ function queryString(options: ListOptions): string {
 }
 
 export const editorApi = {
+  world: () => request<WorldDashboard>("/world"),
+  worldSettings: () => request<{ name: string; year: number }>("/world/settings"),
+  updateWorldSettings: (payload: { name: string; year: number }) => request<{ name: string; year: number }>("/world/settings", { method: "PATCH", body: JSON.stringify(payload) }),
+  packages: () => request<{ packages: WorldPackageRecord[] }>("/world/packages"),
+  registerPackage: (payload: { packageKey: string; name: string; version?: string; status?: "ACTIVE" | "CONFLICT" | "ERROR"; icon?: string | null; sourceFile?: string | null; sourceSha256?: string | null; categories?: string[]; description?: string | null }) => request<WorldPackageRecord>("/world/packages", { method: "POST", body: JSON.stringify(payload) }),
+  removePackage: (id: number) => request<{ deleted: boolean }>(`/world/packages/${id}`, { method: "DELETE" }),
   health: () => request<{ ok: boolean; databasePath: string; exists: boolean }>("/health"),
   tables: () => request<{ tables: string[] }>("/tables"),
   schema: (table: string) => request<unknown>("/schema/" + encodeURIComponent(table)),
