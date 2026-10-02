@@ -3302,6 +3302,10 @@ export class WorldPackageImportService {
       "world_build_status",
       "DIRTY",
     );
+    this.world.setMetadata(
+      "world_dirty_reason",
+      "PACKAGE_COMPOSITION",
+    );
   }
 
   private detach(alias: string): void {
