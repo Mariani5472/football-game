@@ -10,7 +10,11 @@ export function useDashboard() {
     setIsLoading(true);
     setError(null);
     try {
-      setData(await editorApi.world());
+      const dashboard = await editorApi.world();
+      if (!dashboard.build) {
+        dashboard.build = await editorApi.worldBuild();
+      }
+      setData(dashboard);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause));
     } finally {
