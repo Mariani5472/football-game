@@ -322,8 +322,17 @@ export class WorldTemplateService {
       const schema = schemas.get(table)!;
       const oldKey = keyFromRow(schema, row);
       const token = keyToken(table, oldKey);
-      const mappedPk = this.remapKey(schema, oldKey, mappings, schemas);
-      if (mappedPk === null) {
+      let mappedPk: SqlKey | null;
+      if (schema.primaryKey.length === 1) {
+        const pk = schema.primaryKey[0];
+        const mappedForeign = this.findMappedForeignValue(schema, pk, oldKey as SqlValue, mappings, schemas);
+        mappedPk = mappedForeign !== undefined
+          ? mappedForeign
+          : newKeys.get(token) ?? this.remapKey(schema, oldKey, mappings, schemas);
+      } else {
+        mappedPk = this.remapKey(schema, oldKey, mappings, schemas);
+      }
+      if (mappedPk === null || mappedPk === undefined) {
         throw new Error(`Não foi possível gerar uma nova PK para ${table}.`);
       }
       mappings.set(token, mappedPk);
@@ -336,17 +345,26 @@ export class WorldTemplateService {
       for (const column of schema.columns) {
         if (column.primaryKey && schema.primaryKey.length === 1 && /^INTEGER$/i.test(column.type)) {
           values[column.name] = mappings.get(keyToken(table, keyFromRow(schema, row))) as SqlValue;
-          continue;
+        } else {
+          values[column.name] = row[column.name] as SqlValue;
         }
+      }
 
-        values[column.name] = this.remapForeignValue(
-          table,
-          row[column.name] as SqlValue,
-          column.name,
-          schema,
-          mappings,
-          schemas,
-        );
+      for (const group of groupedForeignKeys(schema)) {
+        const targetTable = group[0]?.table;
+        if (!targetTable) continue;
+        const targetSchema = schemas.get(targetTable)!;
+        const targetKey: SqlKey = targetSchema.primaryKey.length === 1
+          ? row[group[0].from] as SqlValue
+          : Object.fromEntries(group.map(fk => [fk.to, row[fk.from] as SqlValue]));
+        const mapped = mappings.get(keyToken(targetTable, targetKey));
+        if (mapped === undefined) continue;
+
+        if (targetSchema.primaryKey.length === 1) {
+          values[group[0].from] = mapped as SqlValue;
+        } else if (typeof mapped === "object" && mapped !== null) {
+          for (const fk of group) values[fk.from] = (mapped as Record<string, SqlValue>)[fk.to];
+        }
       }
 
       return { table, values };
