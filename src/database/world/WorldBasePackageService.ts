@@ -207,9 +207,8 @@ const CLIMATES = [
 ] as const;
 
 export class WorldBasePackageService {
-  static ensureInstalled(world: WorldDatabase): void {
+  static ensureInstalled(world: WorldDatabase, worldPath: string): void {
     const database = world.connection;
-    const worldPath = world.filePath();
     try {
       initializeWorldCompositionSchema(database);
 
