@@ -15,6 +15,7 @@ import {
   WorldMigrationService,
 } from "./WorldMigrationService.js";
 import { initializeWorldCompositionSchema } from "./WorldCompositionSchema.js";
+import { WorldBasePackageService } from "./WorldBasePackageService.js";
 
 export interface WorldListOptions extends ListOptions {
   searchColumns?: string[];
@@ -34,6 +35,10 @@ export class WorldDatabase extends Database {
     WorldMigrationService.ensureCompatible(database);
     database.initializeEditorTemplates();
     database.initializeWorldComposition();
+    database.ensureEditorMetadata();
+    WorldBasePackageService.ensureInstalled(database);
+    database.ensureEditorMetadata();
+    WorldBasePackageService.ensureInstalled(database);
     database.ensureEditorMetadata();
     return database;
   }
