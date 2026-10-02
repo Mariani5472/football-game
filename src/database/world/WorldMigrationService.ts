@@ -22,6 +22,8 @@ const IDENTITY_TABLES = [
   "language_group",
   "language_subgroup",
   "language",
+  "gender",
+  "language",
   "nation",
   "nation_region",
   "city",
