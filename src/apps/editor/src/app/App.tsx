@@ -8,7 +8,7 @@ import { PeoplePage } from "../features/people/pages";
 import { PlayersPage } from "../features/players/pages";
 import { TeamsPage } from "../features/teams/pages";
 import { TemplatesPage } from "../features/templates/pages/TemplatesPage";
-import { P3WorkbenchPage } from "../features/p3/pages/P3WorkbenchPage";
+import { WorldSystemsPage } from "../features/world-systems/pages/WorldSystemsPage";
 import { ValidationPage } from "../features/validation/pages/ValidationPage";
 import { ExportGatePage } from "../features/validation/pages/ExportGatePage";
 import { StadiumsPage } from "../features/stadiums/pages";
@@ -93,16 +93,14 @@ function renderRoute(route: EditorRoute) {
       return <CompetitionsPage />;
     case "templates":
       return <TemplatesPage />;
-    case "rules":
-      return <P3WorkbenchPage />;
+    case "world-systems":
+      return <WorldSystemsPage />;
     case "validation":
       return <ValidationPage />;
     case "fast-start":
       return <ComingSoon title="Fast Start" />;
     case "fast-create":
       return <ComingSoon title="Quick Create" />;
-    case "validation":
-      return <ComingSoon title="Validation" />;
     case "export":
       return <ExportGatePage />;
   }
