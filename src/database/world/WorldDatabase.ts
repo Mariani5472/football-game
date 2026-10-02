@@ -38,8 +38,6 @@ export class WorldDatabase extends Database {
     database.ensureEditorMetadata();
     WorldBasePackageService.ensureInstalled(database, filePath);
     database.ensureEditorMetadata();
-    WorldBasePackageService.ensureInstalled(database, filePath);
-    database.ensureEditorMetadata();
     return database;
   }
 
