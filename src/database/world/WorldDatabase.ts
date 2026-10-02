@@ -28,6 +28,7 @@ export class WorldDatabase extends Database {
     const database = new WorldDatabase(new DatabaseConnection(filePath));
     database.initialize();
     database.initializeEditorTemplates();
+    database.initializeEditorWorkspace();
     return database;
   }
 
@@ -39,6 +40,7 @@ export class WorldDatabase extends Database {
     const database = new WorldDatabase(new DatabaseConnection(filePath));
     WorldMigrationService.ensureCompatible(database);
     database.initializeEditorTemplates();
+    database.initializeEditorWorkspace();
     return database;
   }
 
@@ -66,6 +68,26 @@ export class WorldDatabase extends Database {
 
   deleteEntity(table: string, id: SqlValue): boolean {
     return this.delete(table, id);
+  }
+
+  private initializeEditorWorkspace(): void {
+    this.execute(`
+      CREATE TABLE IF NOT EXISTS world_package (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        package_key TEXT NOT NULL UNIQUE,
+        name TEXT NOT NULL,
+        version TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE', 'CONFLICT', 'ERROR')),
+        icon TEXT,
+        source_file TEXT,
+        source_sha256 TEXT,
+        categories_json TEXT NOT NULL DEFAULT '[]',
+        description TEXT,
+        schema_version INTEGER NOT NULL,
+        imported_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      )
+    `);
   }
 
   private initializeEditorTemplates(): void {
@@ -97,6 +119,9 @@ export class WorldDatabase extends Database {
     });
     this.setMetadata("package_version", "0.2.0");
     this.setMetadata("schema_id", "world-v2");
+    this.setMetadata("world_name", "New World");
+    this.setMetadata("world_year", String(new Date().getFullYear()));
+    this.setMetadata("world_created_at", new Date().toISOString());
   }
 }
 
