@@ -24,7 +24,7 @@ server.listen(4179, "localhost", () => {
     {
       cwd: path.resolve(process.cwd(), "src/apps/editor"),
       stdio: "inherit",
-      shell: false,
+      shell: process.platform === "win32",
     },
   );
 
