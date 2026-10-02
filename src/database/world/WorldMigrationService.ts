@@ -74,6 +74,9 @@ const MIGRATIONS: WorldMigration[] = [
       database.connection.exec(
         "CREATE INDEX IF NOT EXISTS idx_world_package_enabled_identity ON world_package(enabled, package_key)",
       );
+
+      database.setMetadata("package_version", "0.4.0");
+      database.setMetadata("schema_id", "world-v4");
     },
   },
   {
