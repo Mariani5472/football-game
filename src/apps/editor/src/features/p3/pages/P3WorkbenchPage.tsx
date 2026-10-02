@@ -174,6 +174,9 @@ export function P3WorkbenchPage() {
             <Field label="Tipo de contrato" value={contract.type} onChange={v => setContract({...contract, type:v})} />
             <Field label="Salário" type="number" value={contract.salary} onChange={v => setContract({...contract, salary:v})} />
             <Field label="Número do elenco" type="number" value={contract.squad} onChange={v => setContract({...contract, squad:v})} />
+            <Field label="Tipo de cláusula" value={contract.clauseType} onChange={v => setContract({...contract, clauseType:v})} />
+            <Field label="Valor da cláusula" type="number" value={contract.clauseValue} onChange={v => setContract({...contract, clauseValue:v})} />
+            <Field label="Percentual da cláusula" type="number" value={contract.clausePercentage} onChange={v => setContract({...contract, clausePercentage:v})} />
             <button onClick={() => void submit(() => editorApi.domainContract({
               personId:id(contract.person)!, clubId:id(contract.club)!, employmentId:id(contract.employment),
               startDate:contract.start || undefined, endDate:contract.end || undefined, contractType:contract.type || undefined,
