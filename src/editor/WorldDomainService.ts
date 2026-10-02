@@ -352,6 +352,104 @@ export class WorldDomainService {
     });
   }
 
+  createAward(input: {
+    name: string;
+    shortName?: string;
+    competitionId?: number;
+    awardPeriodId?: number;
+    recipientTypeId?: number;
+    awardTypeId?: number;
+    votingTypeId?: number;
+    organizerId?: number;
+    positionId?: number;
+    minimumAge?: number;
+    maximumAge?: number;
+    minimumMatchPercentage?: number;
+    eligibleRecipientTypeIds?: number[];
+    statisticIds?: number[];
+  }) {
+    return this.database.transaction(() => {
+      const award = this.database.create("award", {
+        name: input.name,
+        short_name: input.shortName,
+        competition_id: input.competitionId,
+        award_period_id: input.awardPeriodId,
+        recipient_type_id: input.recipientTypeId,
+        award_type_id: input.awardTypeId,
+        voting_type_id: input.votingTypeId,
+        organizer_id: input.organizerId,
+        position_id: input.positionId,
+        minimum_age: input.minimumAge,
+        maximum_age: input.maximumAge,
+        minimum_match_percentage: input.minimumMatchPercentage,
+      });
+      for (const recipientTypeId of input.eligibleRecipientTypeIds ?? []) {
+        this.database.create("award_eligible_recipient", { award_id: award.id, recipient_type_id: recipientTypeId });
+      }
+      for (const statisticId of input.statisticIds ?? []) {
+        this.database.create("award_used_statistic", { award_id: award.id, statistic_id: statisticId });
+      }
+      return award;
+    });
+  }
+
+  createPlayerCareerHistory(input: Record<string, SqlValue | undefined>) {
+    return this.database.create("player_career_history", input);
+  }
+
+  createStaffCareerHistory(input: Record<string, SqlValue | undefined>) {
+    return this.database.create("staff_career_history", input);
+  }
+
+  createPlayerAchievement(input: {
+    playerId: number;
+    teamId?: number;
+    competitionId?: number;
+    achievementTypeId: number;
+  }) {
+    return this.database.create("player_achievement", {
+      player_id: input.playerId,
+      team_id: input.teamId,
+      competition_id: input.competitionId,
+      achievement_type_id: input.achievementTypeId,
+    });
+  }
+
+  createRecord(input: { type: "club" | "competition"; values: Record<string, SqlValue | undefined> }) {
+    return this.database.create(input.type === "club" ? "club_record" : "competition_record", input.values);
+  }
+
+  createDerby(input: {
+    name: string;
+    shortName?: string;
+    clubId1: number;
+    clubId2: number;
+    worldReputation?: number;
+    nationalReputation?: number;
+  }) {
+    if (input.clubId1 === input.clubId2) throw new Error("Um derby exige dois clubes diferentes.");
+    const [clubId1, clubId2] = [input.clubId1, input.clubId2].sort((a, b) => a - b);
+    return this.database.create("derby", {
+      name: input.name,
+      short_name: input.shortName,
+      club_id_1: clubId1,
+      club_id_2: clubId2,
+      world_reputation: input.worldReputation,
+      national_reputation: input.nationalReputation,
+    });
+  }
+
+  mapClimateToRegion(nationRegionId: number, climateId: number) {
+    return this.database.create("climate_nation_region", {
+      nation_region_id: nationRegionId,
+      climate_id: climateId,
+    });
+  }
+
+  createWeatherSeason(name: string) {
+    return this.database.create("weather_season", { name: name.trim() });
+  }
+
   createClimateProfile(input: {
     climateId: number;
     seasonId: number;
