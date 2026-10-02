@@ -164,7 +164,8 @@ async function createComposite(
 
   return `Competition #${competitionId} → Season #${seasonId} → Stage #${stageId} → Rules → Schedule`;
 }
-\nfunction label(value: string) {
+
+function label(value: string) {
   return value.replace(/_/g, " ").replace(/\b\w/g, char => char.toUpperCase());
 }
 
