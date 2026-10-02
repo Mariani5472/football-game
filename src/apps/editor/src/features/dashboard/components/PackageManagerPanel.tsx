@@ -26,6 +26,7 @@ export function PackageManagerPanel({
   onChanged: () => Promise<void> | void;
 }) {
   const [sourceFile, setSourceFile] = useState("");
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<ImportPreview | null>(null);
   const [conflicts, setConflicts] = useState<ImportConflict[]>([]);
   const [resolutions, setResolutions] = useState<Record<string, ImportConflict["resolution"]>>({});
@@ -34,9 +35,34 @@ export function PackageManagerPanel({
   const [error, setError] = useState<string | null>(null);
 
   async function inspect() {
-    const value = sourceFile.trim();
+    let value = sourceFile.trim();
+    if (selectedFile) {
+      setBusy("inspect");
+      setError(null);
+      setMessage(null);
+      setPreview(null);
+      setConflicts([]);
+      try {
+        const buffer = await selectedFile.arrayBuffer();
+        const bytes = new Uint8Array(buffer);
+        let binary = "";
+        const chunkSize = 0x8000;
+        for (let offset = 0; offset < bytes.length; offset += chunkSize) {
+          binary += String.fromCharCode(...bytes.subarray(offset, Math.min(offset + chunkSize, bytes.length)));
+        }
+        const uploaded = await editorApi.uploadPackage(selectedFile.name, btoa(binary));
+        value = uploaded.sourceFile;
+        setSourceFile(uploaded.sourceFile);
+      } catch (cause) {
+        setError(cause instanceof Error ? cause.message : String(cause));
+        setBusy(null);
+        return;
+      } finally {
+        setBusy(null);
+      }
+    }
     if (!value) {
-      setError("Informe o caminho do package .db.");
+      setError("Selecione um package .db ou informe um caminho local.");
       return;
     }
 
@@ -136,12 +162,33 @@ export function PackageManagerPanel({
             <span className="mb-1.5 block text-xs text-slate-600">
               Source file
             </span>
-            <input
-              value={sourceFile}
-              onChange={event => setSourceFile(event.target.value)}
-              placeholder="C:\packages\brazil.db"
-              className="w-full rounded-lg border border-white/10 bg-black/10 px-3 py-2.5 font-mono text-xs text-slate-200 outline-none placeholder:text-slate-700 focus:border-emerald-400/30"
-            />
+            <div className="flex gap-2">
+              <input
+                value={selectedFile?.name ?? sourceFile}
+                onChange={event => {
+                  setSelectedFile(null);
+                  setSourceFile(event.target.value);
+                }}
+                placeholder="C:\\packages\\brazil.db"
+                className="min-w-0 flex-1 rounded-lg border border-white/10 bg-black/10 px-3 py-2.5 font-mono text-xs text-slate-200 outline-none placeholder:text-slate-700 focus:border-emerald-400/30"
+              />
+              <label className="inline-flex cursor-pointer items-center rounded-lg border border-white/10 bg-white/[0.04] px-4 py-2.5 text-sm font-medium text-slate-200 hover:bg-white/[0.07]">
+                Explorar
+                <input
+                  type="file"
+                  accept=".db,.sqlite,.sqlite3"
+                  className="hidden"
+                  onChange={event => {
+                    const file = event.target.files?.[0] ?? null;
+                    setSelectedFile(file);
+                    setSourceFile(file?.name ?? "");
+                  }}
+                />
+              </label>
+            </div>
+            <p className="mt-2 text-[11px] text-slate-600">
+              Selecione um banco SQLite pelo explorador ou informe um caminho acessível pela API.
+            </p>
           </label>
         </div>
 
