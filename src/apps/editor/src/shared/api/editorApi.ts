@@ -40,7 +40,11 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return body as T;
 }
 
-function serializeEntityKey(id: EntityKey): string {\n  return typeof id === "object" ? JSON.stringify(id) : String(id);\n}\n\nfunction queryString(options: ListOptions): string {
+function serializeEntityKey(id: EntityKey): string {
+  return typeof id === "object" ? JSON.stringify(id) : String(id);
+}
+
+function queryString(options: ListOptions): string {
   const params = new URLSearchParams();
   if (options.page !== undefined) params.set("page", String(options.page));
   if (options.pageSize !== undefined) params.set("pageSize", String(options.pageSize));
@@ -61,9 +65,31 @@ export const editorApi = {
   get: <T extends EntityRow = EntityRow>(table: string, id: EntityKey) =>
     request<T | null>("/entities/" + encodeURIComponent(table) + "/" + encodeURIComponent(serializeEntityKey(id))),
   create: <T extends EntityRow = EntityRow>(table: string, values: Record<string, Scalar>) =>
-    request<T>("/entities/" + encodeURIComponent(table), { method: "POST", body: JSON.stringify(values) }),
-  update: <T extends EntityRow = EntityRow>(table: string, id: EntityKey, values: Record<string, Scalar>) =>
-    request<T>("/entities/" + encodeURIComponent(table) + "/" + encodeURIComponent(serializeEntityKey(id)), { method: "PATCH", body: JSON.stringify(values) }),
+    request<T>("/entities/" + encodeURIComponent(table), {
+      method: "POST",
+      body: JSON.stringify(values),
+    }),
+  update: <T extends EntityRow = EntityRow>(
+    table: string,
+    id: EntityKey,
+    values: Record<string, Scalar>,
+  ) =>
+    request<T>(
+      "/entities/" +
+        encodeURIComponent(table) +
+        "/" +
+        encodeURIComponent(serializeEntityKey(id)),
+      {
+        method: "PATCH",
+        body: JSON.stringify(values),
+      },
+    ),
   remove: (table: string, id: EntityKey) =>
-    request<{ deleted: boolean }>("/entities/" + encodeURIComponent(table) + "/" + encodeURIComponent(serializeEntityKey(id)), { method: "DELETE" }),
+    request<{ deleted: boolean }>(
+      "/entities/" +
+        encodeURIComponent(table) +
+        "/" +
+        encodeURIComponent(serializeEntityKey(id)),
+      { method: "DELETE" },
+    ),
 };
