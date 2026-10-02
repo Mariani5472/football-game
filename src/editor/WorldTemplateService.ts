@@ -373,6 +373,7 @@ export class WorldTemplateService {
 
     for (const { table, values } of insertRows) {
       const schema = schemas.get(table)!;
+      this.ensureUniqueValues(table, values, schema);
       const columns = Object.keys(values);
       this.database.connection
         .prepare(
@@ -392,6 +393,48 @@ export class WorldTemplateService {
       newKey: rootNewKey,
       rowsCreated: rows.length,
     };
+  }
+
+  private ensureUniqueValues(
+    table: string,
+    values: Record<string, SqlValue | undefined>,
+    schema: TableSchema,
+  ): void {
+    const textColumns = schema.columns
+      .filter(column => /TEXT|CHAR|CLOB/i.test(column.type))
+      .map(column => column.name);
+
+    if (!schema.uniqueColumns.length || !textColumns.length) return;
+
+    for (let attempt = 0; attempt < 100; attempt++) {
+      let changed = false;
+
+      for (const uniqueColumns of schema.uniqueColumns) {
+        const candidateValues = uniqueColumns.map(column => values[column]);
+        if (candidateValues.some(value => value === null || value === undefined)) continue;
+
+        const where = uniqueColumns.map(column => `"${column}" = ?`).join(" AND ");
+        const exists = this.database.connection
+          .prepare(`SELECT 1 FROM "${table}" WHERE ${where} LIMIT 1`)
+          .get(...candidateValues);
+
+        if (!exists) continue;
+
+        const renameColumn = textColumns.find(column => uniqueColumns.includes(column) && typeof values[column] === "string");
+        if (!renameColumn) continue;
+
+        const base = String(values[renameColumn]);
+        values[renameColumn] = attempt === 0
+          ? `${base} Copy`
+          : `${base} Copy ${attempt + 1}`;
+        changed = true;
+        break;
+      }
+
+      if (!changed) return;
+    }
+
+    throw new Error(`Não foi possível gerar valores únicos para a cópia de ${table}.`);
   }
 
   private remapKey(
