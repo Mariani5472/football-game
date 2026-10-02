@@ -1383,26 +1383,61 @@ export class WorldPackageImportService {
         continue;
       }
 
-      const targetMapped =
+      const targetIncomingKey = serializeKey(
+        targetInfo,
+        incomingTargetKey,
+      );
+
+      let targetMapped =
         runtime.mapping.get(
           mapKey(
             group[0].table,
-            serializeKey(
-              targetInfo,
-              incomingTargetKey,
-            ),
+            targetIncomingKey,
           ),
         );
+
+      if (!targetMapped) {
+        const attachedTarget = this.findAttachedRow(
+          runtime.alias,
+          targetInfo,
+          incomingTargetKey,
+        );
+
+        if (attachedTarget) {
+          const targetResolution =
+            this.resolveExisting(
+              targetInfo,
+              attachedTarget,
+              this.createIdentityContext(
+                runtime.alias,
+                runtime.tableInfos,
+              ),
+              runtime.mapping,
+              runtime.packageId,
+              targetIncomingKey,
+            );
+
+          targetMapped =
+            targetResolution.worldKey;
+
+          if (targetMapped) {
+            runtime.mapping.set(
+              mapKey(
+                group[0].table,
+                targetIncomingKey,
+              ),
+              targetMapped,
+            );
+          }
+        }
+      }
 
       if (!targetMapped) {
         throw new UnresolvedForeignKeyError(
           table.name,
           group[0].from,
           group[0].table,
-          serializeKey(
-            targetInfo,
-            incomingTargetKey,
-          ),
+          targetIncomingKey,
         );
       }
 
@@ -2979,9 +3014,34 @@ export class WorldPackageImportService {
       tableName: string,
       keyObject: KeyObject,
     ): string | null => {
-      const table =
+      let table =
         tableInfos.get(tableName);
-      if (!table) return null;
+
+      if (!table) {
+        const exists =
+          this.world.connection
+            .prepare(
+              "SELECT 1 FROM " +
+                quoteIdentifier(alias) +
+                ".sqlite_master WHERE type='table' AND name=? LIMIT 1",
+            )
+            .get(tableName);
+
+        if (!exists) return null;
+
+        try {
+          table = this.readTableInfo(
+            alias,
+            tableName,
+          );
+          tableInfos.set(
+            tableName,
+            table,
+          );
+        } catch {
+          return null;
+        }
+      }
 
       const rawKey = serializeKey(
         table,
