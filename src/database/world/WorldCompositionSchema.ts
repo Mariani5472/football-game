@@ -50,6 +50,22 @@ export function initializeWorldCompositionSchema(db: DatabaseConnection.Database
       FOREIGN KEY (package_id) REFERENCES world_package(id) ON DELETE CASCADE
     );
 
+    CREATE TABLE IF NOT EXISTS world_package_version_history (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      package_id INTEGER NOT NULL,
+      package_key TEXT NOT NULL,
+      version TEXT NOT NULL,
+      package_type TEXT NOT NULL,
+      source_file TEXT,
+      source_sha256 TEXT,
+      replaced_at TEXT NOT NULL,
+      replacement_reason TEXT NOT NULL,
+      FOREIGN KEY (package_id) REFERENCES world_package(id) ON DELETE CASCADE
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_world_package_version_history_package
+      ON world_package_version_history(package_id, replaced_at);
+
     CREATE TABLE IF NOT EXISTS world_entity_identity (
       table_name TEXT NOT NULL,
       row_id INTEGER NOT NULL,
