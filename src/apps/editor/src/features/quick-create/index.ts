@@ -237,7 +237,9 @@ export function QuickCreateModal({ open, onClose }: { open: boolean; onClose: ()
     try {
       if (selected.id === "new-league" || selected.id === "new-club" || selected.id === "new-player") {
         const result = await createComposite(selected.id, values);
-        setSuccess(`Created: ${result}.`);
+        const validation = await editorApi.runValidation();
+        const errors = validation.issues.filter(issue => issue.severity === "ERROR").length;
+        setSuccess(`Created: ${result}.${errors ? ` Validation found ${errors} error(s).` : " Validation passed."}`);
         return;
       }
 
@@ -247,7 +249,9 @@ export function QuickCreateModal({ open, onClose }: { open: boolean; onClose: ()
       );
 
       await editorApi.create(selected.table, payload);
-      setSuccess(`${selected.title} created.`);
+      const validation = await editorApi.runValidation();
+      const errors = validation.issues.filter(issue => issue.severity === "ERROR").length;
+      setSuccess(`${selected.title} created.${errors ? ` Validation found ${errors} error(s).` : " Validation passed."}`);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause));
     } finally {
