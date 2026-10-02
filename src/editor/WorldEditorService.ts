@@ -1,11 +1,34 @@
 import path from "node:path";
 import fs from "node:fs";
+
+import {
+  type ListOptions,
+  type SqlKey,
+  type SqlRow,
+  type SqlValue,
+  type TableSchema,
+} from "../database/Database.js";
+import { generateUuid, identityPolicy } from "../database/world/WorldIdentity.js";
 import { WorldDatabase } from "../database/world/WorldDatabase.js";
-import type { ListOptions, SqlKey, SqlRow, SqlValue, TableSchema } from "../database/Database.js";
 import { WorldTemplateService, type TemplateRecord, type TemplateRelationOption } from "./WorldTemplateService.js";
 import { WorldDomainService } from "./WorldDomainService.js";
 import { WorldValidator, type ValidationIssue, type ValidationProfile } from "./WorldValidator.js";
-import { WorldPackageService, type WorldExportResult, type WorldPackageIssue } from "./WorldPackageService.js";
+import {
+  WorldPackageService,
+  type RegisterWorldPackageInput,
+  type UpdateWorldPackageInput,
+  type WorldBuildStatus,
+  type WorldExportResult,
+  type WorldPackageIssue,
+  type WorldPackageRecord,
+} from "./WorldPackageService.js";
+import type {
+  ConflictPolicy,
+  ImportConflictRecord,
+  ImportPreview,
+  ImportSessionRecord,
+  RebuildResult,
+} from "./WorldPackageImportService.js";
 
 export interface WorldDashboardSummary {
   world: {
@@ -17,16 +40,8 @@ export interface WorldDashboardSummary {
     lastSavedAt: string | null;
     databasePath: string;
   };
-  packages: Array<{
-    id: number;
-    packageKey: string;
-    name: string;
-    version: string;
-    status: "ACTIVE" | "CONFLICT" | "ERROR";
-    icon: string | null;
-    categories: string[];
-    description: string | null;
-  }>;
+  build: WorldBuildStatus;
+  packages: WorldPackageRecord[];
 }
 
 export interface WorldEditorServiceOptions {
@@ -47,20 +62,30 @@ export class WorldEditorService {
     this.filePath = path.resolve(options.filePath);
 
     this.database = create
-      ? WorldDatabase.create(path.resolve(options.filePath))
-      : WorldDatabase.open(path.resolve(options.filePath));
+      ? WorldDatabase.create(this.filePath)
+      : WorldDatabase.open(this.filePath);
+
     this.templatesService = new WorldTemplateService(this.database);
     this.domainService = new WorldDomainService(this.database);
     this.validator = new WorldValidator(this.database);
     this.packageService = new WorldPackageService(this.database);
   }
 
-  list<T extends SqlRow = SqlRow>(table: string, options?: ListOptions) {
+  list<T extends SqlRow = SqlRow>(
+    table: string,
+    options?: ListOptions,
+  ) {
     return this.database.list<T>(table, options);
   }
 
-  findById<T extends SqlRow = SqlRow>(table: string, id: SqlKey) {
-    return this.database.findById<T>(table, id);
+  findById<T extends SqlRow = SqlRow>(
+    table: string,
+    id: SqlKey,
+  ) {
+    return this.database.findById<T>(
+      table,
+      id,
+    );
   }
 
   tableSchema(table: string): TableSchema {
@@ -73,29 +98,107 @@ export class WorldEditorService {
 
   create<T extends SqlRow = SqlRow>(
     table: string,
-    values: Record<string, SqlValue | undefined>,
+    values: Record<
+      string,
+      SqlValue | undefined
+    >,
   ) {
-    return this.database.create<T>(table, values);
+    const normalized = {
+      ...values,
+    };
+
+    const policy = identityPolicy(
+      table,
+    );
+
+    if (
+      policy?.uuidColumn &&
+      (normalized[policy.uuidColumn] == null ||
+        normalized[policy.uuidColumn] === "")
+    ) {
+      normalized[policy.uuidColumn] =
+        generateUuid();
+    }
+
+    const result =
+      this.database.create<T>(
+        table,
+        normalized,
+      );
+
+    this.database.setMetadata(
+      "world_build_status",
+      "DIRTY",
+    );
+
+    return result;
   }
 
   update<T extends SqlRow = SqlRow>(
     table: string,
     id: SqlKey,
-    values: Record<string, SqlValue | undefined>,
+    values: Record<
+      string,
+      SqlValue | undefined
+    >,
   ) {
-    return this.database.update<T>(table, id, values);
+    const result =
+      this.database.update<T>(
+        table,
+        id,
+        values,
+      );
+
+    this.database.setMetadata(
+      "world_build_status",
+      "DIRTY",
+    );
+
+    return result;
   }
 
-  delete(table: string, id: SqlKey): boolean {
-    return this.database.delete(table, id);
+  delete(
+    table: string,
+    id: SqlKey,
+  ): boolean {
+    const deleted =
+      this.database.delete(
+        table,
+        id,
+      );
+
+    if (deleted) {
+      this.database.setMetadata(
+        "world_build_status",
+        "DIRTY",
+      );
+    }
+
+    return deleted;
   }
 
-  templateRelations(rootTable: string, rootKey: SqlKey): TemplateRelationOption[] {
-    return this.templatesService.relationOptions(rootTable, rootKey);
+  templateRelations(
+    rootTable: string,
+    rootKey: SqlKey,
+  ): TemplateRelationOption[] {
+    return this.templatesService.relationOptions(
+      rootTable,
+      rootKey,
+    );
   }
 
-  createTemplate(name: string, rootTable: string, rootKey: SqlKey, relations: string[]): TemplateRecord {
-    return this.templatesService.createTemplate(name, rootTable, rootKey, relations);
+  createTemplate(
+    name: string,
+    rootTable: string,
+    rootKey: SqlKey,
+    relations: string[],
+  ): TemplateRecord {
+    return this.templatesService.createTemplate(
+      name,
+      rootTable,
+      rootKey,
+      relations,
+    );
   }
 
   listTemplates(): TemplateRecord[] {
@@ -103,92 +206,416 @@ export class WorldEditorService {
   }
 
   deleteTemplate(id: number): boolean {
-    return this.templatesService.deleteTemplate(id);
+    return this.templatesService.deleteTemplate(
+      id,
+    );
   }
 
-  duplicateFromSource(rootTable: string, rootKey: SqlKey, relations: string[]) {
-    return this.templatesService.duplicateFromSource(rootTable, rootKey, relations);
+  duplicateFromSource(
+    rootTable: string,
+    rootKey: SqlKey,
+    relations: string[],
+  ) {
+    return this.templatesService.duplicateFromSource(
+      rootTable,
+      rootKey,
+      relations,
+    );
   }
 
-  duplicateFromTemplate(templateId: number) {
-    return this.templatesService.duplicateFromTemplate(templateId);
+  duplicateFromTemplate(
+    templateId: number,
+  ) {
+    return this.templatesService.duplicateFromTemplate(
+      templateId,
+    );
   }
 
-  createTransfer(input: Parameters<WorldDomainService["createTransfer"]>[0]) { return this.domainService.createTransfer(input); }
-  createContract(input: Parameters<WorldDomainService["createContract"]>[0]) { return this.domainService.createContract(input); }
-  saveClubFinance(input: Parameters<WorldDomainService["saveClubFinance"]>[0]) { return this.domainService.saveClubFinance(input); }
-  createCompetitionHistory(input: Parameters<WorldDomainService["createCompetitionHistory"]>[0]) { return this.domainService.createCompetitionHistory(input); }
-  createAwardHistory(input: Parameters<WorldDomainService["createAwardHistory"]>[0]) { return this.domainService.createAwardHistory(input); }
-  createPressSource(input: Parameters<WorldDomainService["createPressSource"]>[0]) { return this.domainService.createPressSource(input); }
-  createAward(input: Parameters<WorldDomainService["createAward"]>[0]) { return this.domainService.createAward(input); }
-  createPlayerCareerHistory(input: Record<string, SqlValue | undefined>) { return this.domainService.createPlayerCareerHistory(input); }
-  createStaffCareerHistory(input: Record<string, SqlValue | undefined>) { return this.domainService.createStaffCareerHistory(input); }
-  createPlayerAchievement(input: Parameters<WorldDomainService["createPlayerAchievement"]>[0]) { return this.domainService.createPlayerAchievement(input); }
-  createRecord(input: Parameters<WorldDomainService["createRecord"]>[0]) { return this.domainService.createRecord(input); }
-  createDerby(input: Parameters<WorldDomainService["createDerby"]>[0]) { return this.domainService.createDerby(input); }
-  mapClimateToRegion(nationRegionId: number, climateId: number) { return this.domainService.mapClimateToRegion(nationRegionId, climateId); }
-  createWeatherSeason(name: string) { return this.domainService.createWeatherSeason(name); }
-  createClimateProfile(input: Parameters<WorldDomainService["createClimateProfile"]>[0]) { return this.domainService.createClimateProfile(input); }
-  createNationalityRule(input: Parameters<WorldDomainService["createNationalityRule"]>[0]) { return this.domainService.createNationalityRule(input); }
-  validate(profileId?: number): ValidationIssue[] { return this.validator.validate(profileId); }
+  createTransfer(
+    input: Parameters<WorldDomainService["createTransfer"]>[0],
+  ) {
+    return this.domainService.createTransfer(
+      input,
+    );
+  }
+
+  createContract(
+    input: Parameters<WorldDomainService["createContract"]>[0],
+  ) {
+    return this.domainService.createContract(
+      input,
+    );
+  }
+
+  saveClubFinance(
+    input: Parameters<WorldDomainService["saveClubFinance"]>[0],
+  ) {
+    return this.domainService.saveClubFinance(
+      input,
+    );
+  }
+
+  createCompetitionHistory(
+    input: Parameters<WorldDomainService["createCompetitionHistory"]>[0],
+  ) {
+    return this.domainService.createCompetitionHistory(
+      input,
+    );
+  }
+
+  createAwardHistory(
+    input: Parameters<WorldDomainService["createAwardHistory"]>[0],
+  ) {
+    return this.domainService.createAwardHistory(
+      input,
+    );
+  }
+
+  createPressSource(
+    input: Parameters<WorldDomainService["createPressSource"]>[0],
+  ) {
+    return this.domainService.createPressSource(
+      input,
+    );
+  }
+
+  createAward(
+    input: Parameters<WorldDomainService["createAward"]>[0],
+  ) {
+    return this.domainService.createAward(
+      input,
+    );
+  }
+
+  createPlayerCareerHistory(
+    input: Record<
+      string,
+      SqlValue | undefined
+    >,
+  ) {
+    return this.domainService.createPlayerCareerHistory(
+      input,
+    );
+  }
+
+  createStaffCareerHistory(
+    input: Record<
+      string,
+      SqlValue | undefined
+    >,
+  ) {
+    return this.domainService.createStaffCareerHistory(
+      input,
+    );
+  }
+
+  createPlayerAchievement(
+    input: Parameters<WorldDomainService["createPlayerAchievement"]>[0],
+  ) {
+    return this.domainService.createPlayerAchievement(
+      input,
+    );
+  }
+
+  createRecord(
+    input: Parameters<WorldDomainService["createRecord"]>[0],
+  ) {
+    return this.domainService.createRecord(
+      input,
+    );
+  }
+
+  createDerby(
+    input: Parameters<WorldDomainService["createDerby"]>[0],
+  ) {
+    return this.domainService.createDerby(
+      input,
+    );
+  }
+
+  mapClimateToRegion(
+    nationRegionId: number,
+    climateId: number,
+  ) {
+    return this.domainService.mapClimateToRegion(
+      nationRegionId,
+      climateId,
+    );
+  }
+
+  createWeatherSeason(
+    name: string,
+  ) {
+    return this.domainService.createWeatherSeason(
+      name,
+    );
+  }
+
+  createClimateProfile(
+    input: Parameters<WorldDomainService["createClimateProfile"]>[0],
+  ) {
+    return this.domainService.createClimateProfile(
+      input,
+    );
+  }
+
+  createNationalityRule(
+    input: Parameters<WorldDomainService["createNationalityRule"]>[0],
+  ) {
+    return this.domainService.createNationalityRule(
+      input,
+    );
+  }
+
+  validate(
+    profileId?: number,
+  ): ValidationIssue[] {
+    return this.validator.validate(
+      profileId,
+    );
+  }
 
   dashboard(): WorldDashboardSummary {
-    const issues = this.validator.validate();
-    const hasErrors = issues.some(issue => issue.severity === "ERROR");
-    const stat = fs.existsSync(this.filePath) ? fs.statSync(this.filePath) : null;
+    const issues =
+      this.validator.validate();
+    const hasErrors =
+      issues.some(
+        issue =>
+          issue.severity ===
+          "ERROR",
+      );
+
+    const stat =
+      fs.existsSync(this.filePath)
+        ? fs.statSync(
+            this.filePath,
+          )
+        : null;
+
     return {
       world: {
-        name: this.database.metadata("world_name") ?? "Unnamed World",
-        year: Number(this.database.metadata("world_year") ?? new Date().getFullYear()),
-        schemaVersion: Number(this.database.metadata("schema_version") ?? 0),
-        packageVersion: this.database.metadata("package_version") ?? "0.2.0",
-        status: hasErrors ? "INVALID" : "VALID",
-        lastSavedAt: stat?.mtime.toISOString() ?? null,
-        databasePath: this.filePath,
+        name:
+          this.database.metadata(
+            "world_name",
+          ) ?? "Unnamed World",
+        year:
+          Number(
+            this.database.metadata(
+              "world_year",
+            ) ??
+              new Date().getFullYear(),
+          ),
+        schemaVersion:
+          Number(
+            this.database.metadata(
+              "schema_version",
+            ) ?? 0,
+          ),
+        packageVersion:
+          this.database.metadata(
+            "package_version",
+          ) ?? "0.3.0",
+        status:
+          hasErrors
+            ? "INVALID"
+            : "VALID",
+        lastSavedAt:
+          stat?.mtime.toISOString() ??
+          null,
+        databasePath:
+          this.filePath,
       },
-      packages: this.packageService.listPackages().map(packageItem => ({
-        id: packageItem.id,
-        packageKey: packageItem.packageKey,
-        name: packageItem.name,
-        version: packageItem.version,
-        status: packageItem.status,
-        icon: packageItem.icon,
-        categories: packageItem.categories,
-        description: packageItem.description,
-      })),
+      build:
+        this.packageService.getBuildStatus(),
+      packages:
+        this.packageService.listPackages(),
     };
   }
 
-  worldSettings(): { name: string; year: number } {
+  worldBuild(): WorldBuildStatus {
+    return this.packageService.getBuildStatus();
+  }
+
+  worldSettings(): {
+    name: string;
+    year: number;
+  } {
     return {
-      name: this.database.metadata("world_name") ?? "Unnamed World",
-      year: Number(this.database.metadata("world_year") ?? new Date().getFullYear()),
+      name:
+        this.database.metadata(
+          "world_name",
+        ) ?? "Unnamed World",
+      year:
+        Number(
+          this.database.metadata(
+            "world_year",
+          ) ??
+            new Date().getFullYear(),
+        ),
     };
   }
 
-  updateWorldSettings(name: string, year: number): { name: string; year: number } {
-    const normalizedName = name.trim();
-    if (!normalizedName) throw new Error("World name is required.");
-    if (!Number.isInteger(year) || year < 1900 || year > 3000) throw new Error("World year is invalid.");
-    this.database.setMetadata("world_name", normalizedName);
-    this.database.setMetadata("world_year", String(year));
+  updateWorldSettings(
+    name: string,
+    year: number,
+  ): {
+    name: string;
+    year: number;
+  } {
+    const normalizedName =
+      name.trim();
+
+    if (!normalizedName) {
+      throw new Error(
+        "World name is required.",
+      );
+    }
+
+    if (
+      !Number.isInteger(year) ||
+      year < 1900 ||
+      year > 3000
+    ) {
+      throw new Error(
+        "World year is invalid.",
+      );
+    }
+
+    this.database.setMetadata(
+      "world_name",
+      normalizedName,
+    );
+    this.database.setMetadata(
+      "world_year",
+      String(year),
+    );
+    this.database.setMetadata(
+      "world_build_status",
+      "DIRTY",
+    );
+
     return this.worldSettings();
   }
 
-  listPackages() { return this.packageService.listPackages(); }
-  registerPackage(input: Parameters<WorldPackageService["registerPackage"]>[0]) { return this.packageService.registerPackage(input); }
-  removePackage(id: number) { return this.packageService.removePackage(id); }\n  inspectPackage(sourceFile: string) { return this.packageService.inspectPackage(sourceFile); }\n  importPackage(sessionId: number, resolutions: Record<string, "REPLACE"|"MERGE"|"KEEP_EXISTING"|"KEEP_INCOMING"|"MANUAL"> = {}) { return this.packageService.importPackage(sessionId, resolutions); }
-  exportWorld(outputPath: string): WorldExportResult {
-    const validationIssues = this.validator.validate().map(issue => ({
-      severity: issue.severity === "ERROR" ? "ERROR" as const : "WARNING" as const,
-      ruleKey: issue.ruleKey,
-      message: issue.message,
-    } satisfies WorldPackageIssue));
-    return this.packageService.exportWorld(outputPath, validationIssues);
+  listPackages(): WorldPackageRecord[] {
+    return this.packageService.listPackages();
   }
-  validationProfiles(): ValidationProfile[] { return this.validator.profiles(); }
-  setValidationProfileEnabled(id: number, enabled: boolean): ValidationProfile { return this.validator.setProfileEnabled(id, enabled); }
-  setValidationRuleEnabled(ruleKey: string, enabled: boolean): void { return this.validator.setRuleEnabled(ruleKey, enabled); }
+
+  registerPackage(
+    input: RegisterWorldPackageInput,
+  ): WorldPackageRecord {
+    return this.packageService.registerPackage(
+      input,
+    );
+  }
+
+  updatePackage(
+    id: number,
+    input: UpdateWorldPackageInput,
+  ): WorldPackageRecord {
+    return this.packageService.updatePackage(
+      id,
+      input,
+    );
+  }
+
+  removePackage(id: number): boolean {
+    return this.packageService.removePackage(
+      id,
+    );
+  }
+
+  inspectPackage(
+    sourceFile: string,
+  ): ImportPreview {
+    return this.packageService.inspectPackage(
+      sourceFile,
+    );
+  }
+
+  importPackage(
+    sessionId: number,
+    resolutions: Record<
+      string,
+      ConflictPolicy
+    > = {},
+  ): ImportPreview {
+    return this.packageService.importPackage(
+      sessionId,
+      resolutions,
+    );
+  }
+
+  getImportSession(
+    id: number,
+  ): ImportSessionRecord | undefined {
+    return this.packageService.getImportSession(
+      id,
+    );
+  }
+
+  importConflicts(
+    id: number,
+  ): ImportConflictRecord[] {
+    return this.packageService.listImportConflicts(
+      id,
+    );
+  }
+
+  rebuildWorld(): RebuildResult {
+    return this.packageService.rebuild();
+  }
+
+  exportWorld(
+    outputPath: string,
+  ): WorldExportResult {
+    const validationIssues =
+      this.validator
+        .validate()
+        .map(
+          issue =>
+            ({
+              severity:
+                issue.severity ===
+                "ERROR"
+                  ? "ERROR"
+                  : "WARNING",
+              ruleKey:
+                issue.ruleKey,
+              message:
+                issue.message,
+            } satisfies WorldPackageIssue),
+        );
+
+    return this.packageService.exportWorld(
+      outputPath,
+      validationIssues,
+    );
+  }
+
+  validationProfiles(): ValidationProfile[] {
+    return this.validator.profiles();
+  }
+
+  setValidationProfileEnabled(
+    id: number,
+    enabled: boolean,
+  ): ValidationProfile {
+    return this.validator.setProfileEnabled(
+      id,
+      enabled,
+    );
+  }
+
+  setValidationRuleEnabled(
+    ruleKey: string,
+    enabled: boolean,
+  ): void {
+    this.validator.setRuleEnabled(
+      ruleKey,
+      enabled,
+    );
+  }
 
   close(): void {
     this.database.close();
