@@ -37,6 +37,18 @@ export interface ImportConflict {
   resolved: boolean;
 }
 
+export interface ImportPreview {
+  sessionId: number;
+  packageKey: string;
+  status: string;
+  tables: number;
+  rows: number;
+  newRows: number;
+  existingRows: number;
+  conflicts: number;
+  message: string;
+}
+
 export interface ImportSession {
   id: number;
   status: string;
@@ -154,17 +166,47 @@ export const editorApi = {
   worldSettings: () => request<{ name: string; year: number }>("/world/settings"),
   updateWorldSettings: (payload: { name: string; year: number }) => request<{ name: string; year: number }>("/world/settings", { method: "PATCH", body: JSON.stringify(payload) }),
   packages: () => request<{ packages: WorldPackageRecord[] }>("/world/packages"),
-  registerPackage: (payload: { packageKey: string; name: string; version?: string; status?: "ACTIVE" | "CONFLICT" | "ERROR"; icon?: string | null; sourceFile?: string | null; sourceSha256?: string | null; categories?: string[]; description?: string | null }) => request<WorldPackageRecord>("/world/packages", { method: "POST", body: JSON.stringify(payload) }),
+  registerPackage: (payload: {
+    packageKey: string;
+    name: string;
+    version?: string;
+    packageType?: string;
+    priority?: number;
+    status?: "ACTIVE" | "CONFLICT" | "ERROR" | "DISABLED";
+    icon?: string | null;
+    sourceFile?: string | null;
+    sourceSha256?: string | null;
+    categories?: string[];
+    description?: string | null;
+    provides?: string[];
+    dependencies?: Array<{ key: string; minVersion?: string | null }>;
+    conflicts?: string[];
+  }) =>
+    request<WorldPackageRecord>(
+      "/world/packages",
+      { method: "POST", body: JSON.stringify(payload) },
+    ),
   removePackage: (id: number) => request<{ deleted: boolean }>(`/world/packages/${id}`, { method: "DELETE" }),
   updatePackage: (id: number, payload: { enabled?: boolean; priority?: number; loadOrder?: number }) =>
     request<WorldPackageRecord>(`/world/packages/${id}`, { method: "PATCH", body: JSON.stringify(payload) }),
-  inspectPackage: (sourceFile: string) => request<{
-    sessionId: number; packageKey: string; status: string; tables: number; rows: number;
-    newRows: number; existingRows: number; conflicts: number; message: string;
-  }>("/world/packages/inspect", { method: "POST", body: JSON.stringify({ sourceFile }) }),
-  importPackage: (sessionId: number, resolutions: Record<string, "REPLACE"|"MERGE"|"KEEP_EXISTING"|"KEEP_INCOMING"|"MANUAL"> = {}) =>
-    request<{ sessionId: number; packageKey: string; status: string; tables: number; rows: number; newRows: number; existingRows: number; conflicts: number; message: string }>(
-      "/world/packages/import", { method: "POST", body: JSON.stringify({ sessionId, resolutions }) }
+  inspectPackage: (sourceFile: string) =>
+    request<ImportPreview>(
+      "/world/packages/inspect",
+      { method: "POST", body: JSON.stringify({ sourceFile }) },
+    ),
+  importPackage: (
+    sessionId: number,
+    resolutions: Record<
+      string,
+      "REPLACE" | "MERGE" | "KEEP_EXISTING" | "KEEP_INCOMING" | "MANUAL"
+    > = {},
+  ) =>
+    request<ImportPreview>(
+      "/world/packages/import",
+      {
+        method: "POST",
+        body: JSON.stringify({ sessionId, resolutions }),
+      },
     ),
   importSession: (id: number) =>
     request<ImportSession>(`/world-import-sessions/${id}`),
