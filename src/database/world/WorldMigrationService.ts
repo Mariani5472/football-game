@@ -44,7 +44,7 @@ const MIGRATIONS: WorldMigration[] = [
         addUuidColumn(database, table);
       }
 
-      initializeWorldCompositionSchema(database);
+      initializeWorldCompositionSchema(database.connection);
 
       const packageColumns = database.connection
         .prepare('PRAGMA table_info("world_package")')
