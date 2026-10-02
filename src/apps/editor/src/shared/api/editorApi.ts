@@ -153,6 +153,12 @@ export const editorApi = {
   domainWeatherSeason: (payload: unknown) => request<unknown>("/domain/weather-season", { method: "POST", body: JSON.stringify(payload) }),
   domainNationalityRule: (payload: unknown) => request<unknown>("/domain/nationality-rule", { method: "POST", body: JSON.stringify(payload) }),
   validationProfiles: () => request<{ profiles: Array<{ id: number; name: string; description: string | null; enabled: boolean }> }>("/validation/profiles"),
+  exportWorldDb: (outputPath: string) => request<{
+    metadata: { format: string; packageVersion: string; schemaVersion: number; databaseType: string; fileName: string; sizeBytes: number; sha256: string; exportedAt: string; tableCount: number; rowCount: number };
+    outputPath: string;
+    blocked: boolean;
+    issues: Array<{ severity: "ERROR" | "WARNING"; ruleKey: string; message: string }>;
+  }>("/export/world-db", { method: "POST", body: JSON.stringify({ outputPath }) }),
   runValidation: (profileId?: number) => request<{ issues: Array<{
     id: string; ruleKey: string; severity: "ERROR" | "WARNING" | "INFO"; entityType: string; entityId?: string | number; message: string; details?: string;
   }> }>(`/validation/run${profileId ? `?profile=${profileId}` : ""}`, { method: "POST" }),
