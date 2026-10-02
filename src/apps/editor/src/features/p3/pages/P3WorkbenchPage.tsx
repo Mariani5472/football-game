@@ -171,8 +171,7 @@ export function P3WorkbenchPage() {
             <Field label="Contribuição salarial mensal" type="number" value={transfer.wageContribution} onChange={v => setTransfer({...transfer, wageContribution:v})} />\n            <Field label="Direção da contribuição" value={transfer.wageDirection} onChange={v => setTransfer({...transfer, wageDirection:v})} />
             <Field label="Percentual de revenda" type="number" value={transfer.resale} onChange={v => setTransfer({...transfer, resale:v})} />
             <Field label="Percentual de venda futura" type="number" value={transfer.sale} onChange={v => setTransfer({...transfer, sale:v})} />
-            <button onClick={() => void submit(() => editorApi.create("nationality_method",{name:nationality.ruleType}))} className="rounded-lg border border-white/10 px-4 py-2 text-sm text-slate-300">Salvar método de nacionalidade</button>
-          <div className="rounded-lg border border-white/5 bg-black/10 p-3 text-xs text-slate-500">
+            <div className="rounded-lg border border-white/5 bg-black/10 p-3 text-xs text-slate-500">
               A mesma operação pode conter parcelas, contribuição salarial e cláusulas de revenda/venda.
             </div>
           </Card>
@@ -327,7 +326,6 @@ export function P3WorkbenchPage() {
         <Card title="Regra de nacionalidade e elegibilidade" description="Modele residência, idade, partidas, dupla nacionalidade e tratamento entre nações.">
           <Field label="Nação" value={nationality.nation} onChange={v=>setNationality({...nationality,nation:v})} />
           <Field label="Método de aquisição de nacionalidade" value={nationality.ruleType} onChange={v=>setNationality({...nationality,ruleType:v})} />
-          <Field label="Tipo da regra" value={nationality.ruleType} onChange={v=>setNationality({...nationality,ruleType:v})} />
           <Field label="Valor principal" type="number" value={nationality.value} onChange={v=>setNationality({...nationality,value:v})} />
           <Field label="Nação exigida" value={nationality.requiredNation} onChange={v=>setNationality({...nationality,requiredNation:v})} />
           <Field label="Idade mínima" type="number" value={nationality.minAge} onChange={v=>setNationality({...nationality,minAge:v})} />
@@ -337,6 +335,7 @@ export function P3WorkbenchPage() {
           <Field label="Nação tratada como equivalente" value={nationality.treatmentNation} onChange={v=>setNationality({...nationality,treatmentNation:v})} />
           <Field label="Tipo de tratamento" value={nationality.treatmentType} onChange={v=>setNationality({...nationality,treatmentType:v})} />
           <label className="flex items-center gap-2 text-xs text-slate-400"><input type="checkbox" checked={nationality.cumulative} onChange={e=>setNationality({...nationality,cumulative:e.target.checked})}/> Regra cumulativa</label>
+          <button onClick={() => void submit(() => editorApi.create("nationality_method",{name:nationality.ruleType}))} className="rounded-lg border border-white/10 px-4 py-2 text-sm text-slate-300">Salvar método de nacionalidade</button>
           <button onClick={() => void submit(() => editorApi.domainNationalityRule({nationId:id(nationality.nation)!,ruleType:nationality.ruleType,value:id(nationality.value),requiredNationId:id(nationality.requiredNation),cumulative:nationality.cumulative,eligibility:{minimumAge:id(nationality.minAge),maximumAge:id(nationality.maxAge),yearsRequired:id(nationality.years),matchesRequired:id(nationality.matches)},treatment:nationality.treatmentNation?{targetNationId:id(nationality.treatmentNation)!,treatmentType:nationality.treatmentType,value:id(nationality.treatmentValue)}:undefined}))} className="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-medium text-slate-950">Salvar regra de nacionalidade</button>
         </Card>
       )}
