@@ -4,6 +4,7 @@ import type { ListOptions, SqlKey, SqlRow, SqlValue, TableSchema } from "../data
 import { WorldTemplateService, type TemplateRecord, type TemplateRelationOption } from "./WorldTemplateService.js";
 import { WorldDomainService } from "./WorldDomainService.js";
 import { WorldValidator, type ValidationIssue, type ValidationProfile } from "./WorldValidator.js";
+import { WorldPackageService, type WorldExportResult, type WorldPackageIssue } from "./WorldPackageService.js";
 
 export interface WorldEditorServiceOptions {
   filePath: string;
@@ -15,6 +16,7 @@ export class WorldEditorService {
   private readonly templatesService: WorldTemplateService;
   private readonly domainService: WorldDomainService;
   private readonly validator: WorldValidator;
+  private readonly packageService: WorldPackageService;
 
   constructor(options: WorldEditorServiceOptions) {
     const create = options.createIfMissing ?? false;
@@ -25,6 +27,7 @@ export class WorldEditorService {
     this.templatesService = new WorldTemplateService(this.database);
     this.domainService = new WorldDomainService(this.database);
     this.validator = new WorldValidator(this.database);
+    this.packageService = new WorldPackageService(this.database);
   }
 
   list<T extends SqlRow = SqlRow>(table: string, options?: ListOptions) {
@@ -103,6 +106,14 @@ export class WorldEditorService {
   createClimateProfile(input: Parameters<WorldDomainService["createClimateProfile"]>[0]) { return this.domainService.createClimateProfile(input); }
   createNationalityRule(input: Parameters<WorldDomainService["createNationalityRule"]>[0]) { return this.domainService.createNationalityRule(input); }
   validate(profileId?: number): ValidationIssue[] { return this.validator.validate(profileId); }
+  exportWorld(outputPath: string): WorldExportResult {
+    const validationIssues = this.validator.validate().map(issue => ({
+      severity: issue.severity === "ERROR" ? "ERROR" as const : "WARNING" as const,
+      ruleKey: issue.ruleKey,
+      message: issue.message,
+    } satisfies WorldPackageIssue));
+    return this.packageService.exportWorld(outputPath, validationIssues);
+  }
   validationProfiles(): ValidationProfile[] { return this.validator.profiles(); }
   setValidationProfileEnabled(id: number, enabled: boolean): ValidationProfile { return this.validator.setProfileEnabled(id, enabled); }
   setValidationRuleEnabled(ruleKey: string, enabled: boolean): void { return this.validator.setRuleEnabled(ruleKey, enabled); }
