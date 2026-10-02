@@ -130,6 +130,10 @@ export class WorldEditorService {
       "world_build_status",
       "DIRTY",
     );
+    this.database.setMetadata(
+      "world_dirty_reason",
+      "DIRECT_EDIT",
+    );
 
     return result;
   }
@@ -152,6 +156,10 @@ export class WorldEditorService {
     this.database.setMetadata(
       "world_build_status",
       "DIRTY",
+    );
+    this.database.setMetadata(
+      "world_dirty_reason",
+      "DIRECT_EDIT",
     );
 
     return result;
@@ -492,6 +500,10 @@ export class WorldEditorService {
     this.database.setMetadata(
       "world_build_status",
       "DIRTY",
+    );
+    this.database.setMetadata(
+      "world_dirty_reason",
+      "DIRECT_EDIT",
     );
 
     return this.worldSettings();
