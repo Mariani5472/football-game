@@ -130,4 +130,39 @@ export class WorldDatabase extends Database {
   }
 }
 
+export type { ListOptions, ListResult, SqlRow, SqlValue } from "../Database.js";  private initializeEditorTemplates(): void {
+    this.execute(`
+      CREATE TABLE IF NOT EXISTS editor_template (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL UNIQUE,
+        root_table TEXT NOT NULL,
+        source_key TEXT NOT NULL,
+        relations_json TEXT NOT NULL,
+        snapshot_json TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      )
+    `);
+  }
+
+  private initialize(): void {
+    const schemaPath = path.resolve(
+      process.cwd(),
+      "src/schemas/world/world_schema_v2.sql",
+    );
+
+    const runner = new SchemaRunner(this);
+    runner.run(schemaPath);
+    runner.initializeMetadata({
+      schemaVersion: WorldMigrationService.currentVersion,
+      databaseType: "world",
+    });
+    this.setMetadata("package_version", "0.3.0");
+    this.setMetadata("schema_id", "world-v3");
+    this.setMetadata("world_name", "New World");
+    this.setMetadata("world_year", String(new Date().getFullYear()));
+    this.setMetadata("world_created_at", new Date().toISOString());
+  }
+}
+
 export type { ListOptions, ListResult, SqlRow, SqlValue } from "../Database.js";
