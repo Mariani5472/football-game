@@ -1,5 +1,9 @@
+import crypto from "node:crypto";
+
+import { initializeWorldCompositionSchema } from "./WorldCompositionSchema.js";
 import { WorldDatabase } from "./WorldDatabase.js";
 
+export const WORLD_BASE_SCHEMA_VERSION = 2;
 export const WORLD_SCHEMA_VERSION = 3;
 
 export interface WorldMigration {
@@ -9,72 +13,134 @@ export interface WorldMigration {
   migrate: (database: WorldDatabase) => void;
 }
 
+const IDENTITY_TABLES = [
+  "federation",
+  "continent",
+  "continent_region",
+  "currency",
+  "language_family",
+  "language_group",
+  "language_subgroup",
+  "language",
+  "nation",
+  "nation_region",
+  "city",
+  "team",
+  "stadium",
+  "competition",
+  "person",
+] as const;
+
 const MIGRATIONS: WorldMigration[] = [
   {
     from: 2,
     to: 3,
     name: "p5-world-composition",
     migrate: database => {
-      const personColumns = database.connection
-        .prepare(`PRAGMA table_info("person")`)
-        .all() as Array<{ name: string }>;
+      ensureLegacyPackageRegistry(database);
 
-      if (!personColumns.some(column => column.name === "uuid")) {
-        database.connection.exec('ALTER TABLE person ADD COLUMN uuid TEXT');
+      for (const table of IDENTITY_TABLES) {
+        addUuidColumn(database, table);
       }
 
-      database.connection.exec(`
-        UPDATE person
-        SET uuid = lower(hex(randomblob(16)))
-        WHERE uuid IS NULL OR uuid = '';
-      `);
+      initializeWorldCompositionSchema(database);
 
-      database.connection.exec(`
-        CREATE UNIQUE INDEX IF NOT EXISTS ux_person_uuid ON person(uuid);
-      `);
+      const packageColumns = database.connection
+        .prepare('PRAGMA table_info("world_package")')
+        .all() as Array<{ name: string }>;
 
-      const packageColumns = database.connection.prepare(`PRAGMA table_info("world_package")`).all() as Array<{ name:string }>;
-      const add = (column:string, sql:string) => {
-        if (!packageColumns.some(item => item.name === column)) {
-          database.connection.exec(`ALTER TABLE world_package ADD COLUMN ${sql}`);
-        }
-      };
-      add("package_type", "package_type TEXT NOT NULL DEFAULT 'CONTENT'");
-      add("priority", "priority INTEGER NOT NULL DEFAULT 100");
-      add("installed_at", "installed_at TEXT");
-      add("enabled", "enabled INTEGER NOT NULL DEFAULT 1");
-      database.connection.exec(`
-        UPDATE world_package
-        SET installed_at = COALESCE(installed_at, imported_at, datetime('now'))
-        WHERE installed_at IS NULL;
-      `);
-      database.connection.exec(`CREATE TABLE IF NOT EXISTS world_package_load_order (
-        package_id INTEGER PRIMARY KEY,
-        load_order INTEGER NOT NULL UNIQUE,
-        FOREIGN KEY (package_id) REFERENCES world_package(id) ON DELETE CASCADE
-      )`);
-      database.connection.exec(`CREATE TABLE IF NOT EXISTS world_package_provides (
-        package_id INTEGER NOT NULL,
-        provide_key TEXT NOT NULL,
-        PRIMARY KEY(package_id, provide_key),
-        FOREIGN KEY(package_id) REFERENCES world_package(id) ON DELETE CASCADE
-      )`);
-      database.connection.exec(`CREATE TABLE IF NOT EXISTS world_package_dependency (
-        package_id INTEGER NOT NULL,
-        dependency_key TEXT NOT NULL,
-        min_version TEXT,
-        PRIMARY KEY(package_id, dependency_key),
-        FOREIGN KEY(package_id) REFERENCES world_package(id) ON DELETE CASCADE
-      )`);
-      database.connection.exec(`CREATE TABLE IF NOT EXISTS world_package_conflict (
-        package_id INTEGER NOT NULL,
-        conflict_key TEXT NOT NULL,
-        PRIMARY KEY(package_id, conflict_key),
-        FOREIGN KEY(package_id) REFERENCES world_package(id) ON DELETE CASCADE
-      )`);
+      addColumnIfMissing(
+        database,
+        packageColumns,
+        "package_type",
+        "package_type TEXT NOT NULL DEFAULT 'CONTENT'",
+      );
+      addColumnIfMissing(
+        database,
+        packageColumns,
+        "priority",
+        "priority INTEGER NOT NULL DEFAULT 100",
+      );
+      addColumnIfMissing(
+        database,
+        packageColumns,
+        "installed_at",
+        "installed_at TEXT",
+      );
+      addColumnIfMissing(
+        database,
+        packageColumns,
+        "enabled",
+        "enabled INTEGER NOT NULL DEFAULT 1",
+      );
+
+      database.connection.exec(
+        "UPDATE world_package SET installed_at = COALESCE(installed_at, imported_at, datetime('now')) WHERE installed_at IS NULL",
+      );
+
+      database.connection.exec(
+        "CREATE INDEX IF NOT EXISTS idx_world_package_enabled ON world_package(enabled, priority)",
+      );
     },
   },
 ];
+
+function ensureLegacyPackageRegistry(database: WorldDatabase): void {
+  database.connection.exec(
+    `CREATE TABLE IF NOT EXISTS world_package (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      package_key TEXT NOT NULL UNIQUE,
+      name TEXT NOT NULL,
+      version TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE', 'CONFLICT', 'ERROR')),
+      icon TEXT,
+      source_file TEXT,
+      source_sha256 TEXT,
+      categories_json TEXT NOT NULL DEFAULT '[]',
+      description TEXT,
+      schema_version INTEGER NOT NULL,
+      imported_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )`,
+  );
+}
+
+function addUuidColumn(database: WorldDatabase, table: string): void {
+  const columns = database.connection
+    .prepare('PRAGMA table_info("' + table + '")')
+    .all() as Array<{ name: string }>;
+
+  if (!columns.some(column => column.name === "uuid")) {
+    database.connection.exec('ALTER TABLE "' + table + '" ADD COLUMN uuid TEXT');
+  }
+
+  const missing = database.connection
+    .prepare('SELECT rowid FROM "' + table + '" WHERE uuid IS NULL OR uuid = ""')
+    .all() as Array<{ rowid: number }>;
+
+  const update = database.connection.prepare(
+    'UPDATE "' + table + '" SET uuid = ? WHERE rowid = ?',
+  );
+
+  for (const row of missing) {
+    update.run(crypto.randomUUID(), row.rowid);
+  }
+
+  database.connection.exec(
+    'CREATE UNIQUE INDEX IF NOT EXISTS "ux_' + table + '_uuid" ON "' + table + '"(uuid)',
+  );
+}
+
+function addColumnIfMissing(
+  database: WorldDatabase,
+  currentColumns: Array<{ name: string }>,
+  name: string,
+  definition: string,
+): void {
+  if (!currentColumns.some(column => column.name === name)) {
+    database.connection.exec("ALTER TABLE world_package ADD COLUMN " + definition);
+  }
+}
 
 export class WorldMigrationService {
   static readonly currentVersion = WORLD_SCHEMA_VERSION;
@@ -89,7 +155,9 @@ export class WorldMigrationService {
 
     if (version == null) {
       throw new Error(
-        `Unsupported world database: schema version metadata is missing. Supported version: v${this.currentVersion}.`,
+        "Unsupported world database: schema version metadata is missing. Supported version: v" +
+          this.currentVersion +
+          ".",
       );
     }
 
@@ -99,7 +167,11 @@ export class WorldMigrationService {
 
     if (version > this.currentVersion) {
       throw new Error(
-        `World database schema v${version} is newer than supported v${this.currentVersion}.`,
+        "World database schema v" +
+          version +
+          " is newer than supported v" +
+          this.currentVersion +
+          ".",
       );
     }
 
@@ -110,7 +182,11 @@ export class WorldMigrationService {
 
       if (!migration) {
         throw new Error(
-          `World database schema v${current} is incompatible. No migration to v${this.currentVersion} is registered.`,
+          "World database schema v" +
+            current +
+            " is incompatible. No migration to v" +
+            this.currentVersion +
+            " is registered.",
         );
       }
 
