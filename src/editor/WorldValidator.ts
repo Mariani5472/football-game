@@ -206,9 +206,11 @@ export class WorldValidator {
       `SELECT stage.id, stage.name
        FROM competition_stage stage
        LEFT JOIN stage_participant_rule participant ON participant.stage_id = stage.id
+       LEFT JOIN stage_participant_source source ON source.stage_id = stage.id
        LEFT JOIN stage_format format ON format.stage_id = stage.id
        GROUP BY stage.id
-       HAVING COUNT(DISTINCT participant.id) = 0 OR COUNT(DISTINCT format.stage_id) = 0`,
+       HAVING (COUNT(DISTINCT participant.id) = 0 AND COUNT(DISTINCT source.id) = 0)
+          OR COUNT(DISTINCT format.stage_id) = 0`,
     ).all() as Array<{ id: number; name: string }>;
     for (const row of rows) issues.push(this.issue(
       "stage-configuration", "ERROR", "competition_stage", row.id,
