@@ -8,6 +8,7 @@ import { PeoplePage } from "../features/people/pages";
 import { PlayersPage } from "../features/players/pages";
 import { TeamsPage } from "../features/teams/pages";
 import { TemplatesPage } from "../features/templates/pages/TemplatesPage";
+import { QuickCreateModal } from "../features/quick-create";
 import { StadiumsPage } from "../features/stadiums/pages";
 import {
   CitiesPage,
