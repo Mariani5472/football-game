@@ -11,6 +11,7 @@ import {
 } from "../Database.js";
 import { SchemaRunner } from "../SchemaRunner.js";
 import { WorldMigrationService } from "./WorldMigrationService.js";
+import { initializeWorldCompositionSchema } from "./WorldCompositionSchema.js";
 
 export interface WorldListOptions extends ListOptions {
   searchColumns?: string[];
@@ -121,8 +122,8 @@ export class WorldDatabase extends Database {
       schemaVersion: WorldMigrationService.currentVersion,
       databaseType: "world",
     });
-    this.setMetadata("package_version", "0.2.0");
-    this.setMetadata("schema_id", "world-v2");
+    this.setMetadata("package_version", "0.3.0");
+    this.setMetadata("schema_id", "world-v3");
     this.setMetadata("world_name", "New World");
     this.setMetadata("world_year", String(new Date().getFullYear()));
     this.setMetadata("world_created_at", new Date().toISOString());
