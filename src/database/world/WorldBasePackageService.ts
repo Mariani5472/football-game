@@ -361,7 +361,6 @@ export class WorldBasePackageService {
         "nation",
         "nation_region",
         "city",
-        "climate",
         "gender",
         "weekday",
         "nationality_method",
