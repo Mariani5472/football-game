@@ -51,8 +51,8 @@ export function P3WorkbenchPage() {
 
   const [transfer, setTransfer] = useState({
     player: "", origin: "", destination: "", type: "", status: "", window: "", date: "", fee: "", currency: "",
-    permanent: true, loan: false, installment: false, installmentAmount: "", installmentPeriods: "", interval: "",
-    wageContribution: "", resale: "", sale: "",
+    permanent: true, loan: false, installment: false, installmentAmount: "", installmentPeriods: "", interval: "", installmentDirection: "",
+    wageContribution: "", wageDirection: "", resale: "", sale: "",
   });
   const [contract, setContract] = useState({
     person: "", club: "", employment: "", start: "", end: "", type: "", salary: "", squad: "", clauseType: "", clauseValue: "", clausePercentage: "",
@@ -140,13 +140,25 @@ export function P3WorkbenchPage() {
               transferTypeId:id(transfer.type), transferStatusId:id(transfer.status), transferWindowId:id(transfer.window),
               transferDate:transfer.date || undefined, fee:id(transfer.fee), currencyId:id(transfer.currency), permanent:transfer.permanent,
               loan:transfer.loan ? {} : undefined,
+              installments: transfer.installmentAmount && transfer.installmentPeriods && transfer.interval
+                ? [{ directionId:id(transfer.installmentDirection)!, amountPerPeriod:Number(transfer.installmentAmount), numberOfPeriods:Number(transfer.installmentPeriods), intervalId:id(transfer.interval)! }]
+                : undefined,
+              wageContribution: transfer.wageContribution
+                ? { directionId:id(transfer.wageDirection)!, salary:Number(transfer.wageContribution) }
+                : undefined,
+              resaleClause: transfer.resale
+                ? { targetClubFinanceId:id(transfer.destination)!, percentage:Number(transfer.resale) }
+                : undefined,
+              saleClause: transfer.sale
+                ? { targetClubFinanceId:id(transfer.destination)!, percentage:Number(transfer.sale) }
+                : undefined,
             }))} className="mt-2 rounded-lg bg-emerald-500 px-4 py-2 text-sm font-medium text-slate-950">Registrar transferência</button>
           </Card>
           <Card title="Condições financeiras" description="Parcelas, participação salarial e cláusulas são gravadas junto com a operação.">
             <Field label="Valor por parcela" type="number" value={transfer.installmentAmount} onChange={v => setTransfer({...transfer, installmentAmount:v})} />
             <Field label="Número de parcelas" type="number" value={transfer.installmentPeriods} onChange={v => setTransfer({...transfer, installmentPeriods:v})} />
-            <Field label="Intervalo de pagamento" value={transfer.interval} onChange={v => setTransfer({...transfer, interval:v})} />
-            <Field label="Contribuição salarial mensal" type="number" value={transfer.wageContribution} onChange={v => setTransfer({...transfer, wageContribution:v})} />
+            <Field label="Intervalo de pagamento" value={transfer.interval} onChange={v => setTransfer({...transfer, interval:v})} />\n            <Field label="Direção do pagamento" value={transfer.installmentDirection} onChange={v => setTransfer({...transfer, installmentDirection:v})} />
+            <Field label="Contribuição salarial mensal" type="number" value={transfer.wageContribution} onChange={v => setTransfer({...transfer, wageContribution:v})} />\n            <Field label="Direção da contribuição" value={transfer.wageDirection} onChange={v => setTransfer({...transfer, wageDirection:v})} />
             <Field label="Percentual de revenda" type="number" value={transfer.resale} onChange={v => setTransfer({...transfer, resale:v})} />
             <Field label="Percentual de venda futura" type="number" value={transfer.sale} onChange={v => setTransfer({...transfer, sale:v})} />
             <div className="rounded-lg border border-white/5 bg-black/10 p-3 text-xs text-slate-500">
