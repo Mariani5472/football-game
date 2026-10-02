@@ -534,6 +534,12 @@ export class WorldDomainService {
           treatment_type: input.treatment.treatmentType,
           value: input.treatment.value,
         });
+
+        if (input.treatment.treatmentType.toUpperCase() === "NATIVE") {
+          this.database.connection.prepare(
+            "INSERT OR IGNORE INTO nation_native_treatment (root_nation_id, target_nation_id) VALUES (?, ?)",
+          ).run(input.nationId, input.treatment.targetNationId);
+        }
       }
 
       return rule;
