@@ -15,6 +15,7 @@ import {
   Wrench,
   Plus,
   Copy,
+  ArrowRightLeft,
 } from "lucide-react";
 
 import type { EditorRoute } from "../../app/routes";
@@ -57,6 +58,7 @@ const tacticsItems: NavItem[] = [
 ];
 
 const toolItems: NavItem[] = [
+  { id: "rules", label: "Transfers / Finance / Rules", icon: ArrowRightLeft },
   { id: "templates", label: "Templates", icon: Copy },
   { id: "fast-start", label: "Fast Start", icon: CircleDot },
   { id: "validation", label: "Validation", icon: CheckCircle2 },
