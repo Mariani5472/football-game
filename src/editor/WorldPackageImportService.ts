@@ -11,6 +11,12 @@ import {
   generateUuid,
   identityPolicy,
 } from "../database/world/WorldIdentity.js";
+import {
+  type PackageIdentityIssue,
+  comparePackageVersions,
+  normalizePackageIdentity,
+  validatePackageIdentity,
+} from "./WorldPackageIdentityService.js";
 
 export type ConflictPolicy =
   | "REPLACE"
@@ -37,6 +43,8 @@ export interface ImportPreview {
   sessionId: number;
   packageKey: string;
   status: string;
+  identityUpdate?: boolean;
+  identityIssues?: PackageIdentityIssue[];
   tables: number;
   rows: number;
   newRows: number;
@@ -130,6 +138,15 @@ interface ImportRuntime {
   alias: string;
 }
 
+class PackageIdentityValidationError extends Error {
+  constructor(readonly issues: PackageIdentityIssue[]) {
+    super(
+      issues.map(issue => issue.message).join(" "),
+    );
+    this.name = "PackageIdentityValidationError";
+  }
+}
+
 class UnresolvedForeignKeyError extends Error {
   constructor(
     readonly tableName: string,
@@ -159,6 +176,7 @@ const INTERNAL_TABLES = new Set([
   "world_package_provides",
   "world_package_dependency",
   "world_package_conflict",
+  "world_package_version_history",
   "world_entity_identity",
   "world_entity_provenance",
   "world_attribute_provenance",
@@ -191,7 +209,7 @@ export class WorldPackageImportService {
 
     try {
       const manifest = this.readManifest(alias);
-      this.validateManifest(manifest);
+      this.validateManifest(manifest, sourceSha256);
 
       const packageId = this.ensurePackage(
         manifest,
@@ -558,7 +576,7 @@ export class WorldPackageImportService {
         );
       }
 
-      this.validateManifest(pkg.manifest);
+      this.validateManifest(pkg.manifest, pkg.sourceSha256);
     }
 
     const runtimes = packages.map(pkg => ({
@@ -2638,6 +2656,7 @@ export class WorldPackageImportService {
 
   private validateManifest(
     manifest: PackageManifest,
+    sourceSha256?: string,
   ): void {
     if (!manifest.packageKey?.trim()) {
       throw new Error(
@@ -2658,14 +2677,10 @@ export class WorldPackageImportService {
     }
 
     const worldSchema = Number(
-      this.world.metadata("schema_version") ??
-        0,
+      this.world.metadata("schema_version") ?? 0,
     );
 
-    if (
-      Number(manifest.schemaVersion) !==
-      worldSchema
-    ) {
+    if (Number(manifest.schemaVersion) !== worldSchema) {
       throw new Error(
         "Package schema v" +
           manifest.schemaVersion +
@@ -2675,138 +2690,21 @@ export class WorldPackageImportService {
       );
     }
 
-    const priority = Number(
-      manifest.priority ?? 100,
-    );
+    const priority = Number(manifest.priority ?? 100);
     if (!Number.isFinite(priority)) {
-      throw new Error(
-        "Package priority must be numeric.",
+      throw new Error("Package priority must be numeric.");
+    }
+
+    const identity = validatePackageIdentity(
+      this.world,
+      manifest,
+      sourceSha256 ?? "",
+    );
+
+    if (identity.issues.length > 0) {
+      throw new PackageIdentityValidationError(
+        identity.issues,
       );
-    }
-
-    const installed = this.world.connection
-      .prepare(
-        "SELECT id,package_key AS packageKey,version,enabled FROM world_package",
-      )
-      .all() as Array<{
-      id: number;
-      packageKey: string;
-      version: string;
-      enabled: number;
-    }>;
-
-    const ownId =
-      installed.find(
-        item =>
-          item.packageKey ===
-          manifest.packageKey,
-      )?.id ?? null;
-
-    for (const dependency of
-      manifest.dependencies ?? []) {
-      const candidate = installed.find(
-        item =>
-          item.enabled === 1 &&
-          item.packageKey ===
-            dependency.key,
-      );
-
-      if (!candidate) {
-        const provider = this.world.connection
-          .prepare(
-            `SELECT 1
-             FROM world_package_provides pr
-             JOIN world_package p ON p.id=pr.package_id
-             WHERE p.enabled=1
-               AND pr.provide_key=?
-             LIMIT 1`,
-          )
-          .get(dependency.key);
-
-        if (!provider) {
-          throw new Error(
-            "Missing package dependency: " +
-              dependency.key,
-          );
-        }
-      } else if (
-        dependency.minVersion &&
-        compareVersions(
-          candidate.version,
-          dependency.minVersion,
-        ) < 0
-      ) {
-        throw new Error(
-          "Package " +
-            manifest.packageKey +
-            " requires " +
-            dependency.key +
-            " >= " +
-            dependency.minVersion +
-            ", but " +
-            candidate.version +
-            " is installed.",
-        );
-      }
-    }
-
-    for (const conflictKey of
-      manifest.conflicts ?? []) {
-      const conflict = this.world.connection
-        .prepare(
-          `SELECT 1
-           FROM world_package p
-           LEFT JOIN world_package_provides pr
-             ON pr.package_id=p.id
-           WHERE p.enabled=1
-             AND p.id<>?
-             AND (
-               p.package_key=?
-               OR pr.provide_key=?
-             )
-           LIMIT 1`,
-        )
-        .get(
-          ownId ?? -1,
-          conflictKey,
-          conflictKey,
-        );
-
-      if (conflict) {
-        throw new Error(
-          "Package conflict detected: " +
-            manifest.packageKey +
-            " conflicts with " +
-            conflictKey +
-            ".",
-        );
-      }
-    }
-
-    for (const provide of
-      manifest.provides ?? []) {
-      const duplicateProvider =
-        this.world.connection
-          .prepare(
-            `SELECT 1
-             FROM world_package_provides pr
-             JOIN world_package p ON p.id=pr.package_id
-             WHERE p.enabled=1
-               AND p.id<>?
-               AND pr.provide_key=?
-             LIMIT 1`,
-          )
-          .get(
-            ownId ?? -1,
-            provide,
-          );
-
-      if (duplicateProvider) {
-        throw new Error(
-          "Logical package scope already provided by another enabled package: " +
-            provide,
-        );
-      }
     }
   }
 
