@@ -136,6 +136,23 @@ export const editorApi = {
     ),
   deleteTemplate: (id: number) =>
     request<{ deleted: boolean }>("/templates/" + id, { method: "DELETE" }),
+  domainTransfer: (payload: unknown) => request<unknown>("/domain/transfer", { method: "POST", body: JSON.stringify(payload) }),
+  domainContract: (payload: unknown) => request<unknown>("/domain/contract", { method: "POST", body: JSON.stringify(payload) }),
+  domainFinance: (payload: unknown) => request<unknown>("/domain/finance", { method: "POST", body: JSON.stringify(payload) }),
+  domainHistory: (payload: unknown) => request<unknown>("/domain/history", { method: "POST", body: JSON.stringify(payload) }),
+  domainAwardHistory: (payload: unknown) => request<unknown>("/domain/award-history", { method: "POST", body: JSON.stringify(payload) }),
+  domainPressSource: (payload: unknown) => request<unknown>("/domain/press-source", { method: "POST", body: JSON.stringify(payload) }),
+  domainClimateProfile: (payload: unknown) => request<unknown>("/domain/climate-profile", { method: "POST", body: JSON.stringify(payload) }),
+  domainNationalityRule: (payload: unknown) => request<unknown>("/domain/nationality-rule", { method: "POST", body: JSON.stringify(payload) }),
+  validationProfiles: () => request<{ profiles: Array<{ id: number; name: string; description: string | null; enabled: boolean }> }>("/validation/profiles"),
+  runValidation: (profileId?: number) => request<{ issues: Array<{
+    id: string; ruleKey: string; severity: "ERROR" | "WARNING" | "INFO"; entityType: string; entityId?: string | number; message: string; details?: string;
+  }> }>(`/validation/run${profileId ? `?profile=${profileId}` : ""}`, { method: "POST" }),
+  setValidationProfileEnabled: (id: number, enabled: boolean) =>
+    request<{ id: number; name: string; description: string | null; enabled: boolean }>(`/validation/profiles/${id}`, { method: "PATCH", body: JSON.stringify({ enabled }) }),
+  setValidationRuleEnabled: (ruleKey: string, enabled: boolean) =>
+    request<{ ok: boolean }>(`/validation/rules/${encodeURIComponent(ruleKey)}`, { method: "PATCH", body: JSON.stringify({ enabled }) }),
+
   remove: (table: string, id: EntityKey) =>
     request<{ deleted: boolean }>(
       "/entities/" +
