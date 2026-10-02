@@ -362,6 +362,15 @@ export class WorldBasePackageService {
         "nation_region",
         "city",
         "climate",
+        "gender",
+        "weekday",
+        "nationality_method",
+        "nation_development_state",
+        "club_status",
+        "competition_type",
+        "competition_stage_type",
+        "pitch_type",
+        "stadium_owner_type",
       ]);
 
       const metadata = db.prepare(
