@@ -1,4 +1,4 @@
-const API_BASE = import.meta.env.VITE_EDITOR_API_BASE ?? "http://localhost:4179/api";
+const API_BASE = import.meta.env.VITE_EDITOR_API_BASE ?? "/api";
 
 export type Scalar = string | number | boolean | null;
 export type EntityRow = Record<string, Scalar>;
