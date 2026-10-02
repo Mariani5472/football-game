@@ -169,7 +169,7 @@ export function PackageManagerPanel({
                   setSelectedFile(null);
                   setSourceFile(event.target.value);
                 }}
-                placeholder="C:\\packages\\brazil.db"
+                placeholder="edit\data\package.db"
                 className="min-w-0 flex-1 rounded-lg border border-white/10 bg-black/10 px-3 py-2.5 font-mono text-xs text-slate-200 outline-none placeholder:text-slate-700 focus:border-emerald-400/30"
               />
               <label className="inline-flex cursor-pointer items-center rounded-lg border border-white/10 bg-white/[0.04] px-4 py-2.5 text-sm font-medium text-slate-200 hover:bg-white/[0.07]">
