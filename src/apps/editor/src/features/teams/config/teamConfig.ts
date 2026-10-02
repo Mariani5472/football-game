@@ -658,4 +658,5 @@ export const teamDomainConfigs = {
   regionalCompetition: regionalCompetitionConfig,
   expectation: expectationConfig,
   coefficient: coefficientConfig,
+  tacticalProfile: tacticalProfileConfig,
 } as const;
