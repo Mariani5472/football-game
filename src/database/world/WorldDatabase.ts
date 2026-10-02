@@ -10,7 +10,11 @@ import {
   type SqlValue,
 } from "../Database.js";
 import { SchemaRunner } from "../SchemaRunner.js";
-import { WorldMigrationService } from "./WorldMigrationService.js";
+import {
+  WORLD_BASE_SCHEMA_VERSION,
+  WorldMigrationService,
+} from "./WorldMigrationService.js";
+import { initializeWorldCompositionSchema } from "./WorldCompositionSchema.js";
 
 export interface WorldListOptions extends ListOptions {
   searchColumns?: string[];
@@ -27,20 +31,23 @@ export class WorldDatabase extends Database {
 
     const database = new WorldDatabase(new DatabaseConnection(filePath));
     database.initialize();
+    WorldMigrationService.ensureCompatible(database);
     database.initializeEditorTemplates();
-    database.initializeEditorWorkspace();
+    database.initializeWorldComposition();
+    database.ensureEditorMetadata();
     return database;
   }
 
   static open(filePath: string): WorldDatabase {
     if (!fs.existsSync(filePath)) {
-      throw new Error(`Database não encontrada: ${filePath}`);
+      throw new Error("Database não encontrada: " + filePath);
     }
 
     const database = new WorldDatabase(new DatabaseConnection(filePath));
     WorldMigrationService.ensureCompatible(database);
     database.initializeEditorTemplates();
-    database.initializeEditorWorkspace();
+    database.initializeWorldComposition();
+    database.ensureEditorMetadata();
     return database;
   }
 
@@ -70,29 +77,13 @@ export class WorldDatabase extends Database {
     return this.delete(table, id);
   }
 
-  private initializeEditorWorkspace(): void {
-    this.execute(`
-      CREATE TABLE IF NOT EXISTS world_package (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        package_key TEXT NOT NULL UNIQUE,
-        name TEXT NOT NULL,
-        version TEXT NOT NULL,
-        status TEXT NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE', 'CONFLICT', 'ERROR')),
-        icon TEXT,
-        source_file TEXT,
-        source_sha256 TEXT,
-        categories_json TEXT NOT NULL DEFAULT '[]',
-        description TEXT,
-        schema_version INTEGER NOT NULL,
-        imported_at TEXT NOT NULL,
-        updated_at TEXT NOT NULL
-      )
-    `);
+  private initializeWorldComposition(): void {
+    initializeWorldCompositionSchema(this.connection);
   }
 
   private initializeEditorTemplates(): void {
-    this.execute(`
-      CREATE TABLE IF NOT EXISTS editor_template (
+    this.execute(
+      `CREATE TABLE IF NOT EXISTS editor_template (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT NOT NULL UNIQUE,
         root_table TEXT NOT NULL,
@@ -101,8 +92,41 @@ export class WorldDatabase extends Database {
         snapshot_json TEXT NOT NULL,
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL
-      )
-    `);
+      )`,
+    );
+  }
+
+  private ensureEditorMetadata(): void {
+    const packageVersion = this.metadata("package_version");
+    const schemaId = this.metadata("schema_id");
+
+    if (packageVersion == null) {
+      this.setMetadata("package_version", "0.3.0");
+    }
+
+    if (schemaId == null) {
+      this.setMetadata("schema_id", "world-v3");
+    }
+
+    if (this.metadata("world_name") == null) {
+      this.setMetadata("world_name", "New World");
+    }
+
+    if (this.metadata("world_year") == null) {
+      this.setMetadata("world_year", String(new Date().getFullYear()));
+    }
+
+    if (this.metadata("world_created_at") == null) {
+      this.setMetadata("world_created_at", new Date().toISOString());
+    }
+
+    if (this.metadata("world_build_status") == null) {
+      this.setMetadata("world_build_status", "DIRTY");
+    }
+
+    if (this.metadata("world_dirty_reason") == null) {
+      this.setMetadata("world_dirty_reason", "INITIAL");
+    }
   }
 
   private initialize(): void {
@@ -114,14 +138,9 @@ export class WorldDatabase extends Database {
     const runner = new SchemaRunner(this);
     runner.run(schemaPath);
     runner.initializeMetadata({
-      schemaVersion: WorldMigrationService.currentVersion,
+      schemaVersion: WORLD_BASE_SCHEMA_VERSION,
       databaseType: "world",
     });
-    this.setMetadata("package_version", "0.2.0");
-    this.setMetadata("schema_id", "world-v2");
-    this.setMetadata("world_name", "New World");
-    this.setMetadata("world_year", String(new Date().getFullYear()));
-    this.setMetadata("world_created_at", new Date().toISOString());
   }
 }
 

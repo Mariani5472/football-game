@@ -14,12 +14,60 @@ export interface ListOptions {
 }
 
 
+export interface WorldBuildStatus {
+  status: "VALID" | "INVALID" | "DIRTY" | "UNKNOWN";
+  lastBuildAt: string | null;
+  unresolvedConflicts: number;
+  enabledPackages: number;
+}
+
+export interface ImportConflict {
+  id: number;
+  packageId: number;
+  tableName: string;
+  incomingKey: string;
+  incomingId: number | null;
+  worldKey: string | null;
+  worldId: number | null;
+  conflictType: string;
+  columnName: string | null;
+  existingValue: string | null;
+  incomingValue: string | null;
+  resolution: "REPLACE" | "MERGE" | "KEEP_EXISTING" | "KEEP_INCOMING" | "MANUAL";
+  resolved: boolean;
+}
+
+export interface ImportPreview {
+  sessionId: number;
+  packageKey: string;
+  status: string;
+  tables: number;
+  rows: number;
+  newRows: number;
+  existingRows: number;
+  conflicts: number;
+  message: string;
+}
+
+export interface ImportSession {
+  id: number;
+  status: string;
+  packageId: number;
+  packageKey: string;
+  sourceFile: string;
+  sourceSha256: string;
+  startedAt: string;
+  completedAt: string | null;
+  errorMessage: string | null;
+  summary: Record<string, unknown>;
+}
+
 export interface WorldPackageRecord {
   id: number;
   packageKey: string;
   name: string;
   version: string;
-  status: "ACTIVE" | "CONFLICT" | "ERROR";
+  status: "ACTIVE" | "CONFLICT" | "ERROR" | "DISABLED";
   icon: string | null;
   sourceFile: string | null;
   sourceSha256: string | null;
@@ -28,6 +76,13 @@ export interface WorldPackageRecord {
   schemaVersion: number;
   importedAt: string;
   updatedAt: string;
+  packageType: string;
+  priority: number;
+  enabled: boolean;
+  loadOrder: number | null;
+  provides: string[];
+  dependencies: Array<{ key: string; minVersion: string | null }>;
+  conflicts: string[];
 }
 
 export interface WorldDashboard {
@@ -40,6 +95,7 @@ export interface WorldDashboard {
     lastSavedAt: string | null;
     databasePath: string;
   };
+  build: WorldBuildStatus;
   packages: WorldPackageRecord[];
 }
 
@@ -106,11 +162,60 @@ function queryString(options: ListOptions): string {
 
 export const editorApi = {
   world: () => request<WorldDashboard>("/world"),
+  worldBuild: () => request<WorldBuildStatus>("/world/build"),
   worldSettings: () => request<{ name: string; year: number }>("/world/settings"),
   updateWorldSettings: (payload: { name: string; year: number }) => request<{ name: string; year: number }>("/world/settings", { method: "PATCH", body: JSON.stringify(payload) }),
   packages: () => request<{ packages: WorldPackageRecord[] }>("/world/packages"),
-  registerPackage: (payload: { packageKey: string; name: string; version?: string; status?: "ACTIVE" | "CONFLICT" | "ERROR"; icon?: string | null; sourceFile?: string | null; sourceSha256?: string | null; categories?: string[]; description?: string | null }) => request<WorldPackageRecord>("/world/packages", { method: "POST", body: JSON.stringify(payload) }),
+  registerPackage: (payload: {
+    packageKey: string;
+    name: string;
+    version?: string;
+    packageType?: string;
+    priority?: number;
+    status?: "ACTIVE" | "CONFLICT" | "ERROR" | "DISABLED";
+    icon?: string | null;
+    sourceFile?: string | null;
+    sourceSha256?: string | null;
+    categories?: string[];
+    description?: string | null;
+    provides?: string[];
+    dependencies?: Array<{ key: string; minVersion?: string | null }>;
+    conflicts?: string[];
+  }) =>
+    request<WorldPackageRecord>(
+      "/world/packages",
+      { method: "POST", body: JSON.stringify(payload) },
+    ),
   removePackage: (id: number) => request<{ deleted: boolean }>(`/world/packages/${id}`, { method: "DELETE" }),
+  updatePackage: (id: number, payload: { enabled?: boolean; priority?: number; loadOrder?: number }) =>
+    request<WorldPackageRecord>(`/world/packages/${id}`, { method: "PATCH", body: JSON.stringify(payload) }),
+  inspectPackage: (sourceFile: string) =>
+    request<ImportPreview>(
+      "/world/packages/inspect",
+      { method: "POST", body: JSON.stringify({ sourceFile }) },
+    ),
+  importPackage: (
+    sessionId: number,
+    resolutions: Record<
+      string,
+      "REPLACE" | "MERGE" | "KEEP_EXISTING" | "KEEP_INCOMING" | "MANUAL"
+    > = {},
+  ) =>
+    request<ImportPreview>(
+      "/world/packages/import",
+      {
+        method: "POST",
+        body: JSON.stringify({ sessionId, resolutions }),
+      },
+    ),
+  importSession: (id: number) =>
+    request<ImportSession>(`/world-import-sessions/${id}`),
+  importConflicts: (id: number) =>
+    request<{ conflicts: ImportConflict[] }>(`/world-import-sessions/${id}/conflicts`),
+  rebuildWorld: () =>
+    request<{ status: "COMPLETED"; packages: number; rows: number; sessions: number; message: string }>(
+      "/world/rebuild", { method: "POST" }
+    ),
   health: () => request<{ ok: boolean; databasePath: string; exists: boolean }>("/health"),
   tables: () => request<{ tables: string[] }>("/tables"),
   schema: (table: string) => request<unknown>("/schema/" + encodeURIComponent(table)),
