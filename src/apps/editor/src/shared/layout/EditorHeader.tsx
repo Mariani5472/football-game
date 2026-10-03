@@ -9,6 +9,7 @@ const routeTitles: Record<EditorRoute, string> = {
   "reference-data": "Reference Data",
   continents: "Continents",
   countries: "Countries",
+  confederations: "Confederations",
   regions: "Regions",
   cities: "Cities",
   languages: "Languages",
