@@ -2,25 +2,17 @@ import type { EntityRow } from "../../../../../shared/api/editorApi";
 import type { GeographyTreeNode } from "../types";
 
 export function buildGeographyTree(
-  federations: EntityRow[],
+  _federations: EntityRow[],
   continents: EntityRow[],
   continentRegions: EntityRow[],
   countries: EntityRow[],
   nationRegions: EntityRow[],
   cities: EntityRow[],
 ): GeographyTreeNode[] {
-  const federationToContinents = new Map<number, EntityRow[]>();
   const continentToRegions = new Map<number, EntityRow[]>();
   const regionToCountries = new Map<number, EntityRow[]>();
   const countryToNationRegions = new Map<number, EntityRow[]>();
   const nationRegionToCities = new Map<number, EntityRow[]>();
-
-  for (const row of continents) {
-    if (row.federation_id == null) continue;
-    const list = federationToContinents.get(Number(row.federation_id)) ?? [];
-    list.push(row);
-    federationToContinents.set(Number(row.federation_id), list);
-  }
 
   for (const row of continentRegions) {
     const list = continentToRegions.get(Number(row.continent_id)) ?? [];
@@ -79,7 +71,9 @@ export function buildGeographyTree(
     table: "nation",
     kind: "country",
     label: String(row.name ?? row.id),
-    children: sortRows(countryToNationRegions.get(Number(row.id)) ?? []).map(nationRegionNode),
+    children: [
+      ...sortRows(countryToNationRegions.get(Number(row.id)) ?? []).map(nationRegionNode),
+    ],
     row,
   });
 
@@ -93,37 +87,16 @@ export function buildGeographyTree(
     row,
   });
 
-  const continentNode = (row: EntityRow): GeographyTreeNode => ({
-    id: `continent-${row.id}`,
-    entityId: Number(row.id),
+  return sortRows(continents).map((continent): GeographyTreeNode => ({
+    id: `continent-${continent.id}`,
+    entityId: Number(continent.id),
     table: "continent",
     kind: "continent",
-    label: String(row.name ?? row.id),
-    children: sortRows(continentToRegions.get(Number(row.id)) ?? []).map(continentRegionNode),
-    row,
-  });
-
-  const roots = sortRows(federations).map((federation): GeographyTreeNode => ({
-    id: `federation-${federation.id}`,
-    entityId: Number(federation.id),
-    table: "federation",
-    kind: "federation",
-    label: String(federation.name ?? federation.id),
-    children: sortRows(federationToContinents.get(Number(federation.id)) ?? []).map(continentNode),
-    row: federation,
+    label: String(continent.name ?? continent.id),
+    children: sortRows(continentToRegions.get(Number(continent.id)) ?? []).map(continentRegionNode),
+    row: continent,
   }));
-
-  const attachedContinentIds = new Set(
-    roots.flatMap(root => root.children.map(child => child.entityId)),
-  );
-
-  const orphanContinents = sortRows(continents)
-    .filter(row => !attachedContinentIds.has(Number(row.id)))
-    .map(continentNode);
-
-  return [...roots, ...orphanContinents];
 }
-
 
 export function flattenGeographyTree(nodes: GeographyTreeNode[]): GeographyTreeNode[] {
   return nodes.flatMap(node => [node, ...flattenGeographyTree(node.children)]);
