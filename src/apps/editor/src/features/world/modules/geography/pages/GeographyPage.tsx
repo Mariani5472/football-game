@@ -1,4 +1,4 @@
-import { ArrowLeft, Building2, ChevronRight, Globe2, Map, Plus, Upload, UsersRound } from "lucide-react";
+import { ArrowLeft, Building2, ChevronRight, Globe2, Map as MapIcon, Plus, Upload, UsersRound } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { DeleteDialog } from "../../../../../shared/components";
@@ -197,7 +197,7 @@ export function GeographyPage() {
 
                     <div className="mt-5 grid grid-cols-3 gap-2">
                       <Stat label="Countries" value={countryCount} icon={<UsersRound size={13} />} />
-                      <Stat label="Regions" value={regionCount} icon={<Map size={13} />} />
+                      <Stat label="Regions" value={regionCount} icon={<MapIcon size={13} />} />
                       <Stat label="Cities" value={cityCount} icon={<Building2 size={13} />} />
                     </div>
                   </button>
