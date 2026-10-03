@@ -53,7 +53,7 @@ export function useFormationReferences() {
         }
 
         const nextRoles = roleResult.rows
-          .map(row => {
+           .map((row): Role | null => {
             const id = toId(row.id);
             const positionId = toId(row.position_id);
             if (id == null || positionId == null) return null;
@@ -66,7 +66,7 @@ export function useFormationReferences() {
               keyAttributes: [],
             } satisfies Role;
           })
-          .filter((role): role is Role => role !== null);
+           .filter((role): role is Role => role !== null);
 
         const nextDuties = dutyResult.rows
           .map(row => {
