@@ -20,14 +20,14 @@ export function WeatherPage() {
           <Field label="Vento moderado" type="number" value={weather.windBreeze} onChange={v => setWeather({...weather, windBreeze:v})} />
           <Field label="Vento de tempestade" type="number" value={weather.windStorm} onChange={v => setWeather({...weather, windStorm:v})} />
           <Field label="Variação dia/noite" type="number" value={weather.variationValue} onChange={v => setWeather({...weather, variationValue:v})} />
-          <button onClick={() => void submit(() => editorApi.domainClimateProfile({climateId:toId(weather.climate)!,seasonId:toId(weather.season)!,startDay:toId(weather.startDay),rainDry:Number(weather.rainDry)||undefined,rainHumid:Number(weather.rainHumid)||undefined,rainShower:Number(weather.rainShower)||undefined,windCalm:Number(weather.windCalm)||undefined,windBreeze:Number(weather.windBreeze)||undefined,windStorm:Number(weather.windStorm)||undefined,dayNightVariation:Boolean(weather.variationValue),dayNightVariationValue:Number(weather.variationValue)||undefined}))} className="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-medium text-slate-950">Salvar perfil climático</button>
+          <button onClick={() => void submit(() => editorApi.domain.climateProfile({climateId:toId(weather.climate)!,seasonId:toId(weather.season)!,startDay:toId(weather.startDay),rainDry:Number(weather.rainDry)||undefined,rainHumid:Number(weather.rainHumid)||undefined,rainShower:Number(weather.rainShower)||undefined,windCalm:Number(weather.windCalm)||undefined,windBreeze:Number(weather.windBreeze)||undefined,windStorm:Number(weather.windStorm)||undefined,dayNightVariation:Boolean(weather.variationValue),dayNightVariationValue:Number(weather.variationValue)||undefined}))} className="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-medium text-slate-950">Salvar perfil climático</button>
         </Card>
         <Card title="Temporadas e regiões" description="Crie estações meteorológicas e associe um clima às regiões do mundo.">
           <Field label="Nome da nova estação" value={weather.season} onChange={v=>setWeather({...weather,season:v})} />
-          <button onClick={() => void submit(() => editorApi.domainWeatherSeason(weather.season))} className="rounded-lg border border-white/10 px-4 py-2 text-sm text-slate-300">Criar estação meteorológica</button>
+          <button onClick={() => void submit(() => editorApi.domain.weatherSeason(weather.season))} className="rounded-lg border border-white/10 px-4 py-2 text-sm text-slate-300">Criar estação meteorológica</button>
           <Field label="Região do país" value={weather.region} onChange={v=>setWeather({...weather,region:v})} />
           <Field label="Clima aplicado à região" value={weather.climate} onChange={v=>setWeather({...weather,climate:v})} />
-          <button onClick={() => void submit(() => editorApi.domainClimateRegion({nationRegionId:toId(weather.region)!,climateId:toId(weather.climate)!}))} className="rounded-lg border border-white/10 px-4 py-2 text-sm text-slate-300">Mapear clima para região</button>
+          <button onClick={() => void submit(() => editorApi.domain.climateRegion({nationRegionId:toId(weather.region)!,climateId:toId(weather.climate)!}))} className="rounded-lg border border-white/10 px-4 py-2 text-sm text-slate-300">Mapear clima para região</button>
         </Card>
     </div>
   );
