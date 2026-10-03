@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Dumbbell, HeartPulse, History, SlidersHorizontal, Users } from "lucide-react";
-import { EntityPicker, Tabs } from "../../../shared/components";
+import { Tabs } from "../../../shared/components";
 import { PlayerRelationsEditor } from "./PlayerRelationsEditor";
 import { PlayerCorePanel } from "./PlayerCorePanel";
 import { PlayerPositionsPanel } from "./PlayerPositionsPanel";
@@ -96,6 +96,7 @@ export function PlayerEditor({
             content: (
               <PlayerCorePanel
                 player={editor.player}
+                values={core}
                 personId={personId}
                 saving={editor.saving}
                 onPersonChange={setPersonId}
