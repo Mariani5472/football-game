@@ -405,11 +405,11 @@ export function useFormationEditor(
 
   return {
     draft,
-    roles,
-    duties,
-    positions,
-    instructions,
-    positionNames,
+    roles: references.roles,
+    duties: references.duties,
+    positions: references.positions,
+    instructions: references.instructions,
+    positionNames: references.positionNames,
     loading: loading || references.loading,
     saving,
     error: error ?? references.error,
