@@ -31,7 +31,7 @@ async function savePositions(
     });
 
     if (!selected.has(positionId)) {
-      await editorApi.remove("player_position", key);
+      await editorApi.entity.remove("player_position", key);
     }
   }
 
@@ -54,9 +54,9 @@ async function savePositions(
     });
 
     if (existing) {
-      await editorApi.update("player_position", key, { rating });
+      await editorApi.entity.update("player_position", key, { rating });
     } else {
-      await editorApi.create("player_position", {
+      await editorApi.entity.create("player_position", {
         player_id: playerId,
         position_id: positionId,
         rating,
@@ -78,7 +78,7 @@ async function saveRoles(
       roleRatings[roleId] === undefined ||
       roleRatings[roleId] === ""
     ) {
-      await editorApi.remove(
+      await editorApi.entity.remove(
         "player_role_rating",
         JSON.stringify({
           player_id: playerId,
@@ -110,9 +110,9 @@ async function saveRoles(
     });
 
     if (existing) {
-      await editorApi.update("player_role_rating", key, { rating });
+      await editorApi.entity.update("player_role_rating", key, { rating });
     } else {
-      await editorApi.create("player_role_rating", {
+      await editorApi.entity.create("player_role_rating", {
         player_id: playerId,
         role_id: roleId,
         rating,
@@ -152,9 +152,9 @@ async function saveAttributes(
     );
 
     if (current) {
-      await editorApi.update(table, playerId, attributePayload);
+      await editorApi.entity.update(table, playerId, attributePayload);
     } else {
-      await editorApi.create(table, payload);
+      await editorApi.entity.create(table, payload);
     }
   }
 }
@@ -178,13 +178,13 @@ export function usePlayerPersistence() {
     );
 
     if (input.player) {
-      await editorApi.update(
+      await editorApi.entity.update(
         "player",
         input.playerId!,
         corePayload,
       );
     } else {
-      await editorApi.create("player", input.values);
+      await editorApi.entity.create("player", input.values);
     }
 
     const resolvedPlayerId = input.playerId ?? personId;
