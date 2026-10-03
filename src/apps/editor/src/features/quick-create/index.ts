@@ -60,21 +60,21 @@ async function createComposite(
     const name = String(values.name ?? "").trim();
     if (!name) throw new Error("Club name is required.");
 
-    const team = await editorApi.create("team", {
+    const team = await editorApi.entity.create("team", {
       name,
       short_name: String(values.short_name ?? "").trim() || null,
       nation_id: values.nation_id == null || values.nation_id === "" ? null : toNumber(values.nation_id),
     });
     const teamId = Number(team.id);
 
-    await editorApi.create("club", {
+    await editorApi.entity.create("club", {
       team_id: teamId,
       city_id: values.city_id == null || values.city_id === "" ? null : toNumber(values.city_id),
       base_nation_id: values.nation_id == null || values.nation_id === "" ? null : toNumber(values.nation_id),
     });
 
     if (String(values.stadium_name ?? "").trim() && values.city_id) {
-      await editorApi.create("stadium", {
+      await editorApi.entity.create("stadium", {
         city_id: toNumber(values.city_id),
         name: String(values.stadium_name).trim(),
         owner_club_id: teamId,
@@ -88,7 +88,7 @@ async function createComposite(
     const fullName = String(values.full_name ?? "").trim();
     if (!fullName) throw new Error("Full name is required.");
 
-    const person = await editorApi.create("person", {
+    const person = await editorApi.entity.create("person", {
       full_name: fullName,
       common_name: String(values.common_name ?? "").trim() || null,
       birth_date: String(values.birth_date ?? "") || null,
@@ -97,10 +97,10 @@ async function createComposite(
     });
     const playerId = Number(person.id);
 
-    await editorApi.create("player", { person_id: playerId });
+    await editorApi.entity.create("player", { person_id: playerId });
 
     if (values.position_id) {
-      await editorApi.create("player_position", {
+      await editorApi.entity.create("player_position", {
         player_id: playerId,
         position_id: toNumber(values.position_id),
         rating: toNumber(values.position_rating, 10),
@@ -113,13 +113,13 @@ async function createComposite(
   const teamIds = parseIds(values.team_ids);
   if (teamIds.length < 2) throw new Error("Provide at least two team IDs.");
 
-  const competition = await editorApi.create("competition", {
+  const competition = await editorApi.entity.create("competition", {
     name: String(values.name ?? "").trim(),
     nation_id: toNumber(values.country_id),
   });
   const competitionId = Number(competition.id);
 
-  const season = await editorApi.create("competition_season", {
+  const season = await editorApi.entity.create("competition_season", {
     competition_id: competitionId,
     year: toNumber(values.year, new Date().getFullYear()),
     start_date: String(values.start_date ?? ""),
@@ -127,33 +127,33 @@ async function createComposite(
   });
   const seasonId = Number(season.id);
 
-  const stage = await editorApi.create("competition_stage", {
+  const stage = await editorApi.entity.create("competition_stage", {
     competition_season_id: seasonId,
     name: "League",
     stage_order: 1,
   });
   const stageId = Number(stage.id);
 
-  await editorApi.create("stage_participant_rule", {
+  await editorApi.entity.create("stage_participant_rule", {
     stage_id: stageId,
     participant_type: "TEAM",
     min_participants: teamIds.length,
     max_participants: teamIds.length,
   });
-  await editorApi.create("stage_format", {
+  await editorApi.entity.create("stage_format", {
     stage_id: stageId,
     format_type: "LEAGUE",
     participant_count: teamIds.length,
     legs: Math.max(1, toNumber(values.turns, 2)),
     home_away: toNumber(values.turns, 2) > 1 ? 1 : 0,
   });
-  await editorApi.create("stage_points_rule", {
+  await editorApi.entity.create("stage_points_rule", {
     stage_id: stageId,
     win_points: toNumber(values.win_points, 3),
     draw_points: toNumber(values.draw_points, 1),
     loss_points: toNumber(values.loss_points, 0),
   });
-  await editorApi.create("schedule_profile", {
+  await editorApi.entity.create("schedule_profile", {
     stage_id: stageId,
     scheduling_type: "ROUND_ROBIN",
     start_date: String(values.start_date ?? ""),
@@ -171,7 +171,7 @@ async function createComposite(
 
     for (let leg = 0; leg < toNumber(values.turns, 2); leg++) {
       for (let round = 0; round < roundsPerLeg; round++) {
-        const createdRound = await editorApi.create("competition_round", {
+        const createdRound = await editorApi.entity.create("competition_round", {
           stage_id: stageId,
           round_number: ++roundNumber,
           name: `Round ${roundNumber}`,
@@ -189,7 +189,7 @@ async function createComposite(
           if (home == null || away == null || home === away) continue;
 
           const direction = (round + leg) % 2 === 0;
-          await editorApi.create("fixture", {
+          await editorApi.entity.create("fixture", {
             round_id: Number(createdRound.id),
             home_team_id: direction ? home : away,
             away_team_id: direction ? away : home,
@@ -251,7 +251,7 @@ export function QuickCreateModal({
     try {
       if (selected.id === "new-league" || selected.id === "new-club" || selected.id === "new-player") {
         const result = await createComposite(selected.id, values);
-        const validation = await editorApi.runValidation();
+        const validation = await editorApi.validation.run();
         const errors = validation.issues.filter(issue => issue.severity === "ERROR").length;
         setSuccess(`Created: ${result}.${errors ? ` Validation found ${errors} error(s).` : " Validation passed."}`);
         return;
@@ -262,8 +262,8 @@ export function QuickCreateModal({
         Object.entries(values).filter(([, value]) => value !== "" && value != null),
       );
 
-      await editorApi.create(selected.table, payload);
-      const validation = await editorApi.runValidation();
+      await editorApi.entity.create(selected.table, payload);
+      const validation = await editorApi.validation.run();
       const errors = validation.issues.filter(issue => issue.severity === "ERROR").length;
       setSuccess(`${selected.title} created.${errors ? ` Validation found ${errors} error(s).` : " Validation passed."}`);
     } catch (cause) {
