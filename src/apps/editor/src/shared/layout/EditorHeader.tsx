@@ -34,7 +34,7 @@ export function EditorHeader({ activeRoute }: { activeRoute: EditorRoute }) {
   const [results, setResults] = useState<Array<{ table: string; id: string | number; label: string }>>([]);
 
   useEffect(() => {
-    void editorApi.health()
+    void editorApi.entity.health()
       .then(health => setDatabasePath(health.databasePath))
       .catch(() => setDatabasePath(null));
   }, []);
@@ -54,7 +54,7 @@ export function EditorHeader({ activeRoute }: { activeRoute: EditorRoute }) {
         const responses = await Promise.all(
           tables.map(async table => {
             try {
-              const result = await editorApi.list(table, {
+              const result = await editorApi.entity.list(table, {
                 page: 1,
                 pageSize: 5,
                 search: value,
