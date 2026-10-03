@@ -37,13 +37,13 @@ export function GeographyPage() {
 
   const countryCards = useMemo(() => {
     if (!selectedContinent) return [];
-    return selectedContinent.children
-      .flatMap(region => region.children.filter(child => child.kind === "country"))
-      .map(node => ({
-        node,
-        regionCount: countKind(node, "nation-region"),
-        cityCount: countKind(node, "city"),
-      }));
+    const countryNodes = selectedContinent.children.flatMap(collectCountries);
+    const unique = new Map(countryNodes.map(node => [node.id, node]));
+    return [...unique.values()].map(node => ({
+      node,
+      regionCount: countKind(node, "nation-region"),
+      cityCount: countKind(node, "city"),
+    }));
   }, [selectedContinent]);
 
   const selectedCountry = view.level === "country"
@@ -384,9 +384,7 @@ function CountryOverview({
   const cityCount = countKind(country, "city");
   const languageCount = relationRows.filter(row => row.language_id != null).length;
 
-  const regions = country.children.flatMap(region =>
-    region.kind === "continent-region" ? region.children.filter(child => child.kind === "country") : [],
-  );
+  const regions = country.children.flatMap(collectCountries);
 
   const confederation = country.row.continent_region_id != null
     ? "Configured by football/world package"
@@ -532,6 +530,13 @@ function findAncestorContinent(
 
 function containsNode(node: GeographyTreeNode, id: string): boolean {
   return node.id === id || node.children.some(child => containsNode(child, id));
+}
+
+function collectCountries(node: GeographyTreeNode): GeographyTreeNode[] {
+  return [
+    ...(node.kind === "country" ? [node] : []),
+    ...node.children.flatMap(collectCountries),
+  ];
 }
 
 function continentEmoji(name: string): string {
