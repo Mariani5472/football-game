@@ -1,6 +1,0 @@
-import { DataTable, type DataTableColumn } from "../../../../../shared/components";
-import type { GeographyTreeNode } from "../types";
-
-interface Props { rows: GeographyTreeNode[]; loading: boolean; error: string | null; onSelect: (node: GeographyTreeNode) => void; onEdit: (node: GeographyTreeNode) => void; onDelete: (node: GeographyTreeNode) => void; }
-const columns: DataTableColumn<GeographyTreeNode>[] = [{ key: "name", header: "Name", render: row => <span className="font-medium text-white">{row.label}</span> }, { key: "short_name", header: "Short", render: row => String(row.row.short_name ?? "—") }, { key: "kind", header: "Type", render: row => row.kind }, { key: "children", header: "Children", render: row => String(row.children.length) }];
-export function GeographyFilteredTable({ rows, loading, error, onSelect, onEdit, onDelete }: Props) { return <section className="rounded-2xl border border-white/10 bg-white/[0.02] p-5"><div className="mb-4 flex items-center justify-between"><h3 className="text-base font-semibold text-white">Filtered geography</h3><span className="text-xs text-slate-600">{rows.length} records</span></div><DataTable rows={rows} columns={columns} loading={loading} error={error} onRowClick={onSelect} onEdit={onEdit} onDelete={onDelete} emptyMessage="No geography records found." /></section>; }

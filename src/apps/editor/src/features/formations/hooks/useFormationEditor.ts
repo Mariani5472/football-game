@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { editorApi } from "../../../shared/api/editorApi";
+import { useFormationReferences } from "./useFormationReferences";
 import type {
   Formation,
   FormationInstruction,
@@ -42,11 +43,7 @@ export function useFormationEditor(
       instructions: [],
     },
   );
-  const [roles, setRoles] = useState<Role[]>([]);
-  const [duties, setDuties] = useState<ReferenceEntity[]>([]);
-  const [positions, setPositions] = useState<ReferenceEntity[]>([]);
-  const [instructions, setInstructions] = useState<TacticalInstruction[]>([]);
-  const [positionNames, setPositionNames] = useState<Map<number, string>>(new Map());
+  const references = useFormationReferences();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -55,91 +52,13 @@ export function useFormationEditor(
   useEffect(() => {
     let active = true;
 
-    async function load() {
+    async function loadFormationData() {
+      if (!formation?.id) return;
+
       setLoading(true);
       setError(null);
 
       try {
-        const [
-          roleResult,
-          dutyResult,
-          positionResult,
-          roleDutyResult,
-          instructionResult,
-        ] = await Promise.all([
-          editorApi.list("player_role", { page: 1, pageSize: 1000, orderBy: "name", orderDirection: "ASC" }),
-          editorApi.list("role_duty", { page: 1, pageSize: 1000, orderBy: "name", orderDirection: "ASC" }),
-          editorApi.list("position_definition", { page: 1, pageSize: 1000, orderBy: "name", orderDirection: "ASC" }),
-          editorApi.list("player_role_duty", { page: 1, pageSize: 1000 }),
-          editorApi.list("tactical_instruction", { page: 1, pageSize: 1000, orderBy: "category", orderDirection: "ASC" }),
-        ]);
-
-        if (!active) return;
-
-        const roleDutyMap = new Map<number, number[]>();
-        for (const row of roleDutyResult.rows) {
-          const roleId = toId(row.role_id);
-          const dutyId = toId(row.duty_id);
-          if (roleId == null || dutyId == null) continue;
-          roleDutyMap.set(roleId, [...(roleDutyMap.get(roleId) ?? []), dutyId]);
-        }
-
-        const nextRoles = roleResult.rows
-          .map(row => {
-            const id = toId(row.id);
-            const positionId = toId(row.position_id);
-            if (id == null || positionId == null) return null;
-
-            return {
-              id,
-              positionId,
-              name: toText(row.name, `#${id}`),
-              description: row.description == null ? undefined : String(row.description),
-              dutyIds: roleDutyMap.get(id) ?? [],
-              keyAttributes: [] satisfies RoleKeyAttribute[],
-            } satisfies Role;
-          })
-          .filter((role): role is Role => role !== null);
-
-        const nextDuties = dutyResult.rows
-          .map(row => {
-            const id = toId(row.id);
-            return id == null ? null : { id, name: toText(row.name, `#${id}`) };
-          })
-          .filter((row): row is ReferenceEntity => row !== null);
-
-        const nextPositions = positionResult.rows
-          .map(row => {
-            const id = toId(row.id);
-            return id == null ? null : { id, name: toText(row.name, `#${id}`) };
-          })
-          .filter((row): row is ReferenceEntity => row !== null);
-
-        const nextInstructions = instructionResult.rows
-          .map(row => {
-            const id = toId(row.id);
-            if (id == null) return null;
-            return {
-              id,
-              name: toText(row.name, `#${id}`),
-              category: toText(row.category, "General"),
-              valueType: toText(row.value_type, "TEXT"),
-            } satisfies TacticalInstruction;
-          })
-          .filter((item): item is TacticalInstruction => item !== null);
-
-        const nextPositionNames = new Map(
-          nextPositions.map(position => [position.id, position.name]),
-        );
-
-        setRoles(nextRoles);
-        setDuties(nextDuties);
-        setPositions(nextPositions);
-        setInstructions(nextInstructions);
-        setPositionNames(nextPositionNames);
-
-        if (!formation?.id) return;
-
         const [formationPositionResult, assignmentResult, instructionValues] =
           await Promise.all([
             editorApi.list("formation_position", { page: 1, pageSize: 1000 }),
@@ -169,7 +88,7 @@ export function useFormationEditor(
             return {
               id,
               positionId,
-              label: nextPositionNames.get(positionId) ?? `P${id}`,
+              label: references.positionNames.get(positionId) ?? "P" + id,
               side: toText(row.side, "center") as FormationPosition["side"],
               x: toNumber(row.x, 50),
               y: toNumber(row.y, 50),
@@ -184,10 +103,7 @@ export function useFormationEditor(
           .map(row => {
             const instructionId = toId(row.instruction_id);
             if (instructionId == null) return null;
-            return {
-              instructionId,
-              value: toText(row.value, ""),
-            } satisfies FormationInstruction;
+            return { instructionId, value: toText(row.value, "") } satisfies FormationInstruction;
           })
           .filter((item): item is FormationInstruction => item !== null);
 
@@ -203,11 +119,9 @@ export function useFormationEditor(
       }
     }
 
-    void load();
-    return () => {
-      active = false;
-    };
-  }, [formation?.id]);
+    void loadFormationData();
+    return () => { active = false; };
+  }, [formation?.id, references.positionNames]);
 
   function setValue<K extends keyof Formation>(key: K, value: Formation[K]) {
     setDraft(current => ({ ...current, [key]: value }));
@@ -223,7 +137,7 @@ export function useFormationEditor(
   }
 
   function addPosition(positionId: number) {
-    const reference = positions.find(position => position.id === positionId);
+    const reference = references.positions.find(position => position.id === positionId);
     if (!reference) return;
 
     const index = draft.positions.length;
@@ -256,17 +170,17 @@ export function useFormationEditor(
   }
 
   function getAvailableRoles(positionId: number) {
-    return roles.filter(role => role.positionId === positionId);
+    return references.roles.filter(role => role.positionId === positionId);
   }
 
   function getAvailableDuties(roleId: number) {
-    const role = roles.find(item => item.id === roleId);
-    return role ? duties.filter(duty => role.dutyIds.includes(duty.id)) : [];
+    const role = references.roles.find(item => item.id === roleId);
+    return role ? references.duties.filter(duty => role.dutyIds.includes(duty.id)) : [];
   }
 
   function setRole(positionId: number, roleId: number) {
     const current = draft.positions.find(position => position.id === positionId);
-    const role = roles.find(item => item.id === roleId);
+    const role = references.roles.find(item => item.id === roleId);
     if (!current || !role || role.positionId !== current.positionId) return;
 
     updatePosition(positionId, {
@@ -280,7 +194,7 @@ export function useFormationEditor(
 
   function setDuty(positionId: number, dutyId: number) {
     const position = draft.positions.find(item => item.id === positionId);
-    const role = roles.find(item => item.id === position?.roleId);
+    const role = references.roles.find(item => item.id === position?.roleId);
     if (!role?.dutyIds.includes(dutyId)) return;
     updatePosition(positionId, { dutyId });
   }
@@ -399,7 +313,7 @@ export function useFormationEditor(
         const formationPositionId = persistedPositionIds.get(position.id);
         if (formationPositionId == null) continue;
 
-        const role = roles.find(item => item.id === position.roleId);
+        const role = references.roles.find(item => item.id === position.roleId);
         const validAssignment =
           role?.dutyIds.includes(position.dutyId) ?? false;
 
@@ -496,9 +410,9 @@ export function useFormationEditor(
     positions,
     instructions,
     positionNames,
-    loading,
+    loading: loading || references.loading,
     saving,
-    error,
+    error: error ?? references.error,
     saveError,
     setValue,
     updatePosition,
