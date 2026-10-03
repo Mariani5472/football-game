@@ -12,7 +12,7 @@ export function useGeographyEntityActions(reload: () => Promise<void>) {
 
     setError(null);
     try {
-      await editorApi.remove(deleting.table, deleting.entityId);
+      await editorApi.entity.remove(deleting.table, deleting.entityId);
       setDeleting(null);
       setNotice("Entity deleted.");
       await reload();
