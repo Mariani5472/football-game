@@ -19,19 +19,10 @@ export interface GeographySpec {
 }
 
 export const geographySpecs: Record<GeographyEntityKind, GeographySpec> = {
-  federation: { table: "federation", label: "Federation", fields: [
-    { name: "name", label: "Name", required: true },
-    { name: "short_name", label: "Short Name" },
-    { name: "regional_strength", label: "Regional Strength", type: "number", min: 0 },
-    { name: "primary_color", label: "Primary Color" },
-    { name: "secondary_color", label: "Secondary Color" },
-    { name: "tertiary_color", label: "Tertiary Color" },
-  ]},
   continent: { table: "continent", label: "Continent", fields: [
     { name: "name", label: "Name", required: true },
     { name: "short_name", label: "Short Name" },
     { name: "continental_name", label: "Continental Name" },
-    { name: "federation_id", label: "Federation", relation: "federation" },
   ]},
   "continent-region": { table: "continent_region", label: "Continent Region", fields: [
     { name: "continent_id", label: "Continent", relation: "continent", required: true },
@@ -69,7 +60,6 @@ export const geographySpecs: Record<GeographyEntityKind, GeographySpec> = {
 };
 
 export const geographyChildKind: Partial<Record<GeographyEntityKind, GeographyEntityKind>> = {
-  federation: "continent",
   continent: "continent-region",
   "continent-region": "country",
   country: "nation-region",
@@ -78,11 +68,9 @@ export const geographyChildKind: Partial<Record<GeographyEntityKind, GeographyEn
 
 export const geographyFilterItems: Array<[string, GeographyEntityKind | "all"]> = [
   ["All", "all"],
-  ["Federations", "federation"],
   ["Continents", "continent"],
-  ["Continent Regions", "continent-region"],
   ["Countries", "country"],
-  ["Nation Regions", "nation-region"],
+  ["Regions", "nation-region"],
   ["Cities", "city"],
 ];
 
@@ -100,8 +88,7 @@ export function getInitialGeographyValues(spec: GeographySpec, parent?: Geograph
   const values: Record<string, EntityFormValue> = {};
   for (const field of spec.fields) values[field.name] = null;
   if (!parent) return values;
-  if (spec.table === "continent") values.federation_id = parent.entityId;
-  if (spec.table === "continent_region") values.continent_id = parent.entityId;
+  if (spec.table === "continent-region") values.continent_id = parent.entityId;
   if (spec.table === "nation") values.continent_region_id = parent.entityId;
   if (spec.table === "nation_region") values.nation_id = parent.entityId;
   if (spec.table === "city") {
