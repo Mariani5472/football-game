@@ -66,9 +66,9 @@ export function useGeographyEditorForm(reload: () => Promise<void>) {
       );
 
       if (editing) {
-        await editorApi.update(formSpec.table, editing.entityId, payload);
+        await editorApi.entity.update(formSpec.table, editing.entityId, payload);
       } else {
-        await editorApi.create(formSpec.table, payload);
+        await editorApi.entity.create(formSpec.table, payload);
       }
 
       cancel();
