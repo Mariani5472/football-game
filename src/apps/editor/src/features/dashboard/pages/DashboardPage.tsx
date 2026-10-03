@@ -27,7 +27,7 @@ export function DashboardPage() {
     setBusyPackageId(pkg.id);
     setActionError(null);
     try {
-      await editorApi.updatePackage(pkg.id, payload);
+      await editorApi.world.updatePackage(pkg.id, payload);
       await refresh();
     } catch (cause) {
       setActionError(cause instanceof Error ? cause.message : String(cause));
