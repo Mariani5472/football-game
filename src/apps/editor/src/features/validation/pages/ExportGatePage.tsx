@@ -8,7 +8,7 @@ export function ExportGatePage() {
   const [checked, setChecked] = useState(false);
 
   async function check() {
-    const result = await editorApi.runValidation();
+    const result = await editorApi.validation.run();
     setErrors(result.issues.filter(issue => issue.severity === "ERROR").length);
     setWarnings(result.issues.filter(issue => issue.severity === "WARNING").length);
     setChecked(true);
