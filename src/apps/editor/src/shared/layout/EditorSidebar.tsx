@@ -29,11 +29,7 @@ interface NavItem {
 const worldItems: NavItem[] = [
   { id: "dashboard", label: "Dashboard", icon: CircleDot },
   { id: "geography", label: "Geography", icon: Globe2 },
-  { id: "continents", label: "Continents", icon: Globe2 },
   { id: "confederations", label: "Confederations", icon: Trophy },
-  { id: "countries", label: "Countries", icon: Globe2 },
-  { id: "regions", label: "Regions", icon: Map },
-  { id: "cities", label: "Cities", icon: Map },
   { id: "languages", label: "Languages", icon: Languages },
   { id: "climates", label: "Climates", icon: CloudSun },
   { id: "reference-data", label: "Reference Data", icon: Database },
