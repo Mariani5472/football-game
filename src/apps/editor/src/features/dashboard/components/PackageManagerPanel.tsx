@@ -50,7 +50,7 @@ export function PackageManagerPanel({
         for (let offset = 0; offset < bytes.length; offset += chunkSize) {
           binary += String.fromCharCode(...bytes.subarray(offset, Math.min(offset + chunkSize, bytes.length)));
         }
-        const uploaded = await editorApi.uploadPackage(selectedFile.name, btoa(binary));
+        const uploaded = await editorApi.world.uploadPackage(selectedFile.name, btoa(binary));
         value = uploaded.sourceFile;
         setSourceFile(uploaded.sourceFile);
       } catch (cause) {
@@ -73,10 +73,10 @@ export function PackageManagerPanel({
     setConflicts([]);
 
     try {
-      const result = await editorApi.inspectPackage(value);
+      const result = await editorApi.world.inspectPackage(value);
       setPreview(result);
       if (result.sessionId) {
-        const conflictResult = await editorApi.importConflicts(result.sessionId);
+        const conflictResult = await editorApi.world.importConflicts(result.sessionId);
         setConflicts(conflictResult.conflicts);
       }
       setMessage(result.message);
@@ -104,7 +104,7 @@ export function PackageManagerPanel({
     setError(null);
     setMessage(null);
     try {
-      const result = await editorApi.importPackage(preview.sessionId, resolutions);
+      const result = await editorApi.world.importPackage(preview.sessionId, resolutions);
       setPreview(result);
       setConflicts([]);
       setResolutions({});
@@ -122,7 +122,7 @@ export function PackageManagerPanel({
     setError(null);
     setMessage(null);
     try {
-      const result = await editorApi.rebuildWorld();
+      const result = await editorApi.world.rebuild();
       setMessage(result.message);
       setPreview(null);
       setConflicts([]);
