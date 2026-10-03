@@ -1,326 +1,40 @@
-const API_BASE = import.meta.env.VITE_EDITOR_API_BASE ?? "/api";
+import { domainApi } from "./domainApi";
+import { entityApi } from "./entityApi";
+import { exportApi } from "./exportApi";
+import { templatesApi } from "./templatesApi";
+import { validationApi } from "./validationApi";
+import { worldApi } from "./worldApi";
 
-export type Scalar = string | number | boolean | null;
-export type EntityRow = Record<string, Scalar>;
-export type EntityKey = string | number | Record<string, Scalar>;
-
-export interface ListOptions {
-  page?: number;
-  pageSize?: number;
-  search?: string;
-  searchColumns?: string[];
-  orderBy?: string;
-  orderDirection?: "ASC" | "DESC";
-}
-
-
-export interface WorldBuildStatus {
-  status: "VALID" | "INVALID" | "DIRTY" | "UNKNOWN";
-  lastBuildAt: string | null;
-  unresolvedConflicts: number;
-  enabledPackages: number;
-}
-
-export interface ImportConflict {
-  id: number;
-  packageId: number;
-  tableName: string;
-  incomingKey: string;
-  incomingId: number | null;
-  worldKey: string | null;
-  worldId: number | null;
-  conflictType: string;
-  columnName: string | null;
-  existingValue: string | null;
-  incomingValue: string | null;
-  resolution: "REPLACE" | "MERGE" | "KEEP_EXISTING" | "KEEP_INCOMING" | "MANUAL";
-  resolved: boolean;
-}
-
-export interface ImportPreview {
-  sessionId: number;
-  packageKey: string;
-  status: string;
-  tables: number;
-  rows: number;
-  newRows: number;
-  existingRows: number;
-  conflicts: number;
-  message: string;
-}
-
-export interface ImportSession {
-  id: number;
-  status: string;
-  packageId: number;
-  packageKey: string;
-  sourceFile: string;
-  sourceSha256: string;
-  startedAt: string;
-  completedAt: string | null;
-  errorMessage: string | null;
-  summary: Record<string, unknown>;
-}
-
-export interface WorldPackageRecord {
-  id: number;
-  packageKey: string;
-  name: string;
-  version: string;
-  status: "ACTIVE" | "CONFLICT" | "ERROR" | "DISABLED";
-  icon: string | null;
-  sourceFile: string | null;
-  sourceSha256: string | null;
-  categories: string[];
-  description: string | null;
-  schemaVersion: number;
-  importedAt: string;
-  updatedAt: string;
-  packageType: string;
-  priority: number;
-  enabled: boolean;
-  loadOrder: number | null;
-  provides: string[];
-  dependencies: Array<{ key: string; minVersion: string | null }>;
-  conflicts: string[];
-}
-
-export interface WorldDashboard {
-  world: {
-    name: string;
-    year: number;
-    schemaVersion: number;
-    packageVersion: string;
-    status: "VALID" | "INVALID" | "UNKNOWN";
-    lastSavedAt: string | null;
-    databasePath: string;
-  };
-  build: WorldBuildStatus;
-  packages: WorldPackageRecord[];
-}
-
-export interface TemplateRelationOption {
-  table: string;
-  depth: number;
-  required: boolean;
-  direction: "parent" | "child" | "related";
-}
-
-export interface TemplateRecord {
-  id: number;
-  name: string;
-  rootTable: string;
-  sourceKey: EntityKey;
-  relations: string[];
-  rowCount: number;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface ListResult<T extends EntityRow = EntityRow> {
-  rows: T[];
-  total: number;
-  page: number;
-  pageSize: number;
-  pageCount: number;
-}
-
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  let response: Response;
-  try {
-    response = await fetch(API_BASE + path, {
-      ...init,
-      headers: {
-        "content-type": "application/json",
-        ...(init?.headers ?? {}),
-      },
-    });
-  } catch {
-    throw new Error("Editor API is unavailable. Start the editor API against a world.db.");
-  }
-
-  const body = await response.json().catch(() => null);
-  if (!response.ok) throw new Error(body?.error ?? "Editor API request failed.");
-  return body as T;
-}
-
-function serializeEntityKey(id: EntityKey): string {
-  return typeof id === "object" ? JSON.stringify(id) : String(id);
-}
-
-function queryString(options: ListOptions): string {
-  const params = new URLSearchParams();
-  if (options.page !== undefined) params.set("page", String(options.page));
-  if (options.pageSize !== undefined) params.set("pageSize", String(options.pageSize));
-  if (options.search) params.set("search", options.search);
-  if (options.searchColumns?.length) params.set("searchColumns", options.searchColumns.join(","));
-  if (options.orderBy) params.set("orderBy", options.orderBy);
-  if (options.orderDirection) params.set("orderDirection", options.orderDirection);
-  const value = params.toString();
-  return value ? "?" + value : "";
-}
+export * from "./types";
 
 export const editorApi = {
-  world: () => request<WorldDashboard>("/world"),
-  worldBuild: () => request<WorldBuildStatus>("/world/build"),
-  worldSettings: () => request<{ name: string; year: number }>("/world/settings"),
-  updateWorldSettings: (payload: { name: string; year: number }) => request<{ name: string; year: number }>("/world/settings", { method: "PATCH", body: JSON.stringify(payload) }),
-  packages: () => request<{ packages: WorldPackageRecord[] }>("/world/packages"),
-  registerPackage: (payload: {
-    packageKey: string;
-    name: string;
-    version?: string;
-    packageType?: string;
-    priority?: number;
-    status?: "ACTIVE" | "CONFLICT" | "ERROR" | "DISABLED";
-    icon?: string | null;
-    sourceFile?: string | null;
-    sourceSha256?: string | null;
-    categories?: string[];
-    description?: string | null;
-    provides?: string[];
-    dependencies?: Array<{ key: string; minVersion?: string | null }>;
-    conflicts?: string[];
-  }) =>
-    request<WorldPackageRecord>(
-      "/world/packages",
-      { method: "POST", body: JSON.stringify(payload) },
-    ),
-  removePackage: (id: number) => request<{ deleted: boolean }>(`/world/packages/${id}`, { method: "DELETE" }),
-  updatePackage: (id: number, payload: { enabled?: boolean; priority?: number; loadOrder?: number }) =>
-    request<WorldPackageRecord>(`/world/packages/${id}`, { method: "PATCH", body: JSON.stringify(payload) }),
-  uploadPackage: (fileName: string, contentBase64: string) =>
-    request<{ sourceFile: string; fileName: string; sizeBytes: number; sha256: string }>(
-      "/world/packages/upload",
-      { method: "POST", body: JSON.stringify({ fileName, contentBase64 }) },
-    ),
-  inspectPackage: (sourceFile: string) =>
-    request<ImportPreview>(
-      "/world/packages/inspect",
-      { method: "POST", body: JSON.stringify({ sourceFile }) },
-    ),
-  importPackage: (
-    sessionId: number,
-    resolutions: Record<
-      string,
-      "REPLACE" | "MERGE" | "KEEP_EXISTING" | "KEEP_INCOMING" | "MANUAL"
-    > = {},
-  ) =>
-    request<ImportPreview>(
-      "/world/packages/import",
-      {
-        method: "POST",
-        body: JSON.stringify({ sessionId, resolutions }),
-      },
-    ),
-  importSession: (id: number) =>
-    request<ImportSession>(`/world-import-sessions/${id}`),
-  importConflicts: (id: number) =>
-    request<{ conflicts: ImportConflict[] }>(`/world-import-sessions/${id}/conflicts`),
-  rebuildWorld: () =>
-    request<{ status: "COMPLETED"; packages: number; rows: number; sessions: number; message: string }>(
-      "/world/rebuild", { method: "POST" }
-    ),
-  health: () => request<{ ok: boolean; databasePath: string; exists: boolean }>("/health"),
-  tables: () => request<{ tables: string[] }>("/tables"),
-  schema: (table: string) => request<unknown>("/schema/" + encodeURIComponent(table)),
-  list: <T extends EntityRow = EntityRow>(table: string, options: ListOptions = {}) =>
-    request<ListResult<T>>("/entities/" + encodeURIComponent(table) + queryString(options)),
-  get: <T extends EntityRow = EntityRow>(table: string, id: EntityKey) =>
-    request<T | null>("/entities/" + encodeURIComponent(table) + "/" + encodeURIComponent(serializeEntityKey(id))),
-  create: <T extends EntityRow = EntityRow>(table: string, values: Record<string, Scalar>) =>
-    request<T>("/entities/" + encodeURIComponent(table), {
-      method: "POST",
-      body: JSON.stringify(values),
-    }),
-  update: <T extends EntityRow = EntityRow>(
-    table: string,
-    id: EntityKey,
-    values: Record<string, Scalar>,
-  ) =>
-    request<T>(
-      "/entities/" +
-      encodeURIComponent(table) +
-      "/" +
-      encodeURIComponent(serializeEntityKey(id)),
-      {
-        method: "PATCH",
-        body: JSON.stringify(values),
-      },
-    ),
-  templateRelations: (rootTable: string, rootKey: EntityKey) =>
-    request<{ relations: TemplateRelationOption[] }>(
-      "/templates/relations?rootTable=" +
-      encodeURIComponent(rootTable) +
-      "&rootKey=" +
-      encodeURIComponent(serializeEntityKey(rootKey)),
-    ),
-  templates: () => request<{ templates: TemplateRecord[] }>("/templates"),
-  createTemplate: (payload: {
-    name: string;
-    rootTable: string;
-    rootKey: EntityKey;
-    relations: string[];
-  }) =>
-    request<TemplateRecord>("/templates", {
-      method: "POST",
-      body: JSON.stringify(payload),
-    }),
-  duplicate: (payload: {
-    rootTable: string;
-    rootKey: EntityKey;
-    relations: string[];
-  }) =>
-    request<{ rootTable: string; oldKey: EntityKey; newKey: EntityKey; rowsCreated: number }>(
-      "/duplicate",
-      { method: "POST", body: JSON.stringify(payload) },
-    ),
-  duplicateTemplate: (id: number) =>
-    request<{ rootTable: string; oldKey: EntityKey; newKey: EntityKey; rowsCreated: number }>(
-      "/templates/" + id + "/duplicate",
-      { method: "POST" },
-    ),
-  deleteTemplate: (id: number) =>
-    request<{ deleted: boolean }>("/templates/" + id, { method: "DELETE" }),
-  domainTransfer: (payload: unknown) => request<unknown>("/domain/transfer", { method: "POST", body: JSON.stringify(payload) }),
-  domainContract: (payload: unknown) => request<unknown>("/domain/contract", { method: "POST", body: JSON.stringify(payload) }),
-  domainFinance: (payload: unknown) => request<unknown>("/domain/finance", { method: "POST", body: JSON.stringify(payload) }),
-  domainHistory: (payload: unknown) => request<unknown>("/domain/history", { method: "POST", body: JSON.stringify(payload) }),
-  domainAwardHistory: (payload: unknown) => request<unknown>("/domain/award-history", { method: "POST", body: JSON.stringify(payload) }),
-  domainPressSource: (payload: unknown) => request<unknown>("/domain/press-source", { method: "POST", body: JSON.stringify(payload) }),
-  domainClimateProfile: (payload: unknown) => request<unknown>("/domain/climate-profile", { method: "POST", body: JSON.stringify(payload) }),
-  domainAward: (payload: unknown) => request<unknown>("/domain/award", { method: "POST", body: JSON.stringify(payload) }),
-  domainPlayerCareer: (payload: unknown) => request<unknown>("/domain/player-career", { method: "POST", body: JSON.stringify(payload) }),
-  domainStaffCareer: (payload: unknown) => request<unknown>("/domain/staff-career", { method: "POST", body: JSON.stringify(payload) }),
-  domainAchievement: (payload: unknown) => request<unknown>("/domain/achievement", { method: "POST", body: JSON.stringify(payload) }),
-  domainRecord: (payload: unknown) => request<unknown>("/domain/record", { method: "POST", body: JSON.stringify(payload) }),
-  domainDerby: (payload: unknown) => request<unknown>("/domain/derby", { method: "POST", body: JSON.stringify(payload) }),
-  domainClimateRegion: (payload: unknown) => request<unknown>("/domain/climate-region", { method: "POST", body: JSON.stringify(payload) }),
-  domainWeatherSeason: (payload: unknown) => request<unknown>("/domain/weather-season", { method: "POST", body: JSON.stringify(payload) }),
-  domainNationalityRule: (payload: unknown) => request<unknown>("/domain/nationality-rule", { method: "POST", body: JSON.stringify(payload) }),
-  validationProfiles: () => request<{ profiles: Array<{ id: number; name: string; description: string | null; enabled: boolean }> }>("/validation/profiles"),
-  exportWorldDb: (outputPath: string) => request<{
-    metadata: { format: string; packageVersion: string; schemaVersion: number; databaseType: string; fileName: string; sizeBytes: number; sha256: string; exportedAt: string; tableCount: number; rowCount: number };
-    outputPath: string;
-    blocked: boolean;
-    issues: Array<{ severity: "ERROR" | "WARNING"; ruleKey: string; message: string }>;
-  }>("/export/world-db", { method: "POST", body: JSON.stringify({ outputPath }) }),
-  runValidation: (profileId?: number) => request<{
-    issues: Array<{
-      id: string; ruleKey: string; severity: "ERROR" | "WARNING" | "INFO"; entityType: string; entityId?: string | number; message: string; details?: string;
-    }>
-  }>(`/validation/run${profileId ? `?profile=${profileId}` : ""}`, { method: "POST" }),
-  setValidationProfileEnabled: (id: number, enabled: boolean) =>
-    request<{ id: number; name: string; description: string | null; enabled: boolean }>(`/validation/profiles/${id}`, { method: "PATCH", body: JSON.stringify({ enabled }) }),
-  setValidationRuleEnabled: (ruleKey: string, enabled: boolean) =>
-    request<{ ok: boolean }>(`/validation/rules/${encodeURIComponent(ruleKey)}`, { method: "PATCH", body: JSON.stringify({ enabled }) }),
-
-  remove: (table: string, id: EntityKey) =>
-    request<{ deleted: boolean }>(
-      "/entities/" +
-      encodeURIComponent(table) +
-      "/" +
-      encodeURIComponent(serializeEntityKey(id)),
-      { method: "DELETE" },
-    ),
+  ...worldApi,
+  ...entityApi,
+  templateRelations: templatesApi.relations,
+  templates: templatesApi.list,
+  createTemplate: templatesApi.create,
+  duplicate: templatesApi.duplicate,
+  duplicateTemplate: templatesApi.duplicateTemplate,
+  deleteTemplate: templatesApi.remove,
+  domainTransfer: domainApi.transfer,
+  domainContract: domainApi.contract,
+  domainFinance: domainApi.finance,
+  domainHistory: domainApi.history,
+  domainAwardHistory: domainApi.awardHistory,
+  domainPressSource: domainApi.pressSource,
+  domainClimateProfile: domainApi.climateProfile,
+  domainAward: domainApi.award,
+  domainPlayerCareer: domainApi.playerCareer,
+  domainStaffCareer: domainApi.staffCareer,
+  domainAchievement: domainApi.achievement,
+  domainRecord: domainApi.record,
+  domainDerby: domainApi.derby,
+  domainClimateRegion: domainApi.climateRegion,
+  domainWeatherSeason: domainApi.weatherSeason,
+  domainNationalityRule: domainApi.nationalityRule,
+  validationProfiles: validationApi.profiles,
+  runValidation: validationApi.run,
+  setValidationProfileEnabled: validationApi.setProfileEnabled,
+  setValidationRuleEnabled: validationApi.setRuleEnabled,
+  exportWorldDb: exportApi.worldDatabase,
 };
