@@ -11,7 +11,7 @@ export function useDomainSubmit() {
 
     try {
       await action();
-      const validation = await editorApi.runValidation();
+      const validation = await editorApi.validation.run();
       const errors = validation.issues.filter(issue => issue.severity === "ERROR").length;
       const warnings = validation.issues.filter(issue => issue.severity === "WARNING").length;
 
