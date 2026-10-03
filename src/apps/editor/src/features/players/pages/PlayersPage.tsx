@@ -42,7 +42,7 @@ export function PlayersPage() {
 
   async function remove(row: EntityRow) {
     if (!window.confirm("Delete this player? The player extension will be removed; the Person remains available.")) return;
-    await editorApi.remove("player", Number(row.person_id));
+    await editorApi.entity.remove("player", Number(row.person_id));
     await list.reload();
   }
 
