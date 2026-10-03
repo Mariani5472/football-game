@@ -1,17 +1,15 @@
 import { geographyChildKind } from "../config/geographyConfig";
 import { useGeography } from "./useGeography";
-import { useGeographyFilters } from "./useGeographyFilters";
 import { useGeographyEditorForm } from "./useGeographyEditorForm";
 import { useGeographyRelations } from "./useGeographyRelations";
 import { useGeographyEntityActions } from "./useGeographyEntityActions";
 
 export function useGeographyEditor() {
   const geography = useGeography();
-  const filters = useGeographyFilters(geography.tree);
   const form = useGeographyEditorForm(geography.reload);
   const relations = useGeographyRelations(
     geography.selectedNode,
-    filters.allRows,
+    geography.allRows,
     geography.reload,
   );
   const actions = useGeographyEntityActions(geography.reload);
@@ -25,13 +23,6 @@ export function useGeographyEditor() {
     geography,
     selectedNode,
     childKind,
-    query: filters.query,
-    filter: filters.filter,
-    setQuery: filters.setQuery,
-    setFilter: filters.setFilter,
-    allRows: filters.allRows,
-    filteredRows: filters.filteredRows,
-    counts: filters.counts,
     ...form,
     ...relations,
     ...actions,
