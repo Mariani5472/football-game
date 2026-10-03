@@ -1,7 +1,7 @@
 import { ArrowLeft, Building2, ChevronRight, Globe2, Map, Plus, Upload, UsersRound } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import { DeleteDialog, EntityPicker } from "../../../../../shared/components";
+import { DeleteDialog } from "../../../../../shared/components";
 import { GeographyEditorForm } from "../components/GeographyEditorForm";
 import { GeographyEntityHeader } from "../components/GeographyEntityHeader";
 import { GeographyRelationsPanel } from "../components/GeographyRelationsPanel";
@@ -9,11 +9,6 @@ import { useGeographyEditor } from "../hooks/useGeographyEditor";
 import type { GeographyEntityKind, GeographyTreeNode, GeographyView } from "../types";
 import { editorApi, type EntityRow } from "../../../../../shared/api/editorApi";
 
-const levelLabels = {
-  continents: "Continents",
-  countries: "Countries",
-  country: "Country",
-} as const;
 
 export function GeographyPage() {
   const state = useGeographyEditor();
