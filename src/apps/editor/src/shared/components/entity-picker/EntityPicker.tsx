@@ -44,7 +44,7 @@ export function EntityPicker({
     setRemoteError(null);
 
     void editorApi
-      .list(table, {
+      .entity.list(table, {
         page: 1,
         pageSize: 100,
         orderBy: labelColumn,
@@ -56,14 +56,14 @@ export function EntityPicker({
 
         setRemoteOptions(
           result.rows
-            .filter(row => row.id != null)
-            .map(row => ({
+            .filter((row) => row.id != null)
+            .map((row) => ({
               id: row.id as number | string,
               label: String(row[labelColumn] ?? row.name ?? row.short_name ?? row.id),
             })),
         );
       })
-      .catch(cause => {
+      .catch((cause: unknown) => {
         if (active) {
           setRemoteError(cause instanceof Error ? cause.message : String(cause));
         }
