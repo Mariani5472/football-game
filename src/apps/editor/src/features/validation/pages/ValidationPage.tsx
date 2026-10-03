@@ -20,7 +20,7 @@ export function ValidationPage() {
   const [error, setError] = useState<string | null>(null);
 
   async function loadProfiles() {
-    const result = await editorApi.validationProfiles();
+    const result = await editorApi.validation.profiles();
     setProfiles(result.profiles);
     setProfileId(current => current ?? result.profiles.find(profile => profile.enabled)?.id);
   }
@@ -29,7 +29,7 @@ export function ValidationPage() {
     setRunning(true);
     setError(null);
     try {
-      const result = await editorApi.runValidation(profileId);
+      const result = await editorApi.validation.run(profileId);
       setIssues(result.issues);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause));
@@ -80,7 +80,7 @@ export function ValidationPage() {
             </select>
           </label>
           <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
-            <span>{profiles.find(profile => profile.id === profileId)?.description ?? "Executa todas as regras habilitadas."}</span>\n            {profileId && <button type="button" onClick={() => void (async () => { const current = profiles.find(p => p.id === profileId); if (!current) return; const updated = await editorApi.setValidationProfileEnabled(profileId, !current.enabled); setProfiles(list => list.map(p => p.id === updated.id ? updated : p)); })()} className="rounded border border-white/10 px-2 py-1 text-[10px] text-slate-400">{profiles.find(p => p.id === profileId)?.enabled ? "Desabilitar perfil" : "Habilitar perfil"}</button>}
+            <span>{profiles.find(profile => profile.id === profileId)?.description ?? "Executa todas as regras habilitadas."}</span>\n            {profileId && <button type="button" onClick={() => void (async () => { const current = profiles.find(p => p.id === profileId); if (!current) return; const updated = await editorApi.validation.setProfileEnabled(profileId, !current.enabled); setProfiles(list => list.map(p => p.id === updated.id ? updated : p)); })()} className="rounded border border-white/10 px-2 py-1 text-[10px] text-slate-400">{profiles.find(p => p.id === profileId)?.enabled ? "Desabilitar perfil" : "Habilitar perfil"}</button>}
           </div>
         </div>
       </section>
