@@ -11,6 +11,7 @@ const fields = [
 
 export function PlayerCorePanel(props: {
   player: EntityRow | null;
+  values: Record<string, string>;
   personId: string;
   saving: boolean;
   onPersonChange: (value: string) => void;
@@ -32,7 +33,7 @@ export function PlayerCorePanel(props: {
             <span className="block text-xs font-medium text-slate-400">{label}</span>
             <input
               type="number"
-              value={props.player?.[name] == null ? "" : String(props.player[name])}
+              value={props.values[name] ?? (props.player?.[name] == null ? "" : String(props.player[name]))}
               onChange={event => props.onFieldChange(name, event.target.value)}
               className="w-full rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5 text-sm text-slate-200 outline-none"
             />
