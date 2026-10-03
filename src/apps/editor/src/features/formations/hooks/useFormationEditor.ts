@@ -175,12 +175,12 @@ export function useFormationEditor(
 
   function getAvailableDuties(roleId: number) {
     const role = references.roles.find(item => item.id === roleId);
-    return role ? duties.filter(duty => role.dutyIds.includes(duty.id)) : [];
+    return role ? references.duties.filter(duty => role.dutyIds.includes(duty.id)) : [];
   }
 
   function setRole(positionId: number, roleId: number) {
     const current = draft.positions.find(position => position.id === positionId);
-    const role = roles.find(item => item.id === roleId);
+    const role = references.roles.find(item => item.id === roleId);
     if (!current || !role || role.positionId !== current.positionId) return;
 
     updatePosition(positionId, {
