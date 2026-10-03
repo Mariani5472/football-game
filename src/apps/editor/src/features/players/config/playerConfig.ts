@@ -16,7 +16,7 @@ export interface PlayerRelationConfig {
 }
 
 const listAll = async (table: string) =>
-  (await import("../../../shared/api/editorApi")).editorApi.list(table, {
+  (await import("../../../shared/api/editorApi")).editorApi.entity.list(table, {
     page: 1,
     pageSize: 1000,
   });
