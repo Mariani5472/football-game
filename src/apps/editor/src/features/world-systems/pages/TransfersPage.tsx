@@ -47,7 +47,26 @@ export function TransfersPage() {
             <Field label="Nome da janela" value={windowConfig.name} onChange={v=>setWindowConfig({...windowConfig,name:v})} />
             <Field label="Início" type="date" value={windowConfig.start} onChange={v=>setWindowConfig({...windowConfig,start:v})} />
             <Field label="Fim" type="date" value={windowConfig.end} onChange={v=>setWindowConfig({...windowConfig,end:v})} />
-            <button onClick={() => void submit(() => editorApi.entity.create("transfer_window",{competition_id:toId(windowConfig.competition),nation_id:toId(windowConfig.nation),name:windowConfig.name,start_date:windowConfig.start,end_date:windowConfig.end}))} className="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-medium text-slate-950">Criar janela</button>
+            <button
+              onClick={() =>
+                void submit(() =>
+                  editorApi.entity.create("transfer_window", {
+                    ...(toId(windowConfig.competition) !== undefined
+                      ? { competition_id: toId(windowConfig.competition) }
+                      : {}),
+                    ...(toId(windowConfig.nation) !== undefined
+                      ? { nation_id: toId(windowConfig.nation) }
+                      : {}),
+                    name: windowConfig.name,
+                    start_date: windowConfig.start,
+                    end_date: windowConfig.end,
+                  }),
+                )
+              }
+              className="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-medium text-slate-950"
+            >
+              Criar janela
+            </button>
           </Card>
 
           <Card title="Condições financeiras" description="Parcelas, participação salarial e cláusulas são gravadas junto com a operação.">
