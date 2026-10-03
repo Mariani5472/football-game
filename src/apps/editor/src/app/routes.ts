@@ -4,6 +4,7 @@ export type EditorRoute =
   | "reference-data"
   | "continents"
   | "countries"
+  | "confederations"
   | "regions"
   | "cities"
   | "languages"
