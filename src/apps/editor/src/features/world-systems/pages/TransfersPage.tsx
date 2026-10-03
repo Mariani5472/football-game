@@ -22,7 +22,7 @@ export function TransfersPage() {
             <Field label="Moeda" value={transfer.currency} onChange={v => setTransfer({...transfer, currency:v})} />
             <label className="flex items-center gap-2 text-xs text-slate-400"><input type="checkbox" checked={transfer.permanent} onChange={e => setTransfer({...transfer, permanent:e.target.checked})}/> Transferência definitiva</label>
             <label className="flex items-center gap-2 text-xs text-slate-400"><input type="checkbox" checked={transfer.loan} onChange={e => setTransfer({...transfer, loan:e.target.checked})}/> É empréstimo</label>
-            <button onClick={() => void submit(() => editorApi.domainTransfer({
+            <button onClick={() => void submit(() => editorApi.domain.transfer({
               playerId:toId(transfer.player)!, originClubId:toId(transfer.origin), destinationClubId:toId(transfer.destination),
               transferTypeId:toId(transfer.type), transferStatusId:toId(transfer.status), transferWindowId:toId(transfer.window),
               transferDate:transfer.date || undefined, fee:toId(transfer.fee), currencyId:toId(transfer.currency), permanent:transfer.permanent,
@@ -47,7 +47,7 @@ export function TransfersPage() {
             <Field label="Nome da janela" value={windowConfig.name} onChange={v=>setWindowConfig({...windowConfig,name:v})} />
             <Field label="Início" type="date" value={windowConfig.start} onChange={v=>setWindowConfig({...windowConfig,start:v})} />
             <Field label="Fim" type="date" value={windowConfig.end} onChange={v=>setWindowConfig({...windowConfig,end:v})} />
-            <button onClick={() => void submit(() => editorApi.create("transfer_window",{competition_id:toId(windowConfig.competition),nation_id:toId(windowConfig.nation),name:windowConfig.name,start_date:windowConfig.start,end_date:windowConfig.end}))} className="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-medium text-slate-950">Criar janela</button>
+            <button onClick={() => void submit(() => editorApi.entity.create("transfer_window",{competition_id:toId(windowConfig.competition),nation_id:toId(windowConfig.nation),name:windowConfig.name,start_date:windowConfig.start,end_date:windowConfig.end}))} className="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-medium text-slate-950">Criar janela</button>
           </Card>
 
           <Card title="Condições financeiras" description="Parcelas, participação salarial e cláusulas são gravadas junto com a operação.">
@@ -75,7 +75,7 @@ export function TransfersPage() {
             <Field label="Tipo de cláusula" value={contract.clauseType} onChange={v => setContract({...contract, clauseType:v})} />
             <Field label="Valor da cláusula" type="number" value={contract.clauseValue} onChange={v => setContract({...contract, clauseValue:v})} />
             <Field label="Percentual da cláusula" type="number" value={contract.clausePercentage} onChange={v => setContract({...contract, clausePercentage:v})} />
-            <button onClick={() => void submit(() => editorApi.domainContract({
+            <button onClick={() => void submit(() => editorApi.domain.contract({
               personId:toId(contract.person)!, clubId:toId(contract.club)!, employmentId:toId(contract.employment),
               startDate:contract.start || undefined, endDate:contract.end || undefined, contractType:contract.type || undefined,
               salary:toId(contract.salary), squadNumber:toId(contract.squad),
