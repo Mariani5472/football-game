@@ -13,7 +13,7 @@ export function useGeographyView(
   const fileRef = useRef<HTMLInputElement>(null);
 
   const selectedContinent = useMemo(() => {
-    if (view.level === "continents") return undefined;
+    if (view.level !== "countries") return undefined;
     return tree.find(node => node.entityId === view.continentId);
   }, [tree, view]);
 
@@ -53,7 +53,6 @@ export function useGeographyView(
     setView({
       level: "country",
       countryId: node.entityId,
-      continentId: selectedContinent?.entityId ?? 0,
     });
   }
 
