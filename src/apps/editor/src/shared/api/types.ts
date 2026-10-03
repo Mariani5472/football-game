@@ -123,3 +123,26 @@ export interface ListResult<T extends EntityRow = EntityRow> {
   pageCount: number;
 }
 
+
+export interface RegisterPackagePayload {
+  packageKey: string;
+  name: string;
+  version?: string;
+  packageType?: string;
+  priority?: number;
+  status?: "ACTIVE" | "CONFLICT" | "ERROR" | "DISABLED";
+  icon?: string | null;
+  sourceFile?: string | null;
+  sourceSha256?: string | null;
+  categories?: string[];
+  description?: string | null;
+  provides?: string[];
+  dependencies?: Array<{ key: string; minVersion?: string | null }>;
+  conflicts?: string[];
+}
+
+export interface UpdatePackagePayload {
+  enabled?: boolean;
+  priority?: number;
+  loadOrder?: number;
+}
