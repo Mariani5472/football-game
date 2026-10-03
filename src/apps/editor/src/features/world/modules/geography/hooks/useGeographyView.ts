@@ -104,7 +104,7 @@ export function useGeographyView(
               ? null
               : Number(row.population);
 
-          await editorApi.create("nation_region", {
+          await editorApi.entity.create("nation_region", {
             nation_id: view.countryId,
             name,
             short_name:
