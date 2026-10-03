@@ -10,9 +10,9 @@ export function useDashboard() {
     setIsLoading(true);
     setError(null);
     try {
-      const dashboard = await editorApi.world();
+      const dashboard = await editorApi.world.get();
       if (!dashboard.build) {
-        dashboard.build = await editorApi.worldBuild();
+        dashboard.build = await editorApi.world.build();
       }
       setData(dashboard);
     } catch (cause) {
