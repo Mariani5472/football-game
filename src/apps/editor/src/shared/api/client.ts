@@ -1,3 +1,5 @@
+import type { EntityKey, ListOptions } from "./types";
+
 export const API_BASE = import.meta.env.VITE_EDITOR_API_BASE ?? "/api";
 
 export async function request<T>(path: string, init?: RequestInit): Promise<T> {
