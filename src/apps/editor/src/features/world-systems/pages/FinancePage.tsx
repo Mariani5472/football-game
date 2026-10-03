@@ -16,7 +16,7 @@ export function FinancePage() {
             <Field label="Orçamento de transferências" type="number" value={finance.transferBudget} onChange={v => setFinance({...finance, transferBudget:v})} />
             <Field label="Orçamento salarial" type="number" value={finance.wageBudget} onChange={v => setFinance({...finance, wageBudget:v})} />
             <Field label="Limite salarial mensal" type="number" value={finance.monthlyWage} onChange={v => setFinance({...finance, monthlyWage:v})} />
-            <button onClick={() => void submit(() => editorApi.domainFinance({
+            <button onClick={() => void submit(() => editorApi.domain.finance({
               clubId:toId(finance.club)!,
               balance:toId(finance.balance),
               transferBudget:toId(finance.transferBudget),
