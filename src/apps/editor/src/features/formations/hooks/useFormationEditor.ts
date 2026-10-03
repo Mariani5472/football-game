@@ -61,9 +61,9 @@ export function useFormationEditor(
       try {
         const [formationPositionResult, assignmentResult, instructionValues] =
           await Promise.all([
-            editorApi.list("formation_position", { page: 1, pageSize: 1000 }),
-            editorApi.list("formation_position_assignment", { page: 1, pageSize: 1000 }),
-            editorApi.list("formation_instruction", { page: 1, pageSize: 1000 }),
+            editorApi.entity.list("formation_position", { page: 1, pageSize: 1000 }),
+            editorApi.entity.list("formation_position_assignment", { page: 1, pageSize: 1000 }),
+            editorApi.entity.list("formation_instruction", { page: 1, pageSize: 1000 }),
           ]);
 
         if (!active) return;
@@ -241,13 +241,13 @@ export function useFormationEditor(
 
       let formationId = draft.id;
       if (formationId) {
-        await editorApi.update("formation", formationId, payload);
+        await editorApi.entity.update("formation", formationId, payload);
       } else {
-        const created = await editorApi.create<{ id: number }>("formation", payload);
+        const created = await editorApi.entity.create<{ id: number }>("formation", payload);
         formationId = Number(created.id);
       }
 
-      const existingPositions = await editorApi.list("formation_position", {
+      const existingPositions = await editorApi.entity.list("formation_position", {
         page: 1,
         pageSize: 1000,
       });
@@ -260,7 +260,7 @@ export function useFormationEditor(
 
       for (const row of existingForFormation) {
         const id = toId(row.id);
-        if (id != null && !currentIds.has(id)) await editorApi.remove("formation_position", id);
+        if (id != null && !currentIds.has(id)) await editorApi.entity.remove("formation_position", id);
       }
 
       const persistedPositionIds = new Map<number, number>();
@@ -274,7 +274,7 @@ export function useFormationEditor(
         };
 
         if (position.id > 0) {
-          await editorApi.update("formation_position", position.id, {
+          await editorApi.entity.update("formation_position", position.id, {
             position_id: position.positionId,
             x: position.x,
             y: position.y,
@@ -282,7 +282,7 @@ export function useFormationEditor(
           });
           persistedPositionIds.set(position.id, position.id);
         } else {
-          const created = await editorApi.create<{ id: number }>(
+          const created = await editorApi.entity.create<{ id: number }>(
             "formation_position",
             positionPayload,
           );
@@ -290,7 +290,7 @@ export function useFormationEditor(
         }
       }
 
-      const existingAssignments = await editorApi.list(
+      const existingAssignments = await editorApi.entity.list(
         "formation_position_assignment",
         { page: 1, pageSize: 1000 },
       );
@@ -305,7 +305,7 @@ export function useFormationEditor(
               (persistedPositionIds.get(position.id) ?? position.id) === assignmentId,
           )
         ) {
-          await editorApi.remove("formation_position_assignment", assignmentId);
+          await editorApi.entity.remove("formation_position_assignment", assignmentId);
         }
       }
 
@@ -323,7 +323,7 @@ export function useFormationEditor(
 
         if (!validAssignment) {
           if (existingAssignment) {
-            await editorApi.remove("formation_position_assignment", formationPositionId);
+            await editorApi.entity.remove("formation_position_assignment", formationPositionId);
           }
           continue;
         }
@@ -334,20 +334,20 @@ export function useFormationEditor(
         };
 
         if (existingAssignment) {
-          await editorApi.update(
+          await editorApi.entity.update(
             "formation_position_assignment",
             formationPositionId,
             assignment,
           );
         } else {
-          await editorApi.create("formation_position_assignment", {
+          await editorApi.entity.create("formation_position_assignment", {
             formation_position_id: formationPositionId,
             ...assignment,
           });
         }
       }
 
-      const existingInstructions = await editorApi.list(
+      const existingInstructions = await editorApi.entity.list(
         "formation_instruction",
         { page: 1, pageSize: 1000 },
       );
@@ -362,7 +362,7 @@ export function useFormationEditor(
           instructionId != null &&
           !currentInstructionIds.has(instructionId)
         ) {
-          await editorApi.remove("formation_instruction", {
+          await editorApi.entity.remove("formation_instruction", {
             formation_id: formationId,
             instruction_id: instructionId,
           });
@@ -381,11 +381,11 @@ export function useFormationEditor(
         );
 
         if (existing) {
-          await editorApi.update("formation_instruction", key, {
+          await editorApi.entity.update("formation_instruction", key, {
             value: instruction.value,
           });
         } else {
-          await editorApi.create("formation_instruction", {
+          await editorApi.entity.create("formation_instruction", {
             ...key,
             value: instruction.value,
           });
