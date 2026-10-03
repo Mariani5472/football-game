@@ -16,7 +16,7 @@ export function emptyAttributes(): Record<string, Record<string, string>> {
 
 export async function listAll<T extends EntityRow = EntityRow>(table: string) {
   return (
-    await editorApi.list<T>(table, {
+    await editorApi.entity.list<T>(table, {
       page: 1,
       pageSize: 1000,
     })
