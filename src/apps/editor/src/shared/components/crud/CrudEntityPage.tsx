@@ -140,7 +140,7 @@ export function CrudEntityPage({
 
     void Promise.all(
       uniqueRelationTables.map(table =>
-        editorApi.list(table, {
+        editorApi.entity.list(table, {
           page: 1,
           pageSize: 100,
           orderBy: "name",
@@ -266,13 +266,13 @@ export function CrudEntityPage({
           );
 
       if (editing) {
-        await editorApi.update(
+        await editorApi.entity.update(
           config.table,
           config.getRowId?.(editing) ?? requireEntityId(editing),
           payload,
         );
       } else {
-        await editorApi.create(config.table, payload);
+        await editorApi.entity.create(config.table, payload);
       }
 
       setEditing(null);
@@ -303,7 +303,7 @@ export function CrudEntityPage({
           normalizeValue(source[field.name], field),
         ]),
       );
-      await editorApi.create(config.table, payload);
+      await editorApi.entity.create(config.table, payload);
       setNotice("Entity duplicated.");
       await list.reload();
     } catch (cause) {
@@ -320,7 +320,7 @@ export function CrudEntityPage({
     setMutationError(null);
 
     try {
-      await editorApi.remove(
+      await editorApi.entity.remove(
         config.table,
         config.getRowId?.(deleting) ?? requireEntityId(deleting),
       );
