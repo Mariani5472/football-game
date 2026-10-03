@@ -18,7 +18,7 @@ export function HistoryPage() {
             <Field label="3º colocado" value={history.thirdTeam} onChange={v => setHistory({...history, thirdTeam:v})} />
             <Field label="País-sede" value={history.hostNation} onChange={v => setHistory({...history, hostNation:v})} />
             <Field label="Estádio-sede" value={history.hostStadium} onChange={v => setHistory({...history, hostStadium:v})} />
-            <button onClick={() => void submit(() => editorApi.domainHistory({competitionId:toId(history.competition)!, year:Number(history.year), positionTeams:[toId(history.firstTeam),toId(history.secondTeam),toId(history.thirdTeam)].filter((v): v is number => v !== undefined), hosts:history.hostNation || history.hostStadium ? [{nationId:toId(history.hostNation),stadiumId:toId(history.hostStadium)}] : []}))} className="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-medium text-slate-950">Salvar edição histórica</button>
+            <button onClick={() => void submit(() => editorApi.domain.history({competitionId:toId(history.competition)!, year:Number(history.year), positionTeams:[toId(history.firstTeam),toId(history.secondTeam),toId(history.thirdTeam)].filter((v): v is number => v !== undefined), hosts:history.hostNation || history.hostStadium ? [{nationId:toId(history.hostNation),stadiumId:toId(history.hostStadium)}] : []}))} className="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-medium text-slate-950">Salvar edição histórica</button>
           </Card>
           <Card title="Configuração de prêmio" description="Defina quem pode receber o prêmio, como é votado e em qual contexto ele existe.">
             <Field label="Nome do prêmio" value={award.name} onChange={v=>setAward({...award,name:v})} />
@@ -29,7 +29,7 @@ export function HistoryPage() {
             <Field label="Método de votação" value={award.votingType} onChange={v=>setAward({...award,votingType:v})} />
             <Field label="Organizador" value={award.organizer} onChange={v=>setAward({...award,organizer:v})} />
             <Field label="Posição elegível" value={award.position} onChange={v=>setAward({...award,position:v})} />
-            <button onClick={() => void submit(() => editorApi.domainAward({name:award.name,competitionId:toId(award.competition),awardPeriodId:toId(award.period),recipientTypeId:toId(award.recipientType),awardTypeId:toId(award.awardType),votingTypeId:toId(award.votingType),organizerId:toId(award.organizer),positionId:toId(award.position)}))} className="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-medium text-slate-950">Salvar configuração do prêmio</button>
+            <button onClick={() => void submit(() => editorApi.domain.award({name:award.name,competitionId:toId(award.competition),awardPeriodId:toId(award.period),recipientTypeId:toId(award.recipientType),awardTypeId:toId(award.awardType),votingTypeId:toId(award.votingType),organizerId:toId(award.organizer),positionId:toId(award.position)}))} className="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-medium text-slate-950">Salvar configuração do prêmio</button>
           </Card>
 
           <Card title="Derbies e conquistas" description="Registre rivalidades e marcos de carreira do jogador.">
@@ -38,12 +38,12 @@ export function HistoryPage() {
             <Field label="Clube 2" value={derby.club2} onChange={v=>setDerby({...derby,club2:v})} />
             <Field label="Reputação mundial" type="number" value={derby.world} onChange={v=>setDerby({...derby,world:v})} />
             <Field label="Reputação nacional" type="number" value={derby.national} onChange={v=>setDerby({...derby,national:v})} />
-            <button onClick={() => void submit(() => editorApi.domainDerby({name:derby.name,clubId1:toId(derby.club1)!,clubId2:toId(derby.club2)!,worldReputation:toId(derby.world),nationalReputation:toId(derby.national)}))} className="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-medium text-slate-950">Criar derby</button>
+            <button onClick={() => void submit(() => editorApi.domain.derby({name:derby.name,clubId1:toId(derby.club1)!,clubId2:toId(derby.club2)!,worldReputation:toId(derby.world),nationalReputation:toId(derby.national)}))} className="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-medium text-slate-950">Criar derby</button>
             <Field label="Jogador da conquista" value={achievement.player} onChange={v=>setAchievement({...achievement,player:v})} />
             <Field label="Equipe / competição" value={achievement.team} onChange={v=>setAchievement({...achievement,team:v})} />
             <Field label="Competição" value={achievement.competition} onChange={v=>setAchievement({...achievement,competition:v})} />
             <Field label="Tipo de conquista" value={achievement.type} onChange={v=>setAchievement({...achievement,type:v})} />
-            <button onClick={() => void submit(() => editorApi.domainAchievement({playerId:toId(achievement.player)!,teamId:toId(achievement.team),competitionId:toId(achievement.competition),achievementTypeId:toId(achievement.type)!}))} className="rounded-lg border border-white/10 px-4 py-2 text-sm text-slate-300">Registrar conquista</button>
+            <button onClick={() => void submit(() => editorApi.domain.achievement({playerId:toId(achievement.player)!,teamId:toId(achievement.team),competitionId:toId(achievement.competition),achievementTypeId:toId(achievement.type)!}))} className="rounded-lg border border-white/10 px-4 py-2 text-sm text-slate-300">Registrar conquista</button>
           </Card>
 
           <Card title="Prêmios e carreira" description="Registre vencedor de prêmio e histórico de carreira do jogador/staff.">
@@ -53,7 +53,7 @@ export function HistoryPage() {
             <Field label="Jogador/pessoa vencedora" value={history.recipientPerson} onChange={v => setHistory({...history, recipientPerson:v})} />
             <Field label="Clube vencedor" value={history.recipientClub} onChange={v => setHistory({...history, recipientClub:v})} />
             <Field label="Nação vencedora" value={history.recipientNation} onChange={v => setHistory({...history, recipientNation:v})} />
-            <button onClick={() => void submit(() => editorApi.domainAwardHistory({awardId:toId(history.award)!,year:Number(history.awardYear),ranking:Number(history.ranking),recipient:{personId:toId(history.recipientPerson),clubId:toId(history.recipientClub),nationId:toId(history.recipientNation)}}))} className="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-medium text-slate-950">Registrar prêmio</button>
+            <button onClick={() => void submit(() => editorApi.domain.awardHistory({awardId:toId(history.award)!,year:Number(history.awardYear),ranking:Number(history.ranking),recipient:{personId:toId(history.recipientPerson),clubId:toId(history.recipientClub),nationId:toId(history.recipientNation)}}))} className="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-medium text-slate-950">Registrar prêmio</button>
             <div className="rounded-lg border border-white/5 bg-black/10 p-3 text-xs text-slate-500">
               Carreiras, recordes, achievements e derbies permanecem disponíveis como entidades do domínio para edição detalhada.
             </div>
