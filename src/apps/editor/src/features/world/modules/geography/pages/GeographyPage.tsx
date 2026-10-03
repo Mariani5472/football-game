@@ -1,5 +1,6 @@
 import { ArrowLeft, Building2, ChevronRight, Globe2, Map, Plus, Upload, UsersRound } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
+import type { ReactNode } from "react";
 import { DeleteDialog, EntityPicker } from "../../../../../shared/components";
 import { GeographyEditorForm } from "../components/GeographyEditorForm";
 import { GeographyEntityHeader } from "../components/GeographyEntityHeader";
@@ -482,7 +483,7 @@ function Breadcrumb({ items }: { items: Array<{ label: string; onClick?: () => v
   );
 }
 
-function Stat({ label, value, icon }: { label: string; value: number; icon: React.ReactNode }) {
+function Stat({ label, value, icon }: { label: string; value: number; icon: ReactNode }) {
   return (
     <div className="rounded-xl bg-white/[0.025] px-3 py-2">
       <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.12em] text-slate-600">{icon}{label}</div>
