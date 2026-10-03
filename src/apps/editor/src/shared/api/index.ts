@@ -6,3 +6,4 @@ export { templatesApi } from "./templatesApi";
 export { domainApi } from "./domainApi";
 export { validationApi } from "./validationApi";
 export { exportApi } from "./exportApi";
+export type { ExportIssue, ExportMetadata, ExportResult } from "./exportApi";
