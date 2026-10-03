@@ -1,20 +1,14 @@
 export {
   ClimatesPage as ClimateDomainPage,
-} from "./pages/WorldEntityPages";
-
-export {
   CitiesPage,
   ClimatesPage,
   ContinentsPage,
   CountriesPage,
   LanguagesPage,
   RegionsPage,
-} from "./pages/WorldEntityPages";
+  ConfederationsPage,
+} from "./pages";
 
-export {
-  GeographyPage,
-} from "../world/modules/geography/pages/GeographyPage";
+export { GeographyPage } from "./pages";
 
-export {
-  LanguagesPage as LanguageDomainPage,
-} from "./pages/WorldEntityPages";
+export { LanguagesPage as LanguageDomainPage } from "./pages";
