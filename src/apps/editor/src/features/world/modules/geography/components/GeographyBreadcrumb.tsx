@@ -1,56 +1,36 @@
 import { ChevronRight } from "lucide-react";
 
-import type {
-  GeographySelection,
-} from "../types";
-
-interface GeographyBreadcrumbProps {
-  selection: GeographySelection;
+export interface GeographyBreadcrumbItem {
+  label: string;
+  onClick?: () => void;
 }
 
 export function GeographyBreadcrumb({
-  selection,
-}: GeographyBreadcrumbProps) {
-  const items = [
-    selection.federation?.name,
-    selection.continent?.name,
-    selection.continentRegion?.name,
-    selection.country?.name,
-    selection.nationRegion?.name,
-    selection.city?.name,
-  ].filter(Boolean);
-
-  if (items.length === 0) {
-    return (
-      <span className="text-sm text-slate-600">
-        Select a location
-      </span>
-    );
-  }
-
+  items,
+}: {
+  items: GeographyBreadcrumbItem[];
+}) {
   return (
-    <div className="flex items-center gap-2 text-sm">
+    <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
       {items.map((item, index) => (
         <div
-          key={`${item}-${index}`}
+          key={item.label + index}
           className="flex items-center gap-2"
         >
           {index > 0 && (
-            <ChevronRight
-              size={13}
-              className="text-slate-700"
-            />
+            <ChevronRight size={12} className="text-slate-700" />
           )}
-
-          <span
-            className={
-              index === items.length - 1
-                ? "text-white"
-                : "text-slate-500"
-            }
-          >
-            {item}
-          </span>
+          {item.onClick ? (
+            <button
+              type="button"
+              onClick={item.onClick}
+              className="hover:text-white"
+            >
+              {item.label}
+            </button>
+          ) : (
+            <span className="text-slate-300">{item.label}</span>
+          )}
         </div>
       ))}
     </div>
