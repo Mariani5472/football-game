@@ -64,7 +64,7 @@ export function FormationsPage() {
 
     try {
       setError(null);
-      await editorApi.remove("formation", deleting.id);
+      await editorApi.entity.remove("formation", deleting.id);
       setDeleting(null);
       await query.reload();
     } catch (cause) {
