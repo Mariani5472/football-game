@@ -87,23 +87,34 @@ export function useGeographyView(
     try {
       const rows = parseCsv(await file.text());
       if (!rows.length) throw new Error("CSV has no data rows.");
-      const headers = Object.keys(rows[0]).filter(key => key !== "__line");
-      if (!headers.includes("name")) throw new Error('CSV must contain a "name" column.');
-      setPreviewRegions(rows.map(row => {
+      if (!Object.keys(rows[0]).includes("name")) {
+        throw new Error('CSV must contain a "name" column.');
+      }
+
+      const payload = rows.map(row => ({
+        line: Number(row.__line),
+        values: {
+          name: String(row.name ?? "").trim(),
+          short_name: String(row.short_name ?? "").trim() || null,
+          population: String(row.population ?? "").trim() === ""
+            ? null
+            : Number(row.population),
+        },
+      }));
+
+      const preview = await editorApi.entity.csvPreview("nation_region", payload);
+      setPreviewRegions(rows.map((row, index) => {
+        const issue = preview.errors.find(error => error.line === Number(row.__line));
         const populationText = String(row.population ?? "").trim();
-        const population = populationText === "" ? undefined : Number(populationText);
-        let error: string | undefined;
-        if (!String(row.name ?? "").trim()) error = "Name is required.";
-        else if (population !== undefined && (!Number.isInteger(population) || population < 0)) error = "Population must be a non-negative whole number.";
         return {
           line: Number(row.__line),
           name: String(row.name ?? "").trim(),
           shortName: String(row.short_name ?? "").trim() || undefined,
-          population,
-          error,
+          population: populationText === "" ? undefined : Number(row.population),
+          error: issue?.message,
         };
       }));
-      setMessage(`Preview ready: ${rows.length} rows. Review issues before importing.`);
+      setMessage(`Preview ready: ${preview.valid}/${preview.total} valid rows.`);
     } catch (cause) {
       setMessage(cause instanceof Error ? cause.message : String(cause));
     } finally {
