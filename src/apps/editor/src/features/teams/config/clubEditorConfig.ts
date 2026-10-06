@@ -185,23 +185,24 @@ export const clubEditorRelations = {
     primaryKey: ["id"],
     scope: { type: "club", field: "club_id" },
   },
-  playerPeriods: c({
-    ...clubConfig,
-    table: "player_club_period",
+  playerPeriods: rawRelation({
+    id: "players",
     title: "Players",
     description: "Players associated with this club over time.",
+    table: "player_club_period",
     fields: [
       { name: "player_id", label: "Player", relation: { table: "player", labelColumn: "person_id" } },
-      { name: "club_id", label: "Club", relation: { table: "club" } },
       { name: "start_date", label: "Start Date", type: "date" },
       { name: "end_date", label: "End Date", type: "date" },
     ],
     columns: [
-      { key: "player_id", header: "Player" },
-      { key: "start_date", header: "Start Date" },
-      { key: "end_date", header: "End Date" },
+      { key: "player_id", label: "Player" },
+      { key: "start_date", label: "Start Date" },
+      { key: "end_date", label: "End Date" },
     ],
-  } as CrudEntityConfig, { type: "club", field: "club_id" }, "players", ["id"]),
+    primaryKey: ["id"],
+    scope: { type: "club", field: "club_id" },
+  }),
 } as const;
 
 export const clubEditorTabs: ClubEditorTabDefinition[] = [
