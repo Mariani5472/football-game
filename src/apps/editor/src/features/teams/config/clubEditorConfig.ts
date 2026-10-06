@@ -56,9 +56,9 @@ export interface ClubRelationConfig {
   title: string;
   description: string;
   table: string;
-  fields: CrudField[];
-  columns: { key: string; label: string }[];
-  primaryKey: string[];
+  fields: readonly CrudField[];
+  columns: readonly { key: string; label: string }[];
+  primaryKey: readonly string[];
   scope: ClubScope;
   createDefaults?: Record<string, string | number | boolean | null>;
   normalizeCreate?: (clubId: number, values: Record<string, unknown>) => Record<string, unknown>;
@@ -74,7 +74,7 @@ const c = (
   config: CrudEntityConfig,
   scope: ClubScope,
   id: string,
-  primaryKey: string[] = ["id"],
+  primaryKey: readonly string[] = ["id"],
 ): ClubRelationConfig => ({
   id,
   title: config.title,
