@@ -16,6 +16,7 @@ import { FastStartService, type FastStartTemplate } from "../world/services/Fast
 import { WorldStatisticsService } from "../world/services/WorldStatisticsService.js";
 import { WorldTemplateService, type TemplateRecord, type TemplateRelationOption } from "./WorldTemplateService.js";
 import { WorldDomainService } from "./WorldDomainService.js";
+import { EditorApplication } from "./application/EditorApplication.js";
 import type { ContractInput } from "../modules/career/domain/ContractRepository.js";
 import type { FinanceInput } from "../modules/finance/domain/FinanceRepository.js";
 import { CsvImportService, type CsvImportRow } from "./CsvImportService.js";
@@ -61,6 +62,7 @@ export class WorldEditorService {
   private readonly database: WorldDatabase;
   private readonly templatesService: WorldTemplateService;
   private readonly domainService: WorldDomainService;
+  private readonly application: EditorApplication;
   private readonly validator: WorldValidator;
   private readonly packageService: WorldPackageService;
   private readonly csvImportService: CsvImportService;
@@ -77,6 +79,7 @@ export class WorldEditorService {
 
     this.templatesService = new WorldTemplateService(this.database);
     this.domainService = new WorldDomainService(this.database);
+    this.application = new EditorApplication(this.database);
     this.validator = new WorldValidator(this.database);
     this.packageService = new WorldPackageService(this.database);
     this.csvImportService = new CsvImportService(this.database);
@@ -291,48 +294,48 @@ export class WorldEditorService {
     return { template, seasonYear, result: "COMPLETED" as const };
   }
   createLeague(input: Parameters<WorldDomainService["createLeague"]>[0]) {
-    const result = this.domainService.createLeague(input);
+    const result = this.application.createLeague(input);
     this.markDirectEdit();
     return result;
   }
   createCompetitionStage(input: Parameters<WorldDomainService["createCompetitionStage"]>[0]) {
-    const result = this.domainService.createCompetitionStage(input);
+    const result = this.application.createCompetitionStage(input);
     this.markDirectEdit();
     return result;
   }
   updateCompetitionStage(stageId: number, input: Parameters<WorldDomainService["updateCompetitionStage"]>[1]) {
-    const result = this.domainService.updateCompetitionStage(stageId, input);
+    const result = this.application.updateCompetitionStage(stageId, input);
     this.markDirectEdit();
     return result;
   }
 
   duplicateCompetition(competitionId: number) {
-    const result = this.domainService.duplicateCompetition(competitionId);
+    const result = this.application.duplicateCompetition(competitionId);
     this.markDirectEdit();
     return result;
   }
 
   duplicateStadium(stadiumId: number) {
-    const result = this.domainService.duplicateStadium(stadiumId);
+    const result = this.application.duplicateStadium(stadiumId);
     this.markDirectEdit();
     return result;
   }
 
   createClub(input: Parameters<WorldDomainService["createClub"]>[0]) {
-    const result = this.domainService.createClub(input);
+    const result = this.application.createClub(input);
     this.markDirectEdit();
     return result;
   }
 
   createPlayer(input: Parameters<WorldDomainService["createPlayer"]>[0]) {
-    const result = this.domainService.createPlayer(input);
+    const result = this.application.createPlayer(input);
     this.markDirectEdit();
     return result;
   }
   createTransfer(
     input: Parameters<WorldDomainService["createTransfer"]>[0],
   ) {
-    const result = this.domainService.createTransfer(input);
+    const result = this.application.createTransfer(input);
     this.markDirectEdit();
     return result;
   }
@@ -340,7 +343,7 @@ export class WorldEditorService {
   createContract(
     input: ContractInput,
   ) {
-    const result = this.domainService.createContract(input);
+    const result = this.application.createContract(input);
     this.markDirectEdit();
     return result;
   }
@@ -348,7 +351,7 @@ export class WorldEditorService {
   saveClubFinance(
     input: FinanceInput,
   ) {
-    const result = this.domainService.saveClubFinance(input);
+    const result = this.application.saveClubFinance(input);
     this.markDirectEdit();
     return result;
   }
@@ -356,7 +359,7 @@ export class WorldEditorService {
   createCompetitionHistory(
     input: Parameters<WorldDomainService["createCompetitionHistory"]>[0],
   ) {
-    const result = this.domainService.createCompetitionHistory(input);
+    const result = this.application.createCompetitionHistory(input);
     this.markDirectEdit();
     return result;
   }
