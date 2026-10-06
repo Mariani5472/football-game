@@ -1,10 +1,9 @@
-import { useEffect, useState } from "react";
-import { editorApi, type EntityRow } from "../../../shared/api/editorApi";
-import { Tabs } from "../../../shared/components";
-import { PersonEditor } from "../components/PersonEditor";
-import { useEntityQuery } from "../../../shared/hooks/useEntityApi";
-import { SearchInput, Pagination, DataTable } from "../../../shared/components";
+import { useState } from "react";
+import { DataTable, Pagination, SearchInput } from "../../../shared/components";
 import type { DataTableColumn } from "../../../shared/components";
+import { useEntityQuery } from "../../../shared/hooks/useEntityApi";
+import { editorApi, type EntityRow } from "../../../shared/api/editorApi";
+import { PersonEditor } from "../components/PersonEditor";
 
 export function PeoplePage() {
   const [selectedId, setSelectedId] = useState<number | undefined>();
@@ -13,12 +12,9 @@ export function PeoplePage() {
   const [search, setSearch] = useState("");
 
   const list = useEntityQuery("person", {
-    page,
-    pageSize: 15,
-    search,
+    page, pageSize: 15, search,
     searchColumns: ["full_name", "common_name"],
-    orderBy: "full_name",
-    orderDirection: "ASC",
+    orderBy: "full_name", orderDirection: "ASC",
   });
 
   if (creating || selectedId !== undefined) {
@@ -31,16 +27,16 @@ export function PeoplePage() {
     );
   }
 
-  const columns: DataTableColumn<Record<string, string | number | boolean | null>>[] = [
-    { key: "full_name", header: "Name" },
-    { key: "common_name", header: "Common Name" },
-    { key: "birth_date", header: "Birth Date" },
-    { key: "person_type_id", header: "Person Type" },
-    { key: "birth_city_id", header: "Birth City" },
-    { key: "sex", header: "Sex" },
+  const columns: DataTableColumn<EntityRow>[] = [
+    { key: "full_name", header: "Name", render: row => String(row.full_name ?? "") },
+    { key: "common_name", header: "Common Name", render: row => String(row.common_name ?? "—") },
+    { key: "birth_date", header: "Birth Date", render: row => String(row.birth_date ?? "—") },
+    { key: "person_type_id", header: "Person Type", render: row => String(row.person_type_id ?? "—") },
+    { key: "birth_city_id", header: "Birth City", render: row => String(row.birth_city_id ?? "—") },
+    { key: "sex", header: "Sex", render: row => String(row.sex ?? "—") },
   ];
 
-  async function remove(row: Record<string, string | number | boolean | null>) {
+  async function remove(row: EntityRow) {
     if (!window.confirm("Delete this person? Related records may prevent deletion.")) return;
     try {
       await editorApi.entity.remove("person", Number(row.id));
@@ -64,15 +60,7 @@ export function PeoplePage() {
       </header>
 
       <SearchInput value={search} onChange={value => { setSearch(value); setPage(1); }} placeholder="Search by full or common name..." />
-      <DataTable
-        rows={list.rows}
-        columns={columns}
-        loading={list.loading}
-        error={list.error}
-        onEdit={row => setSelectedId(Number(row.id))}
-        onDelete={row => void remove(row)}
-        emptyMessage="No people found."
-      />
+      <DataTable rows={list.rows} columns={columns} loading={list.loading} error={list.error} onEdit={row => setSelectedId(Number(row.id))} onDelete={row => void remove(row)} emptyMessage="No people found." />
       {!list.loading && !list.error && <Pagination page={list.page} pageCount={list.pageCount} onPageChange={setPage} />}
     </div>
   );
