@@ -166,26 +166,12 @@ export function PlayerEditor({ playerId, onBack, onSaved }: {
             </div>,
           },
           {
-            id: "person-profile",
-            label: "Person Profile",
-            icon: Users,
-            content: <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-6 text-sm text-slate-400">Player inherits Person identity. Use the People editor for names, nationality, languages, contracts and person-level relationships.</div>,
-          },
-          {
             id: "relationships",
             label: "Relationships",
             icon: Users,
             content: relation("relationships")
               ? <PlayerRelationsEditor playerId={playerId ?? 0} config={relation("relationships")!} />
               : <PlayerRelationTabs playerId={playerId} />,
-          },
-          {
-            id: "person",
-            label: "Person Profile",
-            icon: Users,
-            content: <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-6 text-sm text-slate-400">
-              Person identity is the shared parent entity. Use the People editor to modify the complete Person profile without duplicating it inside Player.
-            </div>,
           },
         ]}
       />
