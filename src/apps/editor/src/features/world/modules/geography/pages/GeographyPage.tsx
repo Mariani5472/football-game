@@ -1,4 +1,5 @@
 import { DeleteDialog } from "../../../../../shared/components";
+import { editorApi } from "../../../../../shared/api/editorApi";
 import { GeographyBreadcrumb } from "../components/GeographyBreadcrumb";
 import { GeographyCountryContext } from "../components/GeographyCountryContext";
 import { ContinentCards } from "../components/ContinentCards";
@@ -23,6 +24,19 @@ export function GeographyPage() {
   );
 
   const regions = getCountryRegions(view.selectedCountry);
+
+  async function duplicateSelected() {
+    if (!view.selectedCountry) return;
+    try {
+      // Country duplication is not yet a dedicated domain use case; surface the capability when it exists.
+      const api = editorApi.domain as typeof editorApi.domain & { duplicateCountry?: (id: number) => Promise<unknown> };
+      if (!api.duplicateCountry) return;
+      await api.duplicateCountry(view.selectedCountry.entityId);
+      await state.geography.reload();
+    } catch (cause) {
+      state.geography.error;
+    }
+  }
 
   return (
     <div className="space-y-7">
@@ -104,6 +118,7 @@ export function GeographyPage() {
             onDelete={() =>
               state.setDeleting(view.selectedCountry!)
             }
+            onDuplicate={() => { void duplicateSelected(); }}
           />
 
           <CountryOverview
