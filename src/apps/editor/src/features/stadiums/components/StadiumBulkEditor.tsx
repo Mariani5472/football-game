@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { CircleAlert, Pencil, RotateCcw } from "lucide-react";
 import { editorApi, type EntityRow, type Scalar } from "../../../shared/api/editorApi";
-import { EntityForm, type EntityFormValue } from "../../../shared/components";
+import { ConfirmDialog, EntityForm, type EntityFormValue } from "../../../shared/components";
 
 type BulkField = {
   name: string;
@@ -29,6 +29,7 @@ const BULK_FIELDS: BulkField[] = [
 export function StadiumBulkEditor({ rows, onSaved }: { rows: EntityRow[]; onSaved: () => Promise<void> }) {
   const [field, setField] = useState(BULK_FIELDS[0].name);
   const [value, setValue] = useState<EntityFormValue>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const selectedField = BULK_FIELDS.find(item => item.name === field) ?? BULK_FIELDS[0];
@@ -53,6 +54,7 @@ export function StadiumBulkEditor({ rows, onSaved }: { rows: EntityRow[]; onSave
     setError(null);
     try {
       await Promise.all(rows.map(row => editorApi.entity.update("stadium", Number(row.id), { [field]: normalized })));
+      setConfirmOpen(false);
       await onSaved();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause));
@@ -82,7 +84,8 @@ export function StadiumBulkEditor({ rows, onSaved }: { rows: EntityRow[]; onSave
 
       <div className="mt-3 flex items-center justify-between gap-3">
         {error ? <div className="flex items-center gap-2 text-xs text-red-300"><CircleAlert size={14} />{error}</div> : <span className="text-xs text-slate-600">Only the selected field will change.</span>}
-        <button type="button" onClick={() => void save()} disabled={saving} className="rounded-xl bg-emerald-400/10 px-4 py-2.5 text-sm font-medium text-emerald-200 disabled:opacity-50">Apply to {rows.length}</button>
+        <button type="button" onClick={() => setConfirmOpen(true)} disabled={saving} className="rounded-xl bg-emerald-400/10 px-4 py-2.5 text-sm font-medium text-emerald-200 disabled:opacity-50">Apply to {rows.length}</button>
+        <ConfirmDialog open={confirmOpen} title="Apply bulk change" description={`This changes ${selectedField.label} on ${rows.length} selected stadium(s).`} confirmLabel="Apply changes" onConfirm={() => void save()} onClose={() => { if (!saving) setConfirmOpen(false); }} />
       </div>
     </section>
   );
