@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { editorApi, type EntityRow, type Scalar } from "../../../shared/api/editorApi";
 import { EntityPicker } from "../../../shared/components";
 import type { PlayerRelationConfig } from "../config/playerConfig";
