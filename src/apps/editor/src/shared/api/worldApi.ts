@@ -1,7 +1,27 @@
 import { request } from "./client";
 import type { WorldDashboard, WorldBuildStatus, WorldPackageRecord, ImportPreview, ImportSession, ImportConflict, RegisterPackagePayload, UpdatePackagePayload } from "./types";
 
-export interface DefaultDataSummary { packageKey: string; version: string; priority: number; sourceFile: string | null; sourceSha256: string | null; categories: string[]; provides: string[]; importedEntities: number; attributedValues: number; sourceHashRecorded: boolean }
+export interface DefaultDataDomainSummary {
+  geography: string[];
+  football: string[];
+  tactical: string[];
+  injuries: string[];
+  generic: string[];
+}
+
+export interface DefaultDataSummary {
+  packageKey: string;
+  version: string;
+  priority: number;
+  sourceFile: string | null;
+  sourceSha256: string | null;
+  categories: string[];
+  provides: string[];
+  importedEntities: number;
+  attributedValues: number;
+  sourceHashRecorded: boolean;
+  domains: DefaultDataDomainSummary;
+}
 
 export const worldApi = {
   defaultData: () => request<DefaultDataSummary | null>("/world/default-data"),
