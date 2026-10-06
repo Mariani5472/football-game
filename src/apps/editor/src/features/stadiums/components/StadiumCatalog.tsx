@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Download, MapPin } from "lucide-react";
 import { domainApi } from "../../../shared/api/domainApi";
 import { editorApi, type EntityRow, type Scalar } from "../../../shared/api/editorApi";
-import { DataTable, EntityPicker, Pagination, SearchInput, type DataTableColumn } from "../../../shared/components";
+import { DataTable, Pagination, SearchInput, type DataTableColumn } from "../../../shared/components";
 import { useEntityQuery } from "../../../shared/hooks/useEntityApi";
 import { StadiumBulkEditor, StadiumBulkSelectionHint } from "./StadiumBulkEditor";
 
