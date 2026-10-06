@@ -3,7 +3,7 @@ import { EntityForm, type EntityFormValue } from "../../../shared/components";
 import { editorApi, type EntityRow, type Scalar } from "../../../shared/api/editorApi";
 import type { ClubRelationConfig } from "../config/clubEditorConfig";
 
-function rowKey(row: EntityRow, keys: string[]) {
+function rowKey(row: EntityRow, keys: readonly string[]) {
   return JSON.stringify(Object.fromEntries(keys.map(key => [key, row[key]])));
 }
 
