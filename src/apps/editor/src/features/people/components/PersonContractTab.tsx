@@ -12,14 +12,10 @@ export function PersonContractTab({ personId, references }: { personId?: number;
     const result = await editorApi.entity.list("person_contract", { page: 1, pageSize: 1000 });
     setRows(result.rows.filter(row => Number(row.person_id) === personId));
   }
-
   useEffect(() => { void reload(); }, [personId]);
 
   async function save() {
-    if (!personId || !values.club_id) {
-      setError("Club is required.");
-      return;
-    }
+    if (!personId || !values.club_id) { setError("Club is required."); return; }
     try {
       await editorApi.entity.create("person_contract", {
         person_id: personId,
@@ -41,34 +37,28 @@ export function PersonContractTab({ personId, references }: { personId?: number;
 
   if (!personId) return <Empty text="Save the Person first to manage contracts." />;
 
-  return (
-    <section className="space-y-5">
-      <EntityForm
-        fields={[
-          { name: "start_date", label: "Start Date", type: "date" },
-          { name: "end_date", label: "End Date", type: "date" },
-          { name: "contract_type", label: "Contract Type" },
-          { name: "salary", label: "Salary", type: "number", min: 0 },
-          { name: "squad_number", label: "Squad Number", type: "number", min: 0 },
-        ]}
-        values={values}
-        onChange={(name, value) => setValues(current => ({ ...current, [name]: String(value ?? "") }))}
-        onSubmit={() => void save()}
-        submitLabel="Add Contract"
-      >
-        <div className="grid gap-5 md:grid-cols-2">
-          <EntityPicker label="Club" value={values.club_id ?? ""} options={references.teams.map(row => ({ id: Number(row.id), label: String(row.name ?? row.id) }))} onChange={value => setValues(current => ({ ...current, club_id: String(value) }))} />
-          <EntityPicker label="Employment" value={values.employment_id ?? ""} options={references.employments.map(row => ({ id: Number(row.id), label: String(row.name ?? row.id) }))} onChange={value => setValues(current => ({ ...current, employment_id: String(value) }))} />
-        </div>
-      </EntityForm>
-      {error && <p className="text-xs text-red-300">{error}</p>}
-      <SimpleRows rows={rows} keys={["club_id", "employment_id", "start_date", "end_date", "salary", "contract_type"]} />
-    </section>
-  );
-}
-
-function SimpleRows({ rows, keys }: { rows: EntityRow[]; keys: string[] }) {
-  return <div className="space-y-2">{rows.map((row, index) => <div key={String(row.id ?? index)} className="grid gap-2 rounded-xl border border-white/10 bg-white/[0.03] p-3 text-xs text-slate-300 md:grid-cols-6">{keys.map(key => <div key={key}><span className="text-slate-600">{key.replace(/_/g, " ")}</span><div>{String(row[key] ?? "—")}</div></div>)}</div>)}</div>;
+  return <section className="space-y-5">
+    <EntityForm
+      fields={[
+        { name: "start_date", label: "Start Date", type: "date" },
+        { name: "end_date", label: "End Date", type: "date" },
+        { name: "contract_type", label: "Contract Type" },
+        { name: "salary", label: "Salary", type: "number", min: 0 },
+        { name: "squad_number", label: "Squad Number", type: "number", min: 0 },
+      ]}
+      values={values}
+      onChange={(name, value) => setValues(current => ({ ...current, [name]: String(value ?? "") }))}
+      onSubmit={() => void save()}
+      submitLabel="Add Contract"
+    >
+      <div className="grid gap-5 md:grid-cols-2">
+        <EntityPicker label="Club / Team" value={values.club_id ?? ""} options={references.teams.map(row => ({ id: Number(row.id), label: String(row.name ?? row.id) }))} onChange={value => setValues(current => ({ ...current, club_id: String(value) }))} />
+        <EntityPicker label="Employment" value={values.employment_id ?? ""} options={references.employments.map(row => ({ id: Number(row.id), label: String(row.name ?? row.id) }))} onChange={value => setValues(current => ({ ...current, employment_id: String(value) }))} />
+      </div>
+    </EntityForm>
+    {error && <p className="text-xs text-red-300">{error}</p>}
+    <div className="space-y-2">{rows.map(row => <div key={Number(row.id)} className="grid gap-2 rounded-xl border border-white/10 bg-white/[0.03] p-3 text-xs text-slate-300 md:grid-cols-6">{["club_id", "employment_id", "start_date", "end_date", "salary", "contract_type"].map(key => <div key={key}><span className="text-slate-600">{key.replace(/_/g, " ")}</span><div>{String(row[key] ?? "—")}</div></div>)}</div>)}</div>
+  </section>;
 }
 
 function Empty({ text }: { text: string }) {
