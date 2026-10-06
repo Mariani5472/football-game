@@ -38,16 +38,10 @@ export function PersonEditor({
       setPerson(null);
       return;
     }
-
     let active = true;
     void editorApi.entity.get<Person>("person", personId)
-      .then(row => {
-        if (active) setPerson(row);
-      })
-      .catch(cause => {
-        if (active) setError(cause instanceof Error ? cause.message : String(cause));
-      });
-
+      .then(row => active && setPerson(row))
+      .catch(cause => active && setError(cause instanceof Error ? cause.message : String(cause)));
     return () => { active = false; };
   }, [personId]);
 
@@ -69,91 +63,36 @@ export function PersonEditor({
   const title = person?.full_name ?? (personId ? `Person #${personId}` : "New Person");
   const locked = !personId;
 
-  if (personId && !person && references.loading) {
-    return <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-8 text-sm text-slate-500">Loading person...</div>;
-  }
-
   return (
     <div className="space-y-6">
       <header className="flex items-start justify-between gap-6">
         <div>
-          <div className="mb-2 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-600">
-            <UserRound size={14} /> PEOPLE / PERSON
-          </div>
+          <div className="mb-2 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-600"><UserRound size={14} /> PEOPLE / PERSON</div>
           <h1 className="text-2xl font-semibold tracking-tight text-white">{title}</h1>
-          <p className="mt-2 max-w-3xl text-sm text-slate-500">
-            Complete Person editor: identity, nationality, languages, contracts, relationships,
-            international data, attributes, trends and history.
-          </p>
+          <p className="mt-2 max-w-3xl text-sm text-slate-500">Complete Person editor: identity, nationality, languages, contracts, relationships, international data, attributes, trends and history.</p>
         </div>
-        <button type="button" onClick={onBack} className="rounded-lg border border-white/10 px-3 py-2 text-xs text-slate-400">
-          Back
-        </button>
+        <button type="button" onClick={onBack} className="rounded-lg border border-white/10 px-3 py-2 text-xs text-slate-400">Back</button>
       </header>
 
-      {(error || references.error) && (
-        <div className="rounded-xl border border-red-400/20 bg-red-400/5 px-4 py-3 text-sm text-red-200">
-          {error ?? references.error}
-        </div>
-      )}
+      {(error || references.error) && <div className="rounded-xl border border-red-400/20 bg-red-400/5 px-4 py-3 text-sm text-red-200">{error ?? references.error}</div>}
 
       <Tabs
         activeTab={tab}
         onChange={setTab}
         items={[
-          {
-            id: "identity",
-            label: "Identity",
-            content: <PersonIdentityTab draft={editor.draft} references={references} onChange={editor.setValue} saving={saving} onSave={() => void saveIdentity()} />,
-          },
-          {
-            id: "nationality",
-            label: "Nationality",
-            content: <PersonNationalityTab personId={personId} references={references} />,
-          },
-          {
-            id: "languages",
-            label: "Languages",
-            content: <PersonLanguagesTab personId={personId} references={references} />,
-          },
-          {
-            id: "contracts",
-            label: "Contracts",
-            content: <PersonContractTab personId={personId} references={references} />,
-          },
-          {
-            id: "relationships",
-            label: "Relationships",
-            content: <PersonRelationshipsTab personId={personId} references={references} />,
-          },
-          {
-            id: "international",
-            label: "International",
-            content: <PersonInternationalTab personId={personId} />,
-          },
-          {
-            id: "attributes",
-            label: "Attributes",
-            content: <PersonAttributesTab personId={personId} />,
-          },
-          {
-            id: "trends",
-            label: "Trends",
-            content: <PersonTrendsTab personId={personId} />,
-          },
-          {
-            id: "history",
-            label: "History & Clubs",
-            content: <PersonHistoryTab personId={personId} teams={references.teams} />,
-          },
+          { id: "identity", label: "Identity", content: <PersonIdentityTab draft={editor.draft} references={references} onChange={editor.setValue} saving={saving} onSave={() => void saveIdentity()} /> },
+          { id: "nationality", label: "Nationality", content: <PersonNationalityTab personId={personId} references={references} /> },
+          { id: "languages", label: "Languages", content: <PersonLanguagesTab personId={personId} references={references} /> },
+          { id: "contracts", label: "Contracts", content: <PersonContractTab personId={personId} references={references} /> },
+          { id: "relationships", label: "Relationships", content: <PersonRelationshipsTab personId={personId} references={references} /> },
+          { id: "international", label: "International", content: <PersonInternationalTab personId={personId} /> },
+          { id: "attributes", label: "Attributes", content: <PersonAttributesTab personId={personId} /> },
+          { id: "trends", label: "Trends", content: <PersonTrendsTab personId={personId} /> },
+          { id: "history", label: "History & Clubs", content: <PersonHistoryTab personId={personId} teams={references.teams} /> },
         ]}
       />
 
-      {locked && (
-        <p className="text-right text-xs text-slate-600">
-          Save the Person from the Identity tab to unlock relationship data.
-        </p>
-      )}
+      {locked && <p className="text-right text-xs text-slate-600">Save the Person from the Identity tab to unlock relationship data.</p>}
     </div>
   );
 }
