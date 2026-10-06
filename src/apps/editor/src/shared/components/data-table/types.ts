@@ -7,10 +7,18 @@ export interface DataTableColumn<T> {
   className?: string;
 }
 
+export interface DataTableSelection<T> {
+  selectedKeys: ReadonlySet<string | number>;
+  getKey: (row: T, index: number) => string | number;
+  onToggle: (row: T, index: number) => void;
+  onToggleAll: () => void;
+}
+
 export interface DataTableProps<T> {
   columns: DataTableColumn<T>[];
   rows: T[];
   rowKey?: (row: T, index: number) => string | number;
+  selection?: DataTableSelection<T>;
   onRowClick?: (row: T) => void;
   onEdit?: (row: T) => void;
   onDelete?: (row: T) => void;
