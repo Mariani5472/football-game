@@ -9,6 +9,7 @@ interface Props {
   onEdit: () => void;
   onAddChild: () => void;
   onDelete: () => void;
+  onDuplicate?: () => void;
 }
 
 export function GeographyEntityHeader({
@@ -19,6 +20,7 @@ export function GeographyEntityHeader({
   onEdit,
   onAddChild,
   onDelete,
+  onDuplicate,
 }: Props) {
   return (
     <section className="rounded-2xl border border-white/10 bg-white/[0.02] p-6">
@@ -64,6 +66,16 @@ export function GeographyEntityHeader({
               className="inline-flex items-center gap-2 rounded-lg bg-emerald-400/10 px-3 py-2 text-xs font-medium text-emerald-200 hover:bg-emerald-400/15"
             >
               <Plus size={13} /> Add {childLabel(childKind)}
+            </button>
+          )}
+
+          {onDuplicate && (
+            <button
+              type="button"
+              onClick={onDuplicate}
+              className="inline-flex items-center gap-2 rounded-lg border border-white/10 px-3 py-2 text-xs text-slate-300 hover:bg-white/[0.04]"
+            >
+              Duplicate
             </button>
           )}
 
