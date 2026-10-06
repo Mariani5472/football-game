@@ -166,6 +166,12 @@ export function PlayerEditor({ playerId, onBack, onSaved }: {
             </div>,
           },
           {
+            id: "person-profile",
+            label: "Person Profile",
+            icon: Users,
+            content: <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-6 text-sm text-slate-400">Player inherits Person identity. Use the People editor for names, nationality, languages, contracts and person-level relationships.</div>,
+          },
+          {
             id: "relationships",
             label: "Relationships",
             icon: Users,
