@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
-import { DataTable, Pagination, SearchInput } from "../../../shared/components";
-import type { DataTableColumn } from "../../../shared/components";
-import { useEntityQuery } from "../../../shared/hooks/useEntityApi";
 import { editorApi, type EntityRow } from "../../../shared/api/editorApi";
+import { Tabs } from "../../../shared/components";
 import { PersonEditor } from "../components/PersonEditor";
+import { useEntityQuery } from "../../../shared/hooks/useEntityApi";
+import { SearchInput, Pagination, DataTable } from "../../../shared/components";
+import type { DataTableColumn } from "../../../shared/components";
 
 export function PeoplePage() {
   const [selectedId, setSelectedId] = useState<number | undefined>();
@@ -20,18 +21,6 @@ export function PeoplePage() {
     orderDirection: "ASC",
   });
 
-  useEffect(() => {
-    const listener = (event: Event) => {
-      const detail = (event as CustomEvent<{ table?: string; id?: string | number }>).detail;
-      if (detail.table === "person" && detail.id != null) {
-        setCreating(false);
-        setSelectedId(Number(detail.id));
-      }
-    };
-    window.addEventListener("editor:navigate-entity", listener);
-    return () => window.removeEventListener("editor:navigate-entity", listener);
-  }, []);
-
   if (creating || selectedId !== undefined) {
     return (
       <PersonEditor
@@ -42,7 +31,7 @@ export function PeoplePage() {
     );
   }
 
-  const columns: DataTableColumn<EntityRow>[] = [
+  const columns: DataTableColumn<Record<string, string | number | boolean | null>>[] = [
     { key: "full_name", header: "Name" },
     { key: "common_name", header: "Common Name" },
     { key: "birth_date", header: "Birth Date" },
@@ -51,7 +40,7 @@ export function PeoplePage() {
     { key: "sex", header: "Sex" },
   ];
 
-  async function remove(row: EntityRow) {
+  async function remove(row: Record<string, string | number | boolean | null>) {
     if (!window.confirm("Delete this person? Related records may prevent deletion.")) return;
     try {
       await editorApi.entity.remove("person", Number(row.id));
@@ -71,13 +60,10 @@ export function PeoplePage() {
             Shared identity layer for players, staff and other world actors. Open a person to edit the complete profile graph.
           </p>
         </div>
-        <button type="button" onClick={() => setCreating(true)} className="rounded-lg bg-emerald-400/10 px-3.5 py-2.5 text-sm font-medium text-emerald-200">
-          + New Person
-        </button>
+        <button type="button" onClick={() => setCreating(true)} className="rounded-lg bg-emerald-400/10 px-3.5 py-2.5 text-sm font-medium text-emerald-200">+ New Person</button>
       </header>
 
       <SearchInput value={search} onChange={value => { setSearch(value); setPage(1); }} placeholder="Search by full or common name..." />
-
       <DataTable
         rows={list.rows}
         columns={columns}
@@ -87,7 +73,6 @@ export function PeoplePage() {
         onDelete={row => void remove(row)}
         emptyMessage="No people found."
       />
-
       {!list.loading && !list.error && <Pagination page={list.page} pageCount={list.pageCount} onPageChange={setPage} />}
     </div>
   );
