@@ -1,11 +1,7 @@
-export const DEFAULT_CLIMATES = [
-  "Tropical", "Dry", "Temperate", "Continental", "Polar", "Mediterranean",
-  "Subtropical", "Oceanic", "Humid Subtropical", "Monsoon", "Savanna",
-  "Steppe", "Desert", "Subarctic", "Tundra", "Alpine",
-] as const;
-
 export const GEOGRAPHY_REFERENCES = {
-  climates: DEFAULT_CLIMATES,
+  climates: ["Tropical", "Dry", "Temperate", "Continental", "Polar", "Mediterranean",
+    "Subtropical", "Oceanic", "Humid Subtropical", "Monsoon", "Savanna",
+    "Steppe", "Desert", "Subarctic", "Tundra", "Alpine"],
   nationalityMethods: ["Birth", "Descent", "Naturalization", "Marriage"],
   developmentStates: ["Developed", "Emerging", "Developing"],
   weatherSeasons: ["Spring", "Summer", "Autumn", "Winter"],

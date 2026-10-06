@@ -23,8 +23,7 @@ export class WorldBasePackageService {
 
     initializeWorldCompositionSchema(database);
     const existing = database.prepare(
-      "SELECT id,version,package_type AS packageType,priority,enabled,
-        source_file AS sourceFile,source_sha256 AS sourceSha256 FROM world_package WHERE lower(package_key)=? LIMIT 1",
+      "SELECT id,version,package_type AS packageType,priority,enabled,source_file AS sourceFile,source_sha256 AS sourceSha256 FROM world_package WHERE lower(package_key)=? LIMIT 1",
     ).get(BASE_PACKAGE_KEY) as {
       id: number;
       version: string;

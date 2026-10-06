@@ -50,14 +50,14 @@ export class DefaultDataRepository {
         "world_entity_provenance",
       )
         ? Number(
-            (
-              this.database.connection
-                .prepare(
-                  "SELECT COUNT(DISTINCT table_name || ':' || row_key) AS count FROM world_entity_provenance WHERE package_id=?",
-                )
-                .get(id) as { count: number }
-            ).count,
-          )
+          (
+            this.database.connection
+              .prepare(
+                "SELECT COUNT(DISTINCT table_name || ':' || row_key) AS count FROM world_entity_provenance WHERE package_id=?",
+              )
+              .get(id) as { count: number }
+          ).count,
+        )
         : 0;
 
     return {
@@ -78,16 +78,16 @@ export class DefaultDataRepository {
           "world_package_provides",
         )
           ? (
-              this.database.connection
-                .prepare(
-                  "SELECT provide_key FROM world_package_provides WHERE package_id=? ORDER BY provide_key",
-                )
-                .all(id) as Array<{
+            this.database.connection
+              .prepare(
+                "SELECT provide_key FROM world_package_provides WHERE package_id=? ORDER BY provide_key",
+              )
+              .all(id) as Array<{
                 provide_key: string;
               }>
-            ).map(
-              item => item.provide_key,
-            )
+          ).map(
+            item => item.provide_key,
+          )
           : [],
       importedEntities,
       attributedValues:
@@ -95,23 +95,22 @@ export class DefaultDataRepository {
           "world_attribute_provenance",
         )
           ? Number(
-              (
-                this.database.connection
-                  .prepare(
-                    "SELECT COUNT(*) AS count FROM world_attribute_provenance WHERE package_id=?",
-                  )
-                  .get(id) as { count: number }
-              ).count,
-            )
+            (
+              this.database.connection
+                .prepare(
+                  "SELECT COUNT(*) AS count FROM world_attribute_provenance WHERE package_id=?",
+                )
+                .get(id) as { count: number }
+            ).count,
+          )
           : 0,
       sourceHashRecorded: Boolean(
         row.sourceFile &&
-          row.sourceSha256,
+        row.sourceSha256,
       ),
       domains: this.readDomains(),
     };
   }
-}
 
   private readDomains(): DefaultDataDomainSummary {
     const row = this.database.connection
@@ -157,9 +156,9 @@ export class DefaultDataRepository {
 function readStringArray(value: unknown): string[] {
   return Array.isArray(value)
     ? value.filter(
-        (item): item is string =>
-          typeof item === "string",
-      )
+      (item): item is string =>
+        typeof item === "string",
+    )
     : [];
 }
 
@@ -170,9 +169,9 @@ function parseArray(value: unknown): string[] {
     );
     return Array.isArray(parsed)
       ? parsed.filter(
-          (item): item is string =>
-            typeof item === "string",
-        )
+        (item): item is string =>
+          typeof item === "string",
+      )
       : [];
   } catch {
     return [];

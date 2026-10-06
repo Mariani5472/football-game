@@ -132,7 +132,6 @@ export function DashboardPage() {
             </div>
           ))}
         </div>
-        </div>
       </section>}
 
       <PackageManagerPanel
