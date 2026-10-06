@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Building2, Database, Link2, ShieldCheck } from "lucide-react";
 import { CrudEntityPage, EntityForm, Tabs } from "../../../shared/components";
+import type { FormEvent } from "react";
 import {
   alternativeStadiumConfig,
   stadiumChangeConfig,
@@ -124,7 +125,7 @@ function StadiumWorkspace({ stadiumId }: { stadiumId: number }) {
     } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); }
   }
 
-  async function save(event: React.FormEvent<HTMLFormElement>) {
+  async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!row) return;
     setSaving(true); setError(null);
@@ -140,7 +141,7 @@ function StadiumWorkspace({ stadiumId }: { stadiumId: number }) {
     finally { setSaving(false); }
   }
 
-  if (!row) void reload();
+  useState(() => { void reload(); return false; });
 
   return <div className="space-y-5">
     {error && <div className="rounded-xl border border-red-400/20 bg-red-400/5 p-3 text-sm text-red-200">{error}</div>}
