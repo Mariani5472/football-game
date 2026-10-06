@@ -4,7 +4,7 @@ import { initializeWorldCompositionSchema } from "./WorldCompositionSchema.js";
 import { WorldDatabase } from "./WorldDatabase.js";
 
 export const WORLD_BASE_SCHEMA_VERSION = 2;
-export const WORLD_SCHEMA_VERSION = 4;
+export const WORLD_SCHEMA_VERSION = 5;
 
 export interface WorldMigration {
   from: number;
@@ -47,6 +47,28 @@ const IDENTITY_TABLES = [
 ] as const;
 
 const MIGRATIONS: WorldMigration[] = [
+  {
+    from: 4,
+    to: 5,
+    name: "p7-stadium-images",
+    migrate: database => {
+      database.connection.exec(`
+        CREATE TABLE IF NOT EXISTS stadium_image (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          stadium_id INTEGER NOT NULL,
+          url TEXT NOT NULL,
+          caption TEXT,
+          sort_order INTEGER NOT NULL DEFAULT 0,
+          is_primary INTEGER NOT NULL DEFAULT 0 CHECK (is_primary IN (0,1)),
+          source TEXT,
+          FOREIGN KEY (stadium_id) REFERENCES stadium(id) ON DELETE CASCADE
+        );
+        CREATE INDEX IF NOT EXISTS idx_stadium_image_stadium
+          ON stadium_image(stadium_id, sort_order);
+      `);
+    },
+  },
+
   {
     from: 3,
     to: 4,
