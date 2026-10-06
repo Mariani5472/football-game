@@ -76,6 +76,11 @@ export class CsvImportService {
       const value = typeof raw === "string" ? raw.trim() : raw;
       const type = column.type.toUpperCase();
       if (/INT/.test(type)) {
+        if (typeof value === "boolean") { output[column.name] = value ? 1 : 0; continue; }
+        if (typeof value === "string" && /^(true|false|yes|no|on|off)$/i.test(value)) {
+          output[column.name] = /^(true|yes|on)$/i.test(value) ? 1 : 0;
+          continue;
+        }
         const parsed = typeof value === "number" ? value : Number(value);
         if (!Number.isSafeInteger(parsed)) throw new Error(`${column.name} must be a whole number.`);
         output[column.name] = parsed;
