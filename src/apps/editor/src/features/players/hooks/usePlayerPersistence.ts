@@ -178,11 +178,7 @@ export function usePlayerPersistence() {
     );
 
     if (input.player) {
-      await editorApi.entity.update(
-        "player",
-        input.playerId!,
-        corePayload,
-      );
+      await editorApi.entity.update("player", personId, corePayload);
     } else {
       await editorApi.entity.create("player", input.values);
     }
