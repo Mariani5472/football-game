@@ -46,7 +46,6 @@ export function StadiumsPage() {
         ]}
       />
       {createOpen && <NewStadiumPanel onCreated={row => { setCreateOpen(false); openStadium(row); }} />}
-      {!createOpen && tab === "stadiums" && <div className="text-right text-[10px] text-slate-700">CSV import is available in the shared CRUD importer below the generic relation tabs.</div>}
     </div>
   );
 }
