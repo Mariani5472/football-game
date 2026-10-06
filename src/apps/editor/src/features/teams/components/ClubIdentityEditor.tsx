@@ -26,6 +26,10 @@ function normalize(value: unknown, type?: string): Scalar {
   return value as Scalar;
 }
 
+function inputType(type: string | undefined) {
+  return type === "number" ? "number" : type === "date" ? "date" : "text";
+}
+
 export function ClubIdentityEditor({ clubId, onSaved }: { clubId: number; onSaved?: () => void }) {
   const [team, setTeam] = useState<EntityRow | null>(null); const [club, setClub] = useState<EntityRow | null>(null);
   const [teamValues, setTeamValues] = useState<Record<string, unknown>>({}); const [clubValues, setClubValues] = useState<Record<string, unknown>>({});
@@ -44,7 +48,7 @@ export function ClubIdentityEditor({ clubId, onSaved }: { clubId: number; onSave
   const name=String(team?.name ?? `Club #${clubId}`);
   return <div className="space-y-5">
     <section className="rounded-2xl border border-white/10 bg-white/[0.02] p-5"><h3 className="text-sm font-semibold text-white">Team identity</h3><p className="mt-1 text-xs text-slate-600">Shared identity used by the club and other team-level systems.</p>
-      <div className="mt-4 grid gap-4 md:grid-cols-2">{teamFields.map(field => field.relation ? <EntityPicker key={field.name} label={field.label} table={field.relation.table} value={teamValues[field.name] == null ? "" : String(teamValues[field.name])} onChange={v=>setTeamValues(x=>({...x,[field.name]:v}))} /> : <label key={field.name} className="space-y-1.5"><span className="block text-xs font-medium text-slate-400">{field.label}</span><input type={field.type==="number"?"number":"text"} value={String(teamValues[field.name]??"")} onChange={e=>setTeamValues(x=>({...x,[field.name]:field.type==="boolean"?e.target.checked:e.target.value}))} className="w-full rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5 text-sm text-slate-200" /></label>)}</div>
+      <div className="mt-4 grid gap-4 md:grid-cols-2">{teamFields.map(field => field.relation ? <EntityPicker key={field.name} label={field.label} table={field.relation.table} value={teamValues[field.name] == null ? "" : String(teamValues[field.name])} onChange={v=>setTeamValues(x=>({...x,[field.name]:v}))} /> : <label key={field.name} className="space-y-1.5"><span className="block text-xs font-medium text-slate-400">{field.label}</span><input type={inputType(field.type)} value={String(teamValues[field.name]??"")} onChange={e=>setTeamValues(x=>({...x,[field.name]:field.type==="boolean"?e.target.checked:e.target.value}))} className="w-full rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5 text-sm text-slate-200" /></label>)}</div>
     </section>
     <section className="rounded-2xl border border-white/10 bg-white/[0.02] p-5"><h3 className="text-sm font-semibold text-white">Club state</h3><p className="mt-1 text-xs text-slate-600">{name}</p>
       <div className="mt-4 grid gap-4 md:grid-cols-2">{clubFields.map(field => field.relation ? <EntityPicker key={field.name} label={field.label} table={field.relation.table} value={clubValues[field.name] == null ? "" : String(clubValues[field.name])} onChange={v=>setClubValues(x=>({...x,[field.name]:v}))} /> : <label key={field.name} className="space-y-1.5"><span className="block text-xs font-medium text-slate-400">{field.label}</span>{field.type==="boolean"?<input type="checkbox" checked={Boolean(clubValues[field.name])} onChange={e=>setClubValues(x=>({...x,[field.name]:e.target.checked}))}/>:<input type="number" value={String(clubValues[field.name]??"")} onChange={e=>setClubValues(x=>({...x,[field.name]:e.target.value}))} className="w-full rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5 text-sm text-slate-200" />}</label>)}</div>
