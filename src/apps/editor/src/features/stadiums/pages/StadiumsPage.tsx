@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Building2, Database, Link2, ShieldCheck } from "lucide-react";
 import { CrudEntityPage, EntityForm, Tabs } from "../../../shared/components";
 import type { FormEvent } from "react";
@@ -141,7 +141,7 @@ function StadiumWorkspace({ stadiumId }: { stadiumId: number }) {
     finally { setSaving(false); }
   }
 
-  useState(() => { void reload(); return false; });
+  useEffect(() => { void reload(); }, [stadiumId]);
 
   return <div className="space-y-5">
     {error && <div className="rounded-xl border border-red-400/20 bg-red-400/5 p-3 text-sm text-red-200">{error}</div>}
