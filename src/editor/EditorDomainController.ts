@@ -7,6 +7,10 @@ export async function handleDomainRequest(request: http.IncomingMessage, respons
   const parts = routeParts(request);
   if (parts[0] !== "api" || parts[1] !== "domain") return false;
 
+  if (request.method === "POST" && parts[2] === "competition" && parts[4] === "duplicate" && parts[5] === undefined) {
+    sendJson(response, 201, service.duplicateCompetition(positiveInteger(parts[3], "competitionId")));
+    return true;
+  }
   if (request.method === "POST" && parts[2] === "stadium" && parts[4] === "duplicate" && parts[5] === undefined) {
     sendJson(response, 201, service.duplicateStadium(positiveInteger(parts[3], "stadiumId")));
     return true;

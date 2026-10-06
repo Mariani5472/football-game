@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { CrudEntityPage } from "../../../shared/components";
 import { editorApi, type EntityRow } from "../../../shared/api/editorApi";
+import { domainApi } from "../../../shared/api/domainApi";
 
 export function CompetitionsPage() {
   const [competitions, setCompetitions] = useState<EntityRow[]>([]);
@@ -49,6 +50,7 @@ export function CompetitionsPage() {
     {error && <div role="alert" className="rounded-xl border border-red-400/20 p-3 text-sm text-red-300">{error}</div>}
     <CrudEntityPage config={{
       table: "competition", title: "Competitions", description: "Manage competitions, then choose a saved season to edit its linked structure.",
+      duplicate: true, duplicateEntity: row => domainApi.duplicateCompetition(Number(row.id)),
       searchColumns: ["name", "three_letter_name"], columns: [
         { key: "name", header: "Competition" }, { key: "three_letter_name", header: "Code" },
         { key: "nation_id", header: "Nation", relation: { table: "nation" } }, { key: "type_id", header: "Type", relation: { table: "competition_type" } },

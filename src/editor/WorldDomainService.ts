@@ -29,6 +29,8 @@ import { RecordCompetitionHistory } from "../modules/competition/application/Rec
 import { SqliteCompetitionHistoryRepository } from "../modules/competition/infrastructure/SqliteCompetitionHistoryRepository.js";
 import type { CompetitionHistoryInput } from "../modules/competition/domain/CompetitionHistoryRepository.js";
 export type { CompetitionHistoryInput } from "../modules/competition/domain/CompetitionHistoryRepository.js";
+import { DuplicateCompetition } from "../modules/competition/application/DuplicateCompetition.js";
+import { SqliteCompetitionDuplicateRepository } from "../modules/competition/infrastructure/SqliteCompetitionDuplicateRepository.js";
 import { DuplicateStadium } from "../modules/stadium/application/DuplicateStadium.js";
 import { SqliteStadiumRepository } from "../modules/stadium/infrastructure/SqliteStadiumRepository.js";
 
@@ -37,6 +39,10 @@ export class WorldDomainService {
 
   duplicateStadium(stadiumId: number) {
     return new DuplicateStadium(new SqliteStadiumRepository(this.database)).execute(stadiumId);
+  }
+
+  duplicateCompetition(competitionId: number) {
+    return new DuplicateCompetition(new SqliteCompetitionDuplicateRepository(this.database)).execute(competitionId);
   }
 
   createClub(input: ClubCreationData) {

@@ -306,6 +306,12 @@ export class WorldEditorService {
     return result;
   }
 
+  duplicateCompetition(competitionId: number) {
+    const result = this.domainService.duplicateCompetition(competitionId);
+    this.markDirectEdit();
+    return result;
+  }
+
   duplicateStadium(stadiumId: number) {
     const result = this.domainService.duplicateStadium(stadiumId);
     this.markDirectEdit();
