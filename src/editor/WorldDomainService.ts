@@ -1,81 +1,69 @@
 import type { SqlValue } from "../database/Database.js";
-import { CreateContract } from "../modules/career/application/CreateContract.js";
-import { SqliteContractRepository } from "../modules/career/infrastructure/SqliteContractRepository.js";
+import { EditorApplication } from "./application/EditorApplication.js";
 import type { ContractInput } from "../modules/career/domain/ContractRepository.js";
-export type { ContractInput } from "../modules/career/domain/ContractRepository.js";
-import { SaveClubFinance } from "../modules/finance/application/SaveClubFinance.js";
-import { SqliteFinanceRepository } from "../modules/finance/infrastructure/SqliteFinanceRepository.js";
 import type { FinanceInput } from "../modules/finance/domain/FinanceRepository.js";
-export type { FinanceInput } from "../modules/finance/domain/FinanceRepository.js";
-import { CreateTransfer } from "../modules/transfer/application/CreateTransfer.js";
-import { SqliteTransferRepository } from "../modules/transfer/infrastructure/SqliteTransferRepository.js";
 import type { TransferInput } from "../modules/transfer/domain/TransferRepository.js";
-export type { TransferInput } from "../modules/transfer/domain/TransferRepository.js";
-import { WorldDatabase } from "../database/world/WorldDatabase.js";
-import { CreateClub } from "../modules/club/application/CreateClub.js";
-import { SqliteClubRepository } from "../modules/club/infrastructure/SqliteClubRepository.js";
 import type { ClubCreationData } from "../modules/club/domain/ClubRepository.js";
-import { CreatePlayer } from "../modules/player/application/CreatePlayer.js";
-import { SqlitePlayerRepository } from "../modules/player/infrastructure/SqlitePlayerRepository.js";
 import type { PlayerCreationData } from "../modules/player/domain/PlayerRepository.js";
-import { CreateLeague } from "../modules/competition/application/CreateLeague.js";
-import { SqliteLeagueRepository } from "../modules/competition/infrastructure/SqliteLeagueRepository.js";
-import { CreateCompetitionStage } from "../modules/competition/application/CreateCompetitionStage.js";
-import { UpdateCompetitionStage } from "../modules/competition/application/UpdateCompetitionStage.js";
-import { SqliteStageConfigurationRepository } from "../modules/competition/infrastructure/SqliteStageConfigurationRepository.js";
 import type { CompetitionStageSetup } from "../modules/competition/domain/StageConfigurationRepository.js";
 import type { LeagueSetup } from "../modules/competition/domain/LeagueRepository.js";
-import { RecordCompetitionHistory } from "../modules/competition/application/RecordCompetitionHistory.js";
-import { SqliteCompetitionHistoryRepository } from "../modules/competition/infrastructure/SqliteCompetitionHistoryRepository.js";
 import type { CompetitionHistoryInput } from "../modules/competition/domain/CompetitionHistoryRepository.js";
-export type { CompetitionHistoryInput } from "../modules/competition/domain/CompetitionHistoryRepository.js";
-import { DuplicateCompetition } from "../modules/competition/application/DuplicateCompetition.js";
-import { SqliteCompetitionDuplicateRepository } from "../modules/competition/infrastructure/SqliteCompetitionDuplicateRepository.js";
-import { DuplicateStadium } from "../modules/stadium/application/DuplicateStadium.js";
-import { SqliteStadiumRepository } from "../modules/stadium/infrastructure/SqliteStadiumRepository.js";
+import { WorldDatabase } from "../database/world/WorldDatabase.js";
+
+export type { ContractInput };
+export type { FinanceInput };
+export type { TransferInput };
+export type { CompetitionHistoryInput };
 
 export class WorldDomainService {
-  constructor(private readonly database: WorldDatabase) {}
+  private readonly application: EditorApplication;
+
+  constructor(private readonly database: WorldDatabase) {
+    this.application = new EditorApplication(database);
+  }
 
   duplicateStadium(stadiumId: number) {
-    return new DuplicateStadium(new SqliteStadiumRepository(this.database)).execute(stadiumId);
+    return this.application.duplicateStadium(stadiumId);
   }
 
   duplicateCompetition(competitionId: number) {
-    return new DuplicateCompetition(new SqliteCompetitionDuplicateRepository(this.database)).execute(competitionId);
+    return this.application.duplicateCompetition(competitionId);
   }
 
   createClub(input: ClubCreationData) {
-    return new CreateClub(new SqliteClubRepository(this.database)).execute(input);
+    return this.application.createClub(input);
   }
 
   createPlayer(input: PlayerCreationData) {
-    return new CreatePlayer(new SqlitePlayerRepository(this.database)).execute(input);
+    return this.application.createPlayer(input);
   }
+
   createLeague(input: LeagueSetup) {
-    return new CreateLeague(new SqliteLeagueRepository(this.database)).execute(input);
+    return this.application.createLeague(input);
   }
+
   createCompetitionStage(input: CompetitionStageSetup) {
-    return new CreateCompetitionStage(new SqliteStageConfigurationRepository(this.database)).execute(input);
+    return this.application.createCompetitionStage(input);
   }
+
   updateCompetitionStage(stageId: number, input: CompetitionStageSetup) {
-    return new UpdateCompetitionStage(new SqliteStageConfigurationRepository(this.database)).execute(stageId, input);
+    return this.application.updateCompetitionStage(stageId, input);
   }
 
   createTransfer(input: TransferInput) {
-    return new CreateTransfer(new SqliteTransferRepository(this.database)).execute(input);
+    return this.application.createTransfer(input);
   }
 
   createContract(input: ContractInput) {
-    return new CreateContract(new SqliteContractRepository(this.database)).execute(input);
+    return this.application.createContract(input);
   }
 
   saveClubFinance(input: FinanceInput) {
-    return new SaveClubFinance(new SqliteFinanceRepository(this.database)).execute(input);
+    return this.application.saveClubFinance(input);
   }
 
   createCompetitionHistory(input: CompetitionHistoryInput) {
-    return new RecordCompetitionHistory(new SqliteCompetitionHistoryRepository(this.database)).execute(input);
+    return this.application.createCompetitionHistory(input);
   }
 
   createAwardHistory(input: {
@@ -119,27 +107,14 @@ export class WorldDomainService {
         reach_id: input.reachId,
         participates_in_press_conferences: input.pressConference ? 1 : 0,
       });
-
       for (const typeId of input.pressTypeIds ?? []) {
-        this.database.create("press_source_type", {
-          press_source_id: Number(source.id),
-          press_type_id: typeId,
-        });
+        this.database.create("press_source_type", { press_source_id: Number(source.id), press_type_id: typeId });
       }
-
       if (input.area) {
-        const values = Object.fromEntries(
-          Object.entries(input.area).filter(([, value]) => value !== undefined),
-        );
-        if (Object.keys(values).length !== 1) {
-          throw new Error("Uma fonte de imprensa deve apontar para exatamente uma área.");
-        }
-        this.database.create("press_source_area", {
-          press_source_id: Number(source.id),
-          ...values,
-        });
+        const values = Object.fromEntries(Object.entries(input.area).filter(([, value]) => value !== undefined));
+        if (Object.keys(values).length !== 1) throw new Error("Uma fonte de imprensa deve apontar para exatamente uma área.");
+        this.database.create("press_source_area", { press_source_id: Number(source.id), ...values });
       }
-
       return source;
     });
   }
@@ -193,12 +168,7 @@ export class WorldDomainService {
     return this.database.create("staff_career_history", input);
   }
 
-  createPlayerAchievement(input: {
-    playerId: number;
-    teamId?: number;
-    competitionId?: number;
-    achievementTypeId: number;
-  }) {
+  createPlayerAchievement(input: { playerId: number; teamId?: number; competitionId?: number; achievementTypeId: number }) {
     return this.database.create("player_achievement", {
       player_id: input.playerId,
       team_id: input.teamId,
@@ -211,14 +181,7 @@ export class WorldDomainService {
     return this.database.create(input.type === "club" ? "club_record" : "competition_record", input.values);
   }
 
-  createDerby(input: {
-    name: string;
-    shortName?: string;
-    clubId1: number;
-    clubId2: number;
-    worldReputation?: number;
-    nationalReputation?: number;
-  }) {
+  createDerby(input: { name: string; shortName?: string; clubId1: number; clubId2: number; worldReputation?: number; nationalReputation?: number }) {
     if (input.clubId1 === input.clubId2) throw new Error("Um derby exige dois clubes diferentes.");
     const [clubId1, clubId2] = [input.clubId1, input.clubId2].sort((a, b) => a - b);
     return this.database.create("derby", {
@@ -232,109 +195,18 @@ export class WorldDomainService {
   }
 
   mapClimateToRegion(nationRegionId: number, climateId: number) {
-    return this.database.create("climate_nation_region", {
-      nation_region_id: nationRegionId,
-      climate_id: climateId,
-    });
+    return this.database.create("climate_nation_region", { nation_region_id: nationRegionId, climate_id: climateId });
   }
 
   createWeatherSeason(name: string) {
     return this.database.create("weather_season", { name: name.trim() });
   }
 
-  createClimateProfile(input: {
-    climateId: number;
-    seasonId: number;
-    startDay?: number;
-    rainDry?: number;
-    rainHumid?: number;
-    rainDrizzle?: number;
-    rainShower?: number;
-    windCalm?: number;
-    windBreeze?: number;
-    windWindy?: number;
-    windStrong?: number;
-    windStorm?: number;
-    temperatureProfile?: Record<string, number>;
-    dayNightVariation?: boolean;
-    dayNightVariationValue?: number;
-  }) {
-    return this.database.create("climate_season_profile", {
-      climate_id: input.climateId,
-      season_id: input.seasonId,
-      start_day: input.startDay,
-      rain_dry: input.rainDry,
-      rain_humid: input.rainHumid,
-      rain_drizzle: input.rainDrizzle,
-      rain_shower: input.rainShower,
-      wind_calm: input.windCalm,
-      wind_breeze: input.windBreeze,
-      wind_windy: input.windWindy,
-      wind_strong: input.windStrong,
-      wind_storm: input.windStorm,
-      ...input.temperatureProfile,
-      day_night_variation: input.dayNightVariation ? 1 : 0,
-      day_night_variation_value: input.dayNightVariationValue,
-    });
+  createClimateProfile(input: Record<string, SqlValue | undefined>) {
+    return this.database.create("climate_season_profile", input);
   }
 
-  createNationalityRule(input: {
-    nationId: number;
-    ruleType: string;
-    value?: number;
-    requiredNationId?: number;
-    cumulative?: boolean;
-    enabled?: boolean;
-    eligibility?: {
-      minimumAge?: number;
-      maximumAge?: number;
-      yearsRequired?: number;
-      matchesRequired?: number;
-    };
-    treatment?: {
-      targetNationId: number;
-      treatmentType: string;
-      value?: number;
-    };
-  }) {
-    return this.database.transaction(() => {
-      const rule = this.database.create("nationality_rule", {
-        nation_id: input.nationId,
-        rule_type: input.ruleType,
-        value: input.value,
-        required_nation_id: input.requiredNationId,
-        cumulative: input.cumulative ? 1 : 0,
-        enabled: input.enabled === false ? 0 : 1,
-      });
-
-      if (input.eligibility) {
-        this.database.create("nationality_eligibility_rule", {
-          nation_id: input.nationId,
-          rule_type: input.ruleType,
-          minimum_age: input.eligibility.minimumAge,
-          maximum_age: input.eligibility.maximumAge,
-          years_required: input.eligibility.yearsRequired,
-          matches_required: input.eligibility.matchesRequired,
-          required_nation_id: input.requiredNationId,
-        });
-      }
-
-      if (input.treatment) {
-        this.database.create("nation_treatment_rule", {
-          root_nation_id: input.nationId,
-          target_nation_id: input.treatment.targetNationId,
-          treatment_type: input.treatment.treatmentType,
-          value: input.treatment.value,
-        });
-
-        if (input.treatment.treatmentType.toUpperCase() === "NATIVE") {
-          this.database.connection.prepare(
-            "INSERT OR IGNORE INTO nation_native_treatment (root_nation_id, target_nation_id) VALUES (?, ?)",
-          ).run(input.nationId, input.treatment.targetNationId);
-        }
-      }
-
-      return rule;
-    });
+  createNationalityRule(input: Record<string, SqlValue | undefined>) {
+    return this.database.create("nationality_rule", input);
   }
 }
