@@ -4,9 +4,21 @@ import path from "node:path";
 import DatabaseConnection from "better-sqlite3";
 
 import {
-  BASE_PACKAGE_KEY, BASE_PACKAGE_PROVIDES, BASE_PACKAGE_VERSION,
-  CONTINENTS, REGIONS, NATIONS, CONFEDERATIONS, CONFEDERATION_MEMBERS, CURRENCIES, LANGUAGES,
-  DEFAULT_CLIMATES, DEFAULT_INJURY_SUBCLASSIFICATIONS, DEFAULT_PLAYER_ROLES, DEFAULT_REFERENCE_LISTS,
+  BASE_PACKAGE_KEY,
+  BASE_PACKAGE_PROVIDES,
+  BASE_PACKAGE_VERSION,
+  BASE_PACKAGE_PRIORITY,
+  CONTINENTS,
+  REGIONS,
+  NATIONS,
+  CONFEDERATIONS,
+  CONFEDERATION_MEMBERS,
+  CURRENCIES,
+  LANGUAGES,
+  DEFAULT_CLIMATES,
+  DEFAULT_INJURY_SUBCLASSIFICATIONS,
+  DEFAULT_PLAYER_ROLES,
+  DEFAULT_REFERENCE_LISTS,
 } from "./WorldBasePackageDefinition.js";
 
 export class WorldDefaultDataPackageBuilder {
@@ -81,7 +93,7 @@ export class WorldDefaultDataPackageBuilder {
       metadata.run("package_name", "Base World");
       metadata.run("package_version", BASE_PACKAGE_VERSION);
       metadata.run("package_type", "BASE");
-      metadata.run("package_priority", "0");
+      metadata.run("package_priority", String(BASE_PACKAGE_PRIORITY));
       metadata.run("schema_version", "4");
       metadata.run("package_provides", JSON.stringify(BASE_PACKAGE_PROVIDES));
       metadata.run("package_dependencies", "[]");
