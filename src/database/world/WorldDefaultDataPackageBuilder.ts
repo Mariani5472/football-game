@@ -379,6 +379,7 @@ export class WorldDefaultDataPackageBuilder {
         if (nationId) addRegion.run(crypto.randomUUID(), nationId, name, name);
       }
 
+      this.assertReferenceDataset(db);
       db.pragma("foreign_keys = ON");
     } finally {
       db.close();
