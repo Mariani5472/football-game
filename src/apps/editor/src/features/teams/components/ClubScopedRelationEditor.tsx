@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { EntityForm, EntityPicker } from "../../../shared/components";
+import { EntityForm, type EntityFormValue } from "../../../shared/components";
 import { editorApi, type EntityRow, type Scalar } from "../../../shared/api/editorApi";
 import type { ClubRelationConfig } from "../config/clubEditorConfig";
 
@@ -95,7 +95,7 @@ export function ClubScopedRelationEditor({ clubId, config }: { clubId: number; c
         <div className="mt-4 rounded-xl border border-white/10 bg-[#10161d] p-4">
           <EntityForm
             fields={config.fields.map(field => ({ ...field, disabled: fixedFields.has(field.name) || field.disabled }))}
-            values={values as Record<string, import("../../../shared/components").EntityFormValue>}
+            values={values as Record<string, EntityFormValue>}
             onChange={(name, value) => setValues(current => ({ ...current, [name]: value }))}
             onSubmit={() => void save()}
             submitLabel={editing ? "Save changes" : "Create"}
