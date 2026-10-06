@@ -1,15 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
-import { Building2, CheckCircle2, Copy, MapPin, RefreshCw, Search, X } from "lucide-react";
+import { Download, MapPin, UploadCloud } from "lucide-react";
 import { domainApi } from "../../../shared/api/domainApi";
 import { editorApi, type EntityRow, type Scalar } from "../../../shared/api/editorApi";
 import { DataTable, EntityPicker, Pagination, SearchInput, type DataTableColumn } from "../../../shared/components";
 import { useEntityQuery } from "../../../shared/hooks/useEntityApi";
 import { StadiumBulkEditor, StadiumBulkSelectionHint } from "./StadiumBulkEditor";
-import { stadiumConfig } from "../config/stadiumConfig";
 
 const boolLabel = (value: Scalar) => Number(value) === 1 ? "Yes" : "No";
 
-export function StadiumCatalog() {
+export function StadiumCatalog({ onOpen, onCreate }: { onOpen?: (row: EntityRow) => void; onCreate?: () => void }) {
   const [search, setSearch] = useState("");
   const [trainingOnly, setTrainingOnly] = useState(false);
   const [includeExtinct, setIncludeExtinct] = useState(false);
@@ -98,8 +97,14 @@ export function StadiumCatalog() {
   }
 
   function edit(row: EntityRow) {
-    window.dispatchEvent(new CustomEvent("editor:navigate-entity", { detail: { table: "stadium", id: row.id } }));
-    setNotice(`Open the stadium editor for “${String(row.name)}” from the Stadiums workspace.`);
+    if (onOpen) onOpen(row);
+  }
+
+  function downloadTemplate() {
+    const headers = ["city_id","name","is_training_ground","owner_type_id","owner_club_id","owner_person_id","capacity","seated_capacity","expansion_capacity","seats_in_use","pitch_type_id","field_length","international_field_length","min_field_length","min_field_width","max_field_length","max_field_width","field_width","international_field_width","field_condition","grass_deterioration_rate_id","grass_recovery_level","last_pitch_replacement_date","pitch_replacement_deadline","construction_date","reconstruction_date","current_ownership_date","latitude","longitude","quality_state_id","environment_quality_id","used_by_national_team","banned_from_continental_final","extinct","has_cover","has_retractable_roof","has_underfloor_heating","has_digital_advertising","has_capacity_change"];
+    const blob = new Blob([headers.join(",") + "\n"], { type: "text/csv;charset=utf-8" });
+    const href = URL.createObjectURL(blob);
+    const link = document.createElement("a"); link.href = href; link.download = "stadium-import-template.csv"; link.click(); URL.revokeObjectURL(href);
   }
 
   const selectedRows = visibleRows.filter(row => selected.has(Number(row.id)));
@@ -114,6 +119,8 @@ export function StadiumCatalog() {
           <div className="min-w-[260px] flex-1"><SearchInput value={search} onChange={setSearch} placeholder="Search stadium name..." /></div>
           <label className="flex h-10 items-center gap-2 rounded-xl border border-white/10 px-3 text-xs text-slate-400"><input type="checkbox" checked={trainingOnly} onChange={event => setTrainingOnly(event.target.checked)} /> Training grounds</label>
           <label className="flex h-10 items-center gap-2 rounded-xl border border-white/10 px-3 text-xs text-slate-400"><input type="checkbox" checked={includeExtinct} onChange={event => setIncludeExtinct(event.target.checked)} /> Include extinct</label>
+          {onCreate && <button type="button" onClick={onCreate} className="rounded-xl bg-emerald-400/10 px-3 py-2 text-xs font-medium text-emerald-200">+ New stadium</button>}
+          <button type="button" onClick={downloadTemplate} className="inline-flex items-center gap-2 rounded-xl border border-white/10 px-3 py-2 text-xs text-slate-400 hover:text-white"><Download size={13} /> CSV template</button>
           <span className="ml-auto text-xs text-slate-600">{list.total.toLocaleString()} total · {selectedRows.length} selected</span>
         </div>
       </section>
