@@ -108,14 +108,12 @@ export class DefaultDataRepository {
         row.sourceFile &&
           row.sourceSha256,
       ),
-      domains: this.readDomains(id),
+      domains: this.readDomains(),
     };
   }
 }
 
-  private readDomains(
-    packageId: number,
-  ): DefaultDataDomainSummary {
+  private readDomains(): DefaultDataDomainSummary {
     const row = this.database.connection
       .prepare(
         "SELECT value FROM database_metadata WHERE key='reference_domains'",
@@ -134,7 +132,10 @@ export class DefaultDataRepository {
 
     try {
       const parsed: unknown = JSON.parse(row.value);
-      if (!parsed || typeof parsed !== "object") throw new Error("invalid domains");
+      if (!parsed || typeof parsed !== "object") {
+        throw new Error("invalid domains");
+      }
+
       const record = parsed as Record<string, unknown>;
       return {
         geography: readStringArray(record.geography),
@@ -148,9 +149,9 @@ export class DefaultDataRepository {
         "Default reference package has an invalid reference_domains manifest.",
       );
     }
-
-    void packageId;
   }
+}
+
 
 
 function readStringArray(value: unknown): string[] {
