@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Building2, Database, ImagePlus, Link2, ShieldCheck } from "lucide-react";
-import { CrudEntityPage, Tabs } from "../../../shared/components";
+import { CrudEntityPage, EntityForm, Tabs } from "../../../shared/components";
 import {
   alternativeStadiumConfig,
   stadiumChangeConfig,
@@ -16,6 +16,7 @@ export function StadiumsPage() {
   const [tab, setTab] = useState("stadiums");
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [selectedName, setSelectedName] = useState<string | null>(null);
+  const [createOpen, setCreateOpen] = useState(false);
 
   function openStadium(row: EntityRow) {
     const id = Number(row.id);
@@ -33,6 +34,7 @@ export function StadiumsPage() {
         <p className="mt-2 max-w-3xl text-sm text-slate-500">Manage stadium identity, infrastructure, history, usage, imagery and data quality without leaving the stadium module.</p>
       </header>
 
+      <div onClick={event => { if ((event.target as HTMLElement).closest("button")?.textContent?.includes("New stadium")) setCreateOpen(true); }}>
       <Tabs
         activeTab={tab}
         onChange={setTab}
@@ -43,13 +45,71 @@ export function StadiumsPage() {
           { id: "alternatives", label: "Alternative Stadiums", icon: Database, content: <CrudEntityPage config={alternativeStadiumConfig} /> },
         ]}
       />
+      </div>
+      {createOpen && <NewStadiumPanel onCreated={row => { setCreateOpen(false); openStadium(row); }} />}
     </div>
   );
 }
 
 function StadiumListWithOpen({ onOpen }: { onOpen: (row: EntityRow) => void }) {
-  return <StadiumCatalog onOpen={onOpen} />;
+  return <StadiumCatalog onOpen={onOpen} onCreate={() => window.dispatchEvent(new CustomEvent("stadium:create"))} />;
 }
+
+function NewStadiumPanel({ onCreated }: { onCreated: (row: EntityRow) => void }) {
+  const [values, setValues] = useState<Record<string, string | number | boolean | null>>({
+    name: "",
+    city_id: null,
+    is_training_ground: false,
+    capacity: null,
+    seated_capacity: null,
+    extinct: false,
+  });
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function save() {
+    if (!String(values.name ?? "").trim() || values.city_id == null) {
+      setError("Name and city are required.");
+      return;
+    }
+    setSaving(true);
+    setError(null);
+    try {
+      const created = await editorApi.entity.create("stadium", values);
+      onCreated(created);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : String(cause));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <section className="rounded-2xl border border-white/10 bg-white/[0.02] p-5">
+      <div className="mb-4">
+        <h2 className="text-sm font-semibold text-white">Create stadium</h2>
+        <p className="mt-1 text-xs text-slate-600">Create the minimum identity first, then complete infrastructure and relationships in the workspace.</p>
+      </div>
+      <EntityForm
+        fields={[
+          { name: "name", label: "Name", required: true },
+          { name: "city_id", label: "City", type: "number", required: true, min: 1 },
+          { name: "capacity", label: "Capacity", type: "number", min: 0 },
+          { name: "seated_capacity", label: "Seated Capacity", type: "number", min: 0 },
+          { name: "is_training_ground", label: "Training Ground", type: "boolean" },
+          { name: "extinct", label: "Extinct", type: "boolean" },
+        ]}
+        values={values}
+        onChange={(name, value) => setValues(current => ({ ...current, [name]: value }))}
+        onSubmit={() => void save()}
+        submitLabel="Create stadium"
+        submitting={saving}
+        error={error}
+      />
+    </section>
+  );
+}
+
 
 function StadiumWorkspace({ stadiumId }: { stadiumId: number }) {
   const [row, setRow] = useState<EntityRow | null>(null);
