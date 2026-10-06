@@ -55,60 +55,26 @@ function StadiumListWithOpen({ onOpen, onCreate }: { onOpen: (row: EntityRow) =>
 }
 
 function NewStadiumPanel({ onCreated }: { onCreated: (row: EntityRow) => void }) {
-  const [values, setValues] = useState<Record<string, string | number | boolean | null>>({
-    name: "",
-    city_id: null,
-    is_training_ground: false,
-    capacity: null,
-    seated_capacity: null,
-    extinct: false,
-  });
+  const [values, setValues] = useState<Record<string, string | number | boolean | null>>({ name: "", city_id: null, is_training_ground: false, capacity: null, seated_capacity: null, extinct: false });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
   async function save() {
-    if (!String(values.name ?? "").trim() || values.city_id == null) {
-      setError("Name and city are required.");
-      return;
-    }
-    setSaving(true);
-    setError(null);
+    const name = String(values.name ?? "").trim();
+    const cityId = Number(values.city_id);
+    const capacity = values.capacity == null || values.capacity === "" ? null : Number(values.capacity);
+    const seated = values.seated_capacity == null || values.seated_capacity === "" ? null : Number(values.seated_capacity);
+    if (!name || !Number.isInteger(cityId) || cityId <= 0) { setError("Name and a valid city are required."); return; }
+    if (capacity != null && (!Number.isFinite(capacity) || capacity < 0)) { setError("Capacity must be zero or greater."); return; }
+    if (seated != null && (!Number.isFinite(seated) || seated < 0 || (capacity != null && seated > capacity))) { setError("Seated capacity must be zero or greater and cannot exceed total capacity."); return; }
+    setSaving(true); setError(null);
     try {
-      const created = await editorApi.entity.create("stadium", values);
+      const created = await editorApi.entity.create("stadium", { ...values, name, city_id: cityId, capacity, seated_capacity: seated });
       onCreated(created);
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause));
-    } finally {
-      setSaving(false);
-    }
+    } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); }
+    finally { setSaving(false); }
   }
-
-  return (
-    <section className="rounded-2xl border border-white/10 bg-white/[0.02] p-5">
-      <div className="mb-4">
-        <h2 className="text-sm font-semibold text-white">Create stadium</h2>
-        <p className="mt-1 text-xs text-slate-600">Create the minimum identity first, then complete infrastructure and relationships in the workspace.</p>
-      </div>
-      <EntityForm
-        fields={[
-          { name: "name", label: "Name", required: true },
-          { name: "city_id", label: "City", type: "number", required: true, min: 1 },
-          { name: "capacity", label: "Capacity", type: "number", min: 0 },
-          { name: "seated_capacity", label: "Seated Capacity", type: "number", min: 0 },
-          { name: "is_training_ground", label: "Training Ground", type: "boolean" },
-          { name: "extinct", label: "Extinct", type: "boolean" },
-        ]}
-        values={values}
-        onChange={(name, value) => setValues(current => ({ ...current, [name]: value }))}
-        onSubmit={() => void save()}
-        submitLabel="Create stadium"
-        submitting={saving}
-        error={error}
-      />
-    </section>
-  );
+  return <section className="rounded-2xl border border-white/10 bg-white/[0.02] p-5"><div className="mb-4"><h2 className="text-sm font-semibold text-white">Create stadium</h2><p className="mt-1 text-xs text-slate-600">Create the minimum identity first, then complete infrastructure and relationships in the workspace.</p></div><EntityForm fields={[{ name: "name", label: "Name", required: true }, { name: "city_id", label: "City ID", type: "number", required: true, min: 1 }, { name: "capacity", label: "Capacity", type: "number", min: 0 }, { name: "seated_capacity", label: "Seated Capacity", type: "number", min: 0 }, { name: "is_training_ground", label: "Training Ground", type: "boolean" }, { name: "extinct", label: "Extinct", type: "boolean" }]} values={values} onChange={(name, value) => setValues(current => ({ ...current, [name]: value }))} onSubmit={() => void save()} submitLabel="Create stadium" submitting={saving} error={error} /></section>;
 }
-
 
 function StadiumWorkspace({ stadiumId }: { stadiumId: number }) {
   const [row, setRow] = useState<EntityRow | null>(null);
