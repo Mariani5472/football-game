@@ -35,7 +35,6 @@ export function StadiumsPage() {
         <p className="mt-2 max-w-3xl text-sm text-slate-500">Manage stadium identity, infrastructure, history, usage, imagery and data quality without leaving the stadium module.</p>
       </header>
 
-      <div onClick={event => { if ((event.target as HTMLElement).closest("button")?.textContent?.includes("New stadium")) setCreateOpen(true); }}>
       <Tabs
         activeTab={tab}
         onChange={setTab}
@@ -46,7 +45,6 @@ export function StadiumsPage() {
           { id: "alternatives", label: "Alternative Stadiums", icon: Database, content: <CrudEntityPage config={alternativeStadiumConfig} /> },
         ]}
       />
-      </div>
       {createOpen && <NewStadiumPanel onCreated={row => { setCreateOpen(false); openStadium(row); }} />}
     </div>
   );
