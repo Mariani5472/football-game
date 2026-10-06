@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { EntityForm, EntityPicker } from "../../../shared/components";
+import { EntityPicker } from "../../../shared/components";
 import { editorApi, type EntityRow, type Scalar } from "../../../shared/api/editorApi";
 
 const teamFields = [
@@ -24,14 +24,6 @@ function normalize(value: unknown, type?: string): Scalar {
   if (type === "number") { const n = Number(value); return Number.isFinite(n) ? n : null; }
   if (type === "boolean") return Boolean(value);
   return value as Scalar;
-}
-
-function FormFields({
-  fields, values, onChange, saving,
-}: { fields: typeof teamFields; values: Record<string, unknown>; onChange: (name: string, value: unknown) => void; saving: boolean }) {
-  return <div className="grid gap-4 md:grid-cols-2">{fields.map(field => field.relation ? (
-    <EntityPicker key={field.name} label={field.label} table={field.relation.table} value={values[field.name] == null ? "" : String(values[field.name])} onChange={value => onChange(field.name, value)} disabled={saving} />
-  ) : null)}</div>;
 }
 
 export function ClubIdentityEditor({ clubId, onSaved }: { clubId: number; onSaved?: () => void }) {
