@@ -31,6 +31,11 @@ const RULES: Array<[string, string, string, ValidationSeverity, string]> = [
   ["player-person", "Player sem Person", "player", "ERROR", "Todo player deve possuir uma Person."],
   ["club-team", "Club sem Team", "club", "ERROR", "Todo club deve possuir um Team."],
   ["stadium-city", "Stadium sem City", "stadium", "ERROR", "Todo estádio deve possuir uma City."],
+  ["stadium-capacity", "Capacidades do estádio", "stadium", "ERROR", "Capacidades devem ser coerentes entre si e não negativas."],
+  ["stadium-field-dimensions", "Dimensões do campo", "stadium", "ERROR", "Dimensões mínimas, atuais e máximas precisam ser coerentes."],
+  ["stadium-geolocation", "Geolocalização do estádio", "stadium", "ERROR", "Latitude e longitude devem estar dentro de seus limites geográficos."],
+  ["stadium-dates", "Datas do estádio", "stadium", "WARNING", "As datas históricas do estádio devem seguir uma ordem cronológica válida."],
+  ["stadium-ownership", "Proprietários do estádio", "stadium", "WARNING", "Um estádio não deve ter simultaneamente proprietário clube e pessoa."],
   ["rule-compatibility", "Regras incompatíveis", "competition_stage", "ERROR", "Detecta combinações impossíveis de formato e participantes."],
   ["transfer-window-dates", "Janela inválida", "transfer_window", "WARNING", "A data inicial não pode ser posterior à data final."],
   ["contract-dates", "Contrato inválido", "person_contract", "WARNING", "O fim do contrato não pode preceder o início."],
@@ -56,6 +61,11 @@ export class WorldValidator {
     if (enabled.has("player-person")) this.playerPerson(issues);
     if (enabled.has("club-team")) this.clubTeam(issues);
     if (enabled.has("stadium-city")) this.stadiumCity(issues);
+    if (enabled.has("stadium-capacity")) this.stadiumCapacity(issues);
+    if (enabled.has("stadium-field-dimensions")) this.stadiumFieldDimensions(issues);
+    if (enabled.has("stadium-geolocation")) this.stadiumGeolocation(issues);
+    if (enabled.has("stadium-dates")) this.stadiumDates(issues);
+    if (enabled.has("stadium-ownership")) this.stadiumOwnership(issues);
     if (enabled.has("rule-compatibility")) this.ruleCompatibility(issues);
     if (enabled.has("transfer-window-dates")) this.transferWindows(issues);
     if (enabled.has("contract-dates")) this.contractDates(issues);
@@ -262,6 +272,85 @@ export class WorldValidator {
        WHERE city.id IS NULL`,
     ).all() as Array<{ id: number }>;
     for (const row of rows) issues.push(this.issue("stadium-city", "ERROR", "stadium", row.id, "Stadium sem City."));
+  }
+
+
+  private stadiumCapacity(issues: ValidationIssue[]) {
+    const rows = this.database.connection.prepare(
+      `SELECT id, name, capacity, seated_capacity, expansion_capacity, seats_in_use
+       FROM stadium
+       WHERE (capacity IS NOT NULL AND capacity < 0)
+          OR (seated_capacity IS NOT NULL AND seated_capacity < 0)
+          OR (expansion_capacity IS NOT NULL AND expansion_capacity < 0)
+          OR (seats_in_use IS NOT NULL AND seats_in_use < 0)
+          OR (capacity IS NOT NULL AND seated_capacity IS NOT NULL AND seated_capacity > capacity)
+          OR (seated_capacity IS NOT NULL AND seats_in_use IS NOT NULL AND seats_in_use > seated_capacity)
+          OR (capacity IS NOT NULL AND expansion_capacity IS NOT NULL AND expansion_capacity < capacity)`,
+    ).all() as Array<{ id: number; name: string }>;
+    for (const row of rows) issues.push(this.issue(
+      "stadium-capacity", "ERROR", "stadium", row.id,
+      `As capacidades do estádio "${row.name}" são inconsistentes.`,
+    ));
+  }
+
+  private stadiumFieldDimensions(issues: ValidationIssue[]) {
+    const rows = this.database.connection.prepare(
+      `SELECT id, name
+       FROM stadium
+       WHERE (field_length IS NOT NULL AND min_field_length IS NOT NULL AND field_length < min_field_length)
+          OR (field_length IS NOT NULL AND max_field_length IS NOT NULL AND field_length > max_field_length)
+          OR (min_field_length IS NOT NULL AND max_field_length IS NOT NULL AND min_field_length > max_field_length)
+          OR (field_width IS NOT NULL AND min_field_width IS NOT NULL AND field_width < min_field_width)
+          OR (field_width IS NOT NULL AND max_field_width IS NOT NULL AND field_width > max_field_width)
+          OR (min_field_width IS NOT NULL AND max_field_width IS NOT NULL AND min_field_width > max_field_width)
+          OR (field_length IS NOT NULL AND field_length < 0)
+          OR (field_width IS NOT NULL AND field_width < 0)
+          OR (international_field_length IS NOT NULL AND international_field_length < 0)
+          OR (international_field_width IS NOT NULL AND international_field_width < 0)`,
+    ).all() as Array<{ id: number; name: string }>;
+    for (const row of rows) issues.push(this.issue(
+      "stadium-field-dimensions", "ERROR", "stadium", row.id,
+      `As dimensões de campo do estádio "${row.name}" são inconsistentes.`,
+    ));
+  }
+
+  private stadiumGeolocation(issues: ValidationIssue[]) {
+    const rows = this.database.connection.prepare(
+      `SELECT id, name
+       FROM stadium
+       WHERE (latitude IS NOT NULL AND (latitude < -90 OR latitude > 90))
+          OR (longitude IS NOT NULL AND (longitude < -180 OR longitude > 180))`,
+    ).all() as Array<{ id: number; name: string }>;
+    for (const row of rows) issues.push(this.issue(
+      "stadium-geolocation", "ERROR", "stadium", row.id,
+      `A localização geográfica do estádio "${row.name}" está fora dos limites válidos.`,
+    ));
+  }
+
+  private stadiumDates(issues: ValidationIssue[]) {
+    const rows = this.database.connection.prepare(
+      `SELECT id, name
+       FROM stadium
+       WHERE (construction_date IS NOT NULL AND reconstruction_date IS NOT NULL AND construction_date > reconstruction_date)
+          OR (last_pitch_replacement_date IS NOT NULL AND pitch_replacement_deadline IS NOT NULL AND last_pitch_replacement_date > pitch_replacement_deadline)
+          OR (construction_date IS NOT NULL AND current_ownership_date IS NOT NULL AND construction_date > current_ownership_date)`,
+    ).all() as Array<{ id: number; name: string }>;
+    for (const row of rows) issues.push(this.issue(
+      "stadium-dates", "WARNING", "stadium", row.id,
+      `A cronologia de datas do estádio "${row.name}" é inconsistente.`,
+    ));
+  }
+
+  private stadiumOwnership(issues: ValidationIssue[]) {
+    const rows = this.database.connection.prepare(
+      `SELECT id, name
+       FROM stadium
+       WHERE owner_club_id IS NOT NULL AND owner_person_id IS NOT NULL`,
+    ).all() as Array<{ id: number; name: string }>;
+    for (const row of rows) issues.push(this.issue(
+      "stadium-ownership", "WARNING", "stadium", row.id,
+      `O estádio "${row.name}" possui proprietário clube e pessoa ao mesmo tempo.`,
+    ));
   }
 
   private ruleCompatibility(issues: ValidationIssue[]) {
