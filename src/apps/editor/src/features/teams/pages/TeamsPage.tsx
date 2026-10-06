@@ -1,139 +1,32 @@
-import { useState } from "react";
-import { CrudEntityPage, Tabs, type CrudEntityConfig } from "../../../shared/components";
-import {
-  teamConfig,
-  clubConfig,
-  nationalTeamConfig,
-  nationalTeamInfoConfig,
-  nationalTeamCoefficientConfig,
-  ownershipConfig,
-  reserveTeamConfig,
-  financeConfig,
-  embargoConfig,
-  revenueConfig,
-  debtConfig,
-  ffpConfig,
-  fanProfileConfig,
-  objectivesConfig,
-  equipmentConfig,
-  teamPersonConfig,
-  captainConfig,
-  partnershipConfig,
-  retiredNumberConfig,
-  affiliationConfig,
-  rivalryConfig,
-  derbyConfig,
-  competitionHistoryConfig,
-  regionalCompetitionConfig,
-  expectationConfig,
-  coefficientConfig,
-  tacticalProfileConfig,
-} from "../config/teamConfig";
-
-type ConfigItem = {
-  id: string;
-  label: string;
-  config: CrudEntityConfig;
-};
-
-const sections: Record<string, ConfigItem[]> = {
-  identity: [
-    { id: "team", label: "Team", config: teamConfig },
-    { id: "club", label: "Club", config: clubConfig },
-    { id: "national-team", label: "National Team", config: nationalTeamConfig },
-    { id: "national-info", label: "National Team Info", config: nationalTeamInfoConfig },
-    { id: "national-coefficients", label: "National Coefficients", config: nationalTeamCoefficientConfig },
-  ],
-  club: [
-    { id: "ownership", label: "Ownership", config: ownershipConfig },
-    { id: "reserve", label: "Reserve Teams", config: reserveTeamConfig },
-    { id: "finance", label: "Finance", config: financeConfig },
-    { id: "embargo", label: "Embargoes", config: embargoConfig },
-    { id: "revenue", label: "Revenue", config: revenueConfig },
-    { id: "debt", label: "Debt", config: debtConfig },
-    { id: "ffp", label: "FFP", config: ffpConfig },
-    { id: "fans", label: "Fan Profile", config: fanProfileConfig },
-    { id: "objectives", label: "Objectives", config: objectivesConfig },
-    { id: "tactics", label: "Tactical Profile", config: tacticalProfileConfig },
-  ],
-  relations: [
-    { id: "equipment", label: "Equipment", config: equipmentConfig },
-    { id: "people", label: "Team ↔ Person", config: teamPersonConfig },
-    { id: "captains", label: "Captain", config: captainConfig },
-    { id: "partnerships", label: "Partnerships", config: partnershipConfig },
-    { id: "retired-numbers", label: "Retired Numbers", config: retiredNumberConfig },
-    { id: "rivalries", label: "Rivalries", config: rivalryConfig },
-    { id: "derbies", label: "Derbies", config: derbyConfig },
-    { id: "affiliations", label: "Affiliations", config: affiliationConfig },
-  ],
-  history: [
-    { id: "competition-history", label: "Competition History", config: competitionHistoryConfig },
-    { id: "regional-competition", label: "Regional Competitions", config: regionalCompetitionConfig },
-    { id: "expectations", label: "Expectations", config: expectationConfig },
-    { id: "coefficients", label: "Coefficients", config: coefficientConfig },
-  ],
-};
+import { useMemo, useState } from "react";
+import { DataTable, Pagination, SearchInput, type DataTableColumn } from "../../../shared/components";
+import { editorApi, type EntityRow } from "../../../shared/api/editorApi";
+import { useEntityQuery } from "../../../shared/hooks/useEntityApi";
+import { ClubEditor } from "../components/ClubEditor";
 
 export function TeamsPage() {
-  const [section, setSection] = useState("identity");
-
-  return (
-    <div className="space-y-6">
-      <header>
-        <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-600">
-          WORLD DB
-        </div>
-        <h1 className="text-2xl font-semibold tracking-tight text-white">
-          Teams & Clubs
-        </h1>
-        <p className="mt-2 max-w-3xl text-sm text-slate-500">
-          Complete editor for team identity, club data, national-team data,
-          finance, ownership, relationships and competition history.
-        </p>
-      </header>
-
-      <Tabs
-        activeTab={section}
-        onChange={setSection}
-        items={[
-          {
-            id: "identity",
-            label: "Identity",
-            content: <ConfigGroup items={sections.identity} />,
-          },
-          {
-            id: "club",
-            label: "Club",
-            content: <ConfigGroup items={sections.club} />,
-          },
-          {
-            id: "relations",
-            label: "Relations",
-            content: <ConfigGroup items={sections.relations} />,
-          },
-          {
-            id: "history",
-            label: "History",
-            content: <ConfigGroup items={sections.history} />,
-          },
-        ]}
-      />
-    </div>
-  );
-}
-
-function ConfigGroup({ items }: { items: ConfigItem[] }) {
-  const [activeTab, setActiveTab] = useState(items[0]?.id ?? "");
-
-  return (
-    <Tabs
-      activeTab={activeTab}
-      onChange={setActiveTab}
-      items={items.map(item => ({
-        id: item.id,
-        label: item.label,
-        content: <CrudEntityPage config={item.config} />,
-      }))}
-    />
-  );
+  const [selectedId, setSelectedId] = useState<number | undefined>();
+  const [page, setPage] = useState(1);
+  const [search, setSearch] = useState("");
+  const options = useMemo(() => ({ page, pageSize: 15, search, searchColumns: ["name", "short_name", "three_letter_name", "nickname"], orderBy: "name", orderDirection: "ASC" as const }), [page, search]);
+  const list = useEntityQuery("team", options);
+  if (selectedId !== undefined) return <ClubEditor clubId={selectedId} onBack={() => { setSelectedId(undefined); void list.reload(); }} />;
+  const columns: DataTableColumn<EntityRow>[] = [
+    { key: "id", header: "ID", render: row => String(row.id ?? "—") },
+    { key: "name", header: "Name", render: row => String(row.name ?? "—") },
+    { key: "short_name", header: "Short Name", render: row => String(row.short_name ?? "—") },
+    { key: "three_letter_name", header: "Code", render: row => String(row.three_letter_name ?? "—") },
+    { key: "reputation", header: "Reputation", render: row => String(row.reputation ?? "—") },
+  ];
+  async function remove(row: EntityRow) {
+    const id = Number(row.id);
+    if (!Number.isFinite(id) || !window.confirm("Delete this team? Club data is linked to the team and may cascade.")) return;
+    await editorApi.entity.remove("team", id); await list.reload();
+  }
+  return <div className="space-y-6">
+    <header><div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-600">WORLD DB / CLUBS</div><h1 className="text-2xl font-semibold tracking-tight text-white">Clubs</h1><p className="mt-2 max-w-3xl text-sm text-slate-500">Club workspace with shared team identity and complete club-domain data.</p></header>
+    <SearchInput value={search} onChange={value => { setSearch(value); setPage(1); }} placeholder="Search clubs by name, short name or code..." />
+    <DataTable rows={list.rows} columns={columns} loading={list.loading} error={list.error} onEdit={row => setSelectedId(Number(row.id))} onDelete={row => void remove(row)} emptyMessage="No clubs found." />
+    {!list.loading && !list.error && <Pagination page={list.page} pageCount={list.pageCount} onPageChange={setPage} />}
+  </div>;
 }
