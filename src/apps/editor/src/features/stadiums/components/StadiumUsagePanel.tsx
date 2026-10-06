@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { AlertTriangle, CalendarDays, ExternalLink, History, RefreshCw } from "lucide-react";
 import { editorApi, type EntityRow } from "../../../shared/api/editorApi";
+import type { ReactNode } from "react";
 
 export function StadiumUsagePanel({ stadiumId }: { stadiumId: number }) {
   const [changes, setChanges] = useState<EntityRow[]>([]);
@@ -57,6 +58,6 @@ function Metric({ label, value }: { label: string; value: string | number }) {
   return <div className="rounded-xl border border-white/5 bg-black/10 p-3"><div className="text-[10px] uppercase tracking-[0.14em] text-slate-600">{label}</div><div className="mt-1 text-lg font-semibold text-white">{value}</div></div>;
 }
 
-function RelationList({ title, icon, rows, fields }: { title: string; icon: React.ReactNode; rows: EntityRow[]; fields: string[] }) {
+function RelationList({ title, icon, rows, fields }: { title: string; icon: ReactNode; rows: EntityRow[]; fields: string[] }) {
   return <div className="rounded-xl border border-white/5 bg-black/10 p-4"><div className="flex items-center gap-2 text-xs font-medium text-slate-300">{icon}{title}</div>{rows.length === 0 ? <p className="mt-4 text-xs text-slate-600">No linked records.</p> : <div className="mt-3 space-y-2">{rows.slice(0, 8).map(row => <div key={String(row.id)} className="rounded-lg border border-white/5 px-3 py-2">{fields.map(field => <div key={field} className="flex justify-between gap-3 text-[10px]"><span className="text-slate-600">{field}</span><span className="truncate text-slate-400">{row[field] == null ? "—" : String(row[field])}</span></div>)}</div>)}{rows.length > 8 && <p className="text-[10px] text-slate-600">Showing 8 of {rows.length} records.</p>}</div>}</div>;
 }
