@@ -6,6 +6,10 @@ import { WorldDatabase } from "../database/world/WorldDatabase.js";
 import { validatePackageIdentity } from "../infrastructure/packages/WorldPackageIdentityService.js";
 import type { PackageManifest } from "../infrastructure/packages/WorldPackageTypes.js";
 import {
+  BASE_PACKAGE_PRIORITY,
+  DEFAULT_PACKAGE_PRIORITY,
+} from "../infrastructure/packages/WorldPackageTypes.js";
+import {
   WorldPackageImportService,
   type ConflictPolicy,
   type ImportConflictRecord,
@@ -133,6 +137,7 @@ export class WorldPackageService {
         LEFT JOIN world_package_load_order o
           ON o.package_id=p.id
         ORDER BY
+          p.priority,
           COALESCE(o.load_order, 2147483647),
           p.id`,
       )
@@ -275,7 +280,7 @@ export class WorldPackageService {
           input.packageType ??
             "CONTENT",
           Number(
-            input.priority ?? 100,
+            input.priority ?? DEFAULT_PACKAGE_PRIORITY,
           ),
           input.status ===
             "DISABLED"
@@ -368,7 +373,7 @@ export class WorldPackageService {
       if (enabled === false) {
         throw new Error("Base World package cannot be disabled.");
       }
-      if (priority !== 0) throw new Error("Base reference data must keep priority 0.");
+      if (priority !== BASE_PACKAGE_PRIORITY) throw new Error("Base reference data must keep priority 0.");
     }
 
     if (enabled) {

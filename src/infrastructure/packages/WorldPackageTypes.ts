@@ -1,3 +1,6 @@
+export const BASE_PACKAGE_PRIORITY = 0;
+export const DEFAULT_PACKAGE_PRIORITY = 10;
+
 export interface PackageManifest {
   /** Formal package identity. packageKey remains the persisted registry field. */
   id?: string;

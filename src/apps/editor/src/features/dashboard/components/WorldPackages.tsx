@@ -37,7 +37,7 @@ export function WorldPackages({
           </div>
           <h2 className="mt-1 text-lg font-semibold text-white">
             {packages.length
-              ? packages.length + " packages in load order"
+              ? packages.length + " packages in composition order"
               : "No packages registered"}
           </h2>
         </div>
@@ -77,6 +77,8 @@ export function WorldPackages({
                       {pkg.packageKey} · v{pkg.version}
                     </p>
                     <div className="mt-2 flex flex-wrap gap-2 text-[11px] text-slate-500">
+                      <span>Layer {pkg.priority}</span>
+                      <span>·</span>
                       <span>Load order {pkg.loadOrder ?? index + 1}</span>
                       <span>·</span>
                       <span>Priority {pkg.priority}</span>

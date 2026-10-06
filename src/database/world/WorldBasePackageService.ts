@@ -4,7 +4,11 @@ import path from "node:path";
 
 import { WorldPackageImportService } from "../../infrastructure/packages/WorldPackageImportService.js";
 import { initializeWorldCompositionSchema } from "./WorldCompositionSchema.js";
-import { BASE_PACKAGE_KEY, BASE_PACKAGE_VERSION } from "./WorldBasePackageDefinition.js";
+import {
+  BASE_PACKAGE_KEY,
+  BASE_PACKAGE_VERSION,
+  BASE_PACKAGE_PRIORITY,
+} from "./WorldBasePackageDefinition.js";
 import { WorldDefaultDataPackageBuilder } from "./WorldDefaultDataPackageBuilder.js";
 import type { WorldDatabase } from "./WorldDatabase.js";
 
@@ -19,10 +23,14 @@ export class WorldBasePackageService {
 
     initializeWorldCompositionSchema(database);
     const existing = database.prepare(
-      "SELECT id,version,source_file AS sourceFile,source_sha256 AS sourceSha256 FROM world_package WHERE lower(package_key)=? LIMIT 1",
+      "SELECT id,version,package_type AS packageType,priority,enabled,
+        source_file AS sourceFile,source_sha256 AS sourceSha256 FROM world_package WHERE lower(package_key)=? LIMIT 1",
     ).get(BASE_PACKAGE_KEY) as {
       id: number;
       version: string;
+      packageType: string;
+      priority: number;
+      enabled: number;
       sourceFile: string | null;
       sourceSha256: string | null;
     } | undefined;
@@ -30,6 +38,9 @@ export class WorldBasePackageService {
     if (
       existing &&
       existing.version === BASE_PACKAGE_VERSION &&
+      existing.packageType === "BASE" &&
+      existing.priority === BASE_PACKAGE_PRIORITY &&
+      existing.enabled === 1 &&
       existing.sourceFile &&
       path.resolve(existing.sourceFile) === packageFile &&
       fs.existsSync(packageFile) &&
@@ -56,7 +67,7 @@ export class WorldBasePackageService {
           "Base World",
           BASE_PACKAGE_VERSION,
           "BASE",
-          0,
+          BASE_PACKAGE_PRIORITY,
           "ERROR",
           packageFile,
           sourceHash,

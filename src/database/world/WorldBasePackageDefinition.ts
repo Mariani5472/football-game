@@ -1,5 +1,6 @@
 export const BASE_PACKAGE_KEY = "world.base";
 export const BASE_PACKAGE_VERSION = "1.4.0";
+export const BASE_PACKAGE_PRIORITY = 0;
 export const BASE_PACKAGE_PROVIDES = [
   "reference:base", "geography:continents", "geography:regions", "geography:nations",
   "geography:confederations", "reference:currencies", "reference:languages", "reference:climates",
@@ -14,4 +15,3 @@ export {
 export {
   DEFAULT_CLIMATES, DEFAULT_INJURY_SUBCLASSIFICATIONS, DEFAULT_PLAYER_ROLES, DEFAULT_REFERENCE_LISTS,
 } from "./WorldDefaultReferenceCatalog.js";
-
