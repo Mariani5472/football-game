@@ -66,9 +66,9 @@ export interface ClubRelationConfig {
 }
 
 export type ClubScope =
-  | { type: "club"; field: string }
-  | { type: "team"; field: string }
-  | { type: "either"; fields: string[] };
+  | { readonly type: "club"; readonly field: string }
+  | { readonly type: "team"; readonly field: string }
+  | { readonly type: "either"; readonly fields: readonly string[] };
 
 const c = (
   config: CrudEntityConfig,
