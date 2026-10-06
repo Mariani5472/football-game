@@ -1,6 +1,14 @@
 import type { WorldDatabase } from "./WorldDatabase.js";
 import { BASE_PACKAGE_PRIORITY } from "./WorldBasePackageDefinition.js";
 
+export interface DefaultDataDomainSummary {
+  geography: string[];
+  football: string[];
+  tactical: string[];
+  injuries: string[];
+  generic: string[];
+}
+
 export interface DefaultDataPackage {
   packageKey: string;
   version: string;
@@ -12,6 +20,7 @@ export interface DefaultDataPackage {
   importedEntities: number;
   attributedValues: number;
   sourceHashRecorded: boolean;
+  domains: DefaultDataDomainSummary;
 }
 
 export class DefaultDataRepository {
@@ -99,8 +108,58 @@ export class DefaultDataRepository {
         row.sourceFile &&
           row.sourceSha256,
       ),
+      domains: this.readDomains(id),
     };
   }
+}
+
+  private readDomains(
+    packageId: number,
+  ): DefaultDataDomainSummary {
+    const row = this.database.connection
+      .prepare(
+        "SELECT value FROM database_metadata WHERE key='reference_domains'",
+      )
+      .get() as { value?: string } | undefined;
+
+    if (!row?.value) {
+      return {
+        geography: [],
+        football: [],
+        tactical: [],
+        injuries: [],
+        generic: [],
+      };
+    }
+
+    try {
+      const parsed: unknown = JSON.parse(row.value);
+      if (!parsed || typeof parsed !== "object") throw new Error("invalid domains");
+      const record = parsed as Record<string, unknown>;
+      return {
+        geography: readStringArray(record.geography),
+        football: readStringArray(record.football),
+        tactical: readStringArray(record.tactical),
+        injuries: readStringArray(record.injuries),
+        generic: readStringArray(record.generic),
+      };
+    } catch {
+      throw new Error(
+        "Default reference package has an invalid reference_domains manifest.",
+      );
+    }
+
+    void packageId;
+  }
+
+
+function readStringArray(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.filter(
+        (item): item is string =>
+          typeof item === "string",
+      )
+    : [];
 }
 
 function parseArray(value: unknown): string[] {
