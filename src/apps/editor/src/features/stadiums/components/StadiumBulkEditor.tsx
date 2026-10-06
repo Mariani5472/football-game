@@ -53,7 +53,9 @@ export function StadiumBulkEditor({ rows, onSaved }: { rows: EntityRow[]; onSave
     setSaving(true);
     setError(null);
     try {
-      await Promise.all(rows.map(row => editorApi.entity.update("stadium", Number(row.id), { [field]: normalized })));
+      for (const row of rows) {
+        await editorApi.entity.update("stadium", Number(row.id), { [field]: normalized });
+      }
       setConfirmOpen(false);
       await onSaved();
     } catch (cause) {
