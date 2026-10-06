@@ -16,7 +16,7 @@ export function PersonAttributesTab({ personId }: { personId?: number }) {
 
   async function save() {
     if (!personId) return;
-    setSaving(true);
+    setSaving(true); setMessage(null);
     try {
       const payload = {
         person_id: personId,
@@ -28,35 +28,25 @@ export function PersonAttributesTab({ personId }: { personId?: number }) {
       if (existing) await editorApi.entity.update("person_general_attribute", personId, payload);
       else await editorApi.entity.create("person_general_attribute", payload);
       setMessage("Attributes saved.");
-    } catch (cause) {
-      setMessage(cause instanceof Error ? cause.message : String(cause));
-    } finally {
-      setSaving(false);
-    }
+    } catch (cause) { setMessage(cause instanceof Error ? cause.message : String(cause)); }
+    finally { setSaving(false); }
   }
 
   if (!personId) return <Empty text="Save the Person first to manage attributes." />;
 
-  return (
-    <section className="rounded-2xl border border-white/10 bg-white/[0.02] p-5">
-      <EntityForm
-        fields={[
-          { name: "current_reputation", label: "Current Reputation", type: "number", min: 0 },
-          { name: "national_reputation", label: "National Reputation", type: "number", min: 0 },
-          { name: "world_reputation", label: "World Reputation", type: "number", min: 0 },
-        ]}
-        values={values}
-        onChange={(name, value) => setValues(current => ({ ...current, [name]: String(value ?? "") }))}
-        onSubmit={() => void save()}
-        submitLabel="Save Attributes"
-        submitting={saving}
-      />
-      <p className="mt-3 text-xs text-slate-600">Tactical and non-technical Person attribute tables currently have no modeled columns in the World DB.</p>
-      {message && <p className="mt-3 text-xs text-slate-400">{message}</p>}
-    </section>
-  );
+  return <section className="space-y-5 rounded-2xl border border-white/10 bg-white/[0.02] p-5">
+    <EntityForm
+      fields={[
+        { name: "current_reputation", label: "Current Reputation", type: "number", min: 0 },
+        { name: "national_reputation", label: "National Reputation", type: "number", min: 0 },
+        { name: "world_reputation", label: "World Reputation", type: "number", min: 0 },
+      ]}
+      values={values}
+      onChange={(name, value) => setValues(current => ({ ...current, [name]: String(value ?? "") }))}
+      onSubmit={() => void save()} submitLabel="Save Attributes" submitting={saving}
+    />
+    <p className="text-xs text-slate-600">General reputation is modeled here. Tactical and non-technical Person attribute tables currently have no modeled columns.</p>
+    {message && <p className="text-xs text-slate-400">{message}</p>}
+  </section>;
 }
-
-function Empty({ text }: { text: string }) {
-  return <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-8 text-sm text-slate-600">{text}</div>;
-}
+function Empty({ text }: { text: string }) { return <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-8 text-sm text-slate-600">{text}</div>; }
