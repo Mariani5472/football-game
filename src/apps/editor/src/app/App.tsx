@@ -25,6 +25,7 @@ import {
 import { EditorLayout } from "../shared/layout/EditorLayout";
 import type { EditorRoute } from "./routes";
 import { QuickCreateModal } from "../features/quick-create";
+import { FastStartPage } from "../features/fast-start/FastStartPage";
 
 function ComingSoon({ title }: { title: string }) {
   return (
@@ -78,9 +79,9 @@ function renderRoute(route: EditorRoute) {
     case "validation":
       return <ValidationPage />;
     case "fast-start":
-      return <ComingSoon title="Fast Start" />;
+      return <FastStartPage />;
     case "fast-create":
-      return <ComingSoon title="Quick Create" />;
+      return null;
     case "export":
       return <ExportPage />;
   }
@@ -134,7 +135,10 @@ export default function App() {
       {renderRoute(route)}
       <QuickCreateModal
         open={quickCreateOpen}
-        onClose={() => setQuickCreateOpen(false)}
+        onClose={() => {
+          setQuickCreateOpen(false);
+          if (route === "fast-create") setRoute("dashboard");
+        }}
       />
     </EditorLayout>
   );

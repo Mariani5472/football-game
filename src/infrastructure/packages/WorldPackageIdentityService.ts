@@ -1,4 +1,4 @@
-import type { WorldDatabase } from "../database/world/WorldDatabase.js";
+import type { WorldDatabase } from "../../database/world/WorldDatabase.js";
 
 export interface PackageIdentityManifest {
   packageKey: string;

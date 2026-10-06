@@ -1,43 +1,27 @@
-import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
-import DatabaseConnection from "better-sqlite3";
+import type { ConflictPolicy, ImportConflictRecord, ImportSessionRecord, PackageForeignKeyInfo, PackageManifest, PackageTableInfo } from "./WorldPackageTypes.js";
+export type { ConflictPolicy, ImportConflictRecord, ImportSessionRecord, PackageManifest } from "./WorldPackageTypes.js";
+import { WorldPackageSchemaService } from "./WorldPackageSchemaService.js";
+import { WorldPackageConflictPolicy } from "./WorldPackageConflictPolicy.js";
+import { WorldImportProvenanceRepository } from "./WorldImportProvenanceRepository.js";
+import { WorldImportSessionRepository } from "./WorldImportSessionRepository.js";
+import { WorldPackageSourceRepository } from "./WorldPackageSourceRepository.js";
+import { WorldPackageRegistryRepository } from "./WorldPackageRegistryRepository.js";
+import { UnresolvedForeignKeyError, WorldPackageReferenceResolutionService } from "./WorldPackageReferenceResolutionService.js";
 
-import { WorldDatabase } from "../database/world/WorldDatabase.js";
+import { WorldDatabase } from "../../database/world/WorldDatabase.js";
 import {
   type IdentityContext,
   type IdentityPolicy,
   generateUuid,
   identityPolicy,
-} from "../database/world/WorldIdentity.js";
+} from "../../database/world/WorldIdentity.js";
 import {
   type PackageIdentityIssue,
   validatePackageIdentity,
 } from "./WorldPackageIdentityService.js";
-
-export type ConflictPolicy =
-  | "REPLACE"
-  | "MERGE"
-  | "KEEP_EXISTING"
-  | "KEEP_INCOMING"
-  | "MANUAL";
-
-export interface PackageManifest {
-  /** Formal package identity. packageKey remains the persisted registry field. */
-  id?: string;
-  packageKey: string;
-  name: string;
-  version: string;
-  packageType?: string;
-  priority?: number;
-  schemaVersion: number;
-  categories?: string[];
-  description?: string | null;
-  provides?: string[];
-  dependencies?: Array<{ key: string; minVersion?: string | null }>;
-  conflicts?: string[];
-}
 
 export interface ImportPreview {
   sessionId: number;
@@ -53,35 +37,6 @@ export interface ImportPreview {
   message: string;
 }
 
-export interface ImportConflictRecord {
-  id: number;
-  packageId: number;
-  tableName: string;
-  incomingKey: string;
-  incomingId: number | null;
-  worldKey: string | null;
-  worldId: number | null;
-  conflictType: string;
-  columnName: string | null;
-  existingValue: string | null;
-  incomingValue: string | null;
-  resolution: ConflictPolicy;
-  resolved: boolean;
-}
-
-export interface ImportSessionRecord {
-  id: number;
-  status: string;
-  packageId: number;
-  packageKey: string;
-  sourceFile: string;
-  sourceSha256: string;
-  startedAt: string;
-  completedAt: string | null;
-  errorMessage: string | null;
-  summary: Record<string, unknown>;
-}
-
 export interface RebuildResult {
   status: "COMPLETED";
   packages: number;
@@ -92,31 +47,6 @@ export interface RebuildResult {
 
 type Row = Record<string, unknown>;
 type KeyObject = Record<string, unknown>;
-
-interface ColumnInfo {
-  name: string;
-  type: string;
-  notNull: boolean;
-  defaultValue: unknown;
-  primaryKeyOrder: number;
-}
-
-interface ForeignKeyInfo {
-  id: number;
-  sequence: number;
-  table: string;
-  from: string;
-  to: string;
-}
-
-interface TableInfo {
-  name: string;
-  columns: ColumnInfo[];
-  primaryKey: string[];
-  foreignKeys: ForeignKeyInfo[];
-  uniqueColumns: string[][];
-  rowIdPrimaryKey: boolean;
-}
 
 interface PackageRuntime {
   id: number;
@@ -132,7 +62,7 @@ interface ImportRuntime {
   packageId: number;
   sessionId: number;
   manifest: PackageManifest;
-  tableInfos: Map<string, TableInfo>;
+  tableInfos: Map<string, PackageTableInfo>;
   mapping: Map<string, KeyObject>;
   packagePriority: number;
   alias: string;
@@ -147,26 +77,7 @@ class PackageIdentityValidationError extends Error {
   }
 }
 
-class UnresolvedForeignKeyError extends Error {
-  constructor(
-    readonly tableName: string,
-    readonly columnName: string,
-    readonly targetTable: string,
-    readonly targetKey: string,
-  ) {
-    super(
-      "Unresolved foreign key " +
-        tableName +
-        "." +
-        columnName +
-        " -> " +
-        targetTable +
-        " " +
-        targetKey,
-    );
-    this.name = "UnresolvedForeignKeyError";
-  }
-}
+
 
 const INTERNAL_TABLES = new Set([
   "database_metadata",
@@ -196,19 +107,31 @@ const EVENT_TABLES = new Set([
 ]);
 
 export class WorldPackageImportService {
+  private readonly packageSources: WorldPackageSourceRepository;
+  private readonly packageRegistry: WorldPackageRegistryRepository;
+  private readonly packageSchema = new WorldPackageSchemaService();
+  private readonly referenceResolution = new WorldPackageReferenceResolutionService();
+  private readonly conflictPolicy = new WorldPackageConflictPolicy();
+  private readonly provenance: WorldImportProvenanceRepository;
+  private readonly sessions: WorldImportSessionRepository;
+
   constructor(private readonly world: WorldDatabase) {
+    this.packageSources = new WorldPackageSourceRepository(world.connection);
+    this.packageRegistry = new WorldPackageRegistryRepository(world.connection);
+    this.provenance = new WorldImportProvenanceRepository(world.connection);
+    this.sessions = new WorldImportSessionRepository(world.connection);
     this.bootstrapWorldIdentities();
   }
 
   inspect(sourceFile: string): ImportPreview {
-    const absolute = this.resolveSource(sourceFile);
-    const sourceSha256 = sha256File(absolute);
+    const absolute = this.packageSources.resolve(sourceFile);
+    const sourceSha256 = this.packageSources.sha256(absolute);
     const alias = "incoming_package";
 
-    this.attach(alias, absolute);
+    this.packageSources.attach(alias, absolute);
 
     try {
-      const manifest = this.readManifest(alias);
+      const manifest = this.packageSources.readManifest(alias);
       this.validateManifest(manifest, sourceSha256);
 
       const packageId = this.ensurePackage(
@@ -225,7 +148,7 @@ export class WorldPackageImportService {
 
       this.setSessionStatus(sessionId, "INSPECTING");
 
-      const tableInfos = this.loadTableInfos(alias);
+      const tableInfos = this.loadPackageTableInfos(alias);
       this.validateCompatibleTables(tableInfos);
 
       const context = this.createIdentityContext(alias, tableInfos);
@@ -351,7 +274,7 @@ export class WorldPackageImportService {
             : "Package is compatible and ready to import.",
       };
     } finally {
-      this.detach(alias);
+      this.packageSources.detach(alias);
     }
   }
 
@@ -369,7 +292,7 @@ export class WorldPackageImportService {
       throw new Error("Package file not found: " + absolute);
     }
 
-    const sourceHash = sha256File(absolute);
+    const sourceHash = this.packageSources.sha256(absolute);
     if (sourceHash !== session.sourceSha256) {
       throw new Error(
         "Package changed after inspection. Inspect it again before importing.",
@@ -377,18 +300,11 @@ export class WorldPackageImportService {
     }
 
     const alias = "incoming_package";
-    this.attach(alias, absolute);
+    this.packageSources.attach(alias, absolute);
 
     try {
-      const manifest = this.readManifest(alias);
+      const manifest = this.packageSources.readManifest(alias);
       this.validateManifest(manifest, sourceHash);
-
-      this.ensurePackage(
-        manifest,
-        absolute,
-        sourceHash,
-        true,
-      );
 
       const packageRow = this.world.connection
         .prepare(
@@ -402,7 +318,7 @@ export class WorldPackageImportService {
         throw new Error("Package registry entry is missing.");
       }
 
-      const tableInfos = this.loadTableInfos(alias);
+      const tableInfos = this.loadPackageTableInfos(alias);
       this.validateCompatibleTables(tableInfos);
 
       const runtime: ImportRuntime = {
@@ -411,9 +327,7 @@ export class WorldPackageImportService {
         manifest,
         tableInfos,
         mapping: new Map(),
-        packagePriority: Number(
-          packageRow.priority ?? manifest.priority ?? 100,
-        ),
+        packagePriority: Number(manifest.priority ?? packageRow.priority ?? 100),
         alias,
       };
 
@@ -432,97 +346,25 @@ export class WorldPackageImportService {
       this.world.transaction(() => {
         this.world.connection.pragma("defer_foreign_keys = ON");
         this.setSessionStatus(sessionId, "COMMITTING");
+        this.ensurePackage(manifest, absolute, sourceHash, true);
+        runtime.packagePriority = Number(manifest.priority ?? packageRow.priority ?? 100);
 
-        const pending = new Map<string, Row[]>();
-        for (const table of this.orderTables(tableInfos)) {
-          pending.set(
-            table.name,
-            Array.from(this.iterateRows(alias, table.name)),
-          );
-        }
-
-        let progress = true;
-        while (pending.size > 0 && progress) {
-          progress = false;
-
-          for (const [tableName, pendingRows] of Array.from(
-            pending.entries(),
-          )) {
-            const table = tableInfos.get(tableName);
-            if (!table) {
-              pending.delete(tableName);
-              continue;
-            }
-
-            const next: Row[] = [];
-
-            for (const row of pendingRows) {
-              try {
-                const result = this.importRow(
-                  runtime,
-                  table,
-                  row,
-                  explicitResolution,
-                );
-
-                rows += 1;
-                if (result.created) created += 1;
-                if (result.updated) updated += 1;
-                if (result.skipped) skipped += 1;
-
-                progress = true;
-              } catch (error) {
-                if (error instanceof UnresolvedForeignKeyError) {
-                  next.push(row);
-                  continue;
-                }
-                throw error;
-              }
-            }
-
-            if (next.length === 0) {
-              pending.delete(tableName);
-            } else {
-              pending.set(tableName, next);
-            }
-          }
-        }
-
-        if (pending.size > 0) {
-          const unresolved = Array.from(pending.entries())
-            .map(
-              ([tableName, pendingRows]) =>
-                tableName + " (" + pendingRows.length + " rows)",
-            )
-            .join(", ");
-
-          throw new Error(
-            "Unable to resolve package foreign keys: " +
-              unresolved,
-          );
-        }
+        const summary = this.referenceResolution.apply({
+          tables: this.orderTables(tableInfos),
+          loadRows: tableName => Array.from(this.iterateRows(alias, tableName)),
+          applyRow: (table, row) => this.importRow(runtime, table, row, explicitResolution),
+          unresolvedMessage: pending => "Unable to resolve package foreign keys: " + Array.from(pending.entries()).map(([tableName, pendingRows]) => tableName + " (" + pendingRows.length + " rows)").join(", "),
+        });
+        rows = summary.processed;
+        created = summary.created;
+        updated = summary.updated;
+        skipped = summary.skipped;
 
         this.world.setMetadata("world_build_status", "VALID");
-        this.world.setMetadata(
-          "world_last_build_at",
-          new Date().toISOString(),
-        );
+        this.world.setMetadata("world_last_build_at", new Date().toISOString());
+        this.setSessionStatus(sessionId, "COMPLETED", { tables: tableInfos.size, rows, created, updated, skipped });
+        this.world.connection.prepare("UPDATE world_package SET status='ACTIVE', updated_at=? WHERE id=?").run(new Date().toISOString(), packageRow.id);
       });
-
-      this.setSessionStatus(sessionId, "COMPLETED", {
-        tables: tableInfos.size,
-        rows,
-        created,
-        updated,
-        skipped,
-      });
-
-      this.world.connection
-        .prepare(
-          "UPDATE world_package SET status='ACTIVE', updated_at=? WHERE id=?",
-        )
-        .run(new Date().toISOString(), packageRow.id);
-
       return {
         sessionId,
         packageKey: manifest.packageKey,
@@ -553,7 +395,7 @@ export class WorldPackageImportService {
       this.world.setMetadata("world_build_status", "INVALID");
       throw error;
     } finally {
-      this.detach(alias);
+      this.packageSources.detach(alias);
     }
   }
 
@@ -577,7 +419,7 @@ export class WorldPackageImportService {
         );
       }
 
-      const actualHash = sha256File(pkg.sourceFile);
+      const actualHash = this.packageSources.sha256(pkg.sourceFile);
       if (actualHash !== pkg.sourceSha256) {
         throw new Error(
           "Package hash changed: " + pkg.manifest.packageKey,
@@ -593,7 +435,7 @@ export class WorldPackageImportService {
     }));
 
     for (const runtime of runtimes) {
-      this.attach(runtime.alias, runtime.sourceFile);
+      this.packageSources.attach(runtime.alias, runtime.sourceFile);
     }
 
     const sessions: Array<{
@@ -620,7 +462,7 @@ export class WorldPackageImportService {
         this.clearBuiltWorld();
 
         for (const item of sessions) {
-          const tableInfos = this.loadTableInfos(item.runtime.alias);
+          const tableInfos = this.loadPackageTableInfos(item.runtime.alias);
           this.validateCompatibleTables(tableInfos);
 
           const runtime: ImportRuntime = {
@@ -638,78 +480,13 @@ export class WorldPackageImportService {
             "RESOLVING",
           );
 
-          const pending = new Map<string, Row[]>();
-          for (const table of this.orderTables(tableInfos)) {
-            pending.set(
-              table.name,
-              Array.from(
-                this.iterateRows(
-                  item.runtime.alias,
-                  table.name,
-                ),
-              ),
-            );
-          }
-
-          let packageRows = 0;
-          let progress = true;
-
-          while (pending.size > 0 && progress) {
-            progress = false;
-
-            for (const [tableName, pendingRows] of Array.from(
-              pending.entries(),
-            )) {
-              const table = tableInfos.get(tableName);
-              if (!table) {
-                pending.delete(tableName);
-                continue;
-              }
-
-              const next: Row[] = [];
-
-              for (const row of pendingRows) {
-                try {
-                  const result = this.importRow(
-                    runtime,
-                    table,
-                    row,
-                    new Map(),
-                  );
-
-                  if (
-                    result.created ||
-                    result.updated ||
-                    result.skipped
-                  ) {
-                    packageRows += 1;
-                  }
-
-                  progress = true;
-                } catch (error) {
-                  if (error instanceof UnresolvedForeignKeyError) {
-                    next.push(row);
-                    continue;
-                  }
-                  throw error;
-                }
-              }
-
-              if (next.length === 0) {
-                pending.delete(tableName);
-              } else {
-                pending.set(tableName, next);
-              }
-            }
-          }
-
-          if (pending.size > 0) {
-            throw new Error(
-              "Unable to resolve foreign keys while rebuilding " +
-                item.runtime.manifest.packageKey,
-            );
-          }
-
+          const summary = this.referenceResolution.apply({
+            tables: this.orderTables(tableInfos),
+            loadRows: tableName => Array.from(this.iterateRows(item.runtime.alias, tableName)),
+            applyRow: (table, row) => this.importRow(runtime, table, row, new Map()),
+            unresolvedMessage: () => "Unable to resolve foreign keys while rebuilding " + item.runtime.manifest.packageKey,
+          });
+          const packageRows = summary.created + summary.updated + summary.skipped;
           totalRows += packageRows;
 
           this.setSessionStatus(
@@ -755,113 +532,14 @@ export class WorldPackageImportService {
       throw error;
     } finally {
       for (const runtime of runtimes) {
-        this.detach(runtime.alias);
+        this.packageSources.detach(runtime.alias);
       }
     }
   }
 
-  getSession(id: number): ImportSessionRecord | undefined {
-    const row = this.world.connection
-      .prepare(
-        `SELECT
-          s.id,
-          s.status,
-          s.package_id AS packageId,
-          p.package_key AS packageKey,
-          s.source_file AS sourceFile,
-          s.source_sha256 AS sourceSha256,
-          s.started_at AS startedAt,
-          s.completed_at AS completedAt,
-          s.error_message AS errorMessage,
-          s.summary_json AS summaryJson
-        FROM world_import_session s
-        JOIN world_package p ON p.id=s.package_id
-        WHERE s.id=?
-        LIMIT 1`,
-      )
-      .get(id) as Record<string, unknown> | undefined;
+  getSession(id: number): ImportSessionRecord | undefined { return this.sessions.get(id); }
 
-    if (!row) return undefined;
-
-    return {
-      id: Number(row.id),
-      status: String(row.status),
-      packageId: Number(row.packageId),
-      packageKey: String(row.packageKey),
-      sourceFile: String(row.sourceFile),
-      sourceSha256: String(row.sourceSha256),
-      startedAt: String(row.startedAt),
-      completedAt:
-        row.completedAt == null
-          ? null
-          : String(row.completedAt),
-      errorMessage:
-        row.errorMessage == null
-          ? null
-          : String(row.errorMessage),
-      summary: JSON.parse(
-        String(row.summaryJson ?? "{}"),
-      ) as Record<string, unknown>,
-    };
-  }
-
-  listConflicts(sessionId: number): ImportConflictRecord[] {
-    return (
-      this.world.connection
-        .prepare(
-          `SELECT
-            id,
-            package_id AS packageId,
-            table_name AS tableName,
-            incoming_key AS incomingKey,
-            incoming_id AS incomingId,
-            world_key AS worldKey,
-            world_id AS worldId,
-            conflict_type AS conflictType,
-            column_name AS columnName,
-            existing_value AS existingValue,
-            incoming_value AS incomingValue,
-            resolution,
-            resolved
-          FROM world_import_conflict
-          WHERE import_session_id=?
-          ORDER BY id`,
-        )
-        .all(sessionId) as Array<Record<string, unknown>>
-    ).map(row => ({
-      id: Number(row.id),
-      packageId: Number(row.packageId),
-      tableName: String(row.tableName),
-      incomingKey: String(row.incomingKey),
-      incomingId:
-        row.incomingId == null
-          ? null
-          : Number(row.incomingId),
-      worldKey:
-        row.worldKey == null
-          ? null
-          : String(row.worldKey),
-      worldId:
-        row.worldId == null
-          ? null
-          : Number(row.worldId),
-      conflictType: String(row.conflictType),
-      columnName:
-        row.columnName == null
-          ? null
-          : String(row.columnName),
-      existingValue:
-        row.existingValue == null
-          ? null
-          : String(row.existingValue),
-      incomingValue:
-        row.incomingValue == null
-          ? null
-          : String(row.incomingValue),
-      resolution: String(row.resolution) as ConflictPolicy,
-      resolved: Number(row.resolved ?? 0) === 1,
-    }));
-  }
+  listConflicts(sessionId: number): ImportConflictRecord[] { return this.sessions.listConflicts(sessionId); }
 
   private buildResolutionMap(
     conflicts: ImportConflictRecord[],
@@ -891,7 +569,7 @@ export class WorldPackageImportService {
 
   private importRow(
     runtime: ImportRuntime,
-    table: TableInfo,
+    table: PackageTableInfo,
     row: Row,
     explicitResolution: Map<string, ConflictPolicy>,
   ): { created: boolean; updated: boolean; skipped: boolean } {
@@ -1186,7 +864,7 @@ export class WorldPackageImportService {
   }
 
   private resolveExisting(
-    table: TableInfo,
+    table: PackageTableInfo,
     row: Row,
     context: IdentityContext,
     mapping: Map<string, KeyObject>,
@@ -1323,50 +1001,32 @@ export class WorldPackageImportService {
     };
   }
 
-  private defaultConflictPolicy(
-    table: TableInfo,
+private defaultConflictPolicy(
+    table: PackageTableInfo,
     worldKey: KeyObject,
     column: string,
     _packageId: number,
     incomingPriority: number,
   ): ConflictPolicy {
-    if (EVENT_TABLES.has(table.name)) {
-      return "KEEP_EXISTING";
-    }
-
-    if (table.primaryKey.length > 1) {
-      return "MERGE";
-    }
-
-    const owner = this.world.connection
+    const owner = table.primaryKey.length > 1 ? undefined : this.world.connection
       .prepare(
         `SELECT p.priority
          FROM world_attribute_provenance a
          JOIN world_package p ON p.id=a.package_id
-         WHERE a.table_name=?
-           AND a.row_key=?
-           AND a.column_name=?
-           AND a.is_current=1
+         WHERE a.table_name=? AND a.row_key=? AND a.column_name=? AND a.is_current=1
          LIMIT 1`,
       )
-      .get(
-        table.name,
-        serializeKey(table, worldKey),
-        column,
-      ) as { priority?: number } | undefined;
-
-    const existingPriority = Number(
-      owner?.priority ?? -1,
-    );
-
-    return incomingPriority >= existingPriority
-      ? "KEEP_INCOMING"
-      : "KEEP_EXISTING";
+      .get(table.name, serializeKey(table, worldKey), column) as { priority?: number } | undefined;
+    return this.conflictPolicy.defaultPolicy({
+      eventRecord: EVENT_TABLES.has(table.name),
+      compositeKey: table.primaryKey.length > 1,
+      incomingPriority,
+      existingPriority: Number(owner?.priority ?? -1),
+    });
   }
-
   private buildTranslatedRow(
     runtime: ImportRuntime,
-    table: TableInfo,
+    table: PackageTableInfo,
     row: Row,
   ): Record<string, unknown> {
     const translated: Record<string, unknown> = {};
@@ -1441,8 +1101,7 @@ export class WorldPackageImportService {
               targetIncomingKey,
             );
 
-          targetMapped =
-            targetResolution.worldKey;
+          targetMapped = targetResolution.worldKey ?? undefined;
 
           if (targetMapped) {
             runtime.mapping.set(
@@ -1479,10 +1138,10 @@ export class WorldPackageImportService {
   }
 
   private tryBuildTranslatedRow(
-    table: TableInfo,
+    table: PackageTableInfo,
     row: Row,
     mapping: Map<string, KeyObject>,
-    tableInfos: Map<string, TableInfo>,
+    tableInfos: Map<string, PackageTableInfo>,
   ): Record<string, unknown> | null {
     const translated: Record<string, unknown> = {
       ...row,
@@ -1547,7 +1206,7 @@ export class WorldPackageImportService {
   }
 
   private prepareInsertValues(
-    table: TableInfo,
+    table: PackageTableInfo,
     translated: Record<string, unknown>,
     incoming: Row,
   ): Record<string, unknown> {
@@ -1587,7 +1246,7 @@ export class WorldPackageImportService {
   }
 
   private insertRow(
-    table: TableInfo,
+    table: PackageTableInfo,
     values: Record<string, unknown>,
   ): KeyObject {
     const columns = Object.keys(values);
@@ -1657,7 +1316,7 @@ export class WorldPackageImportService {
   }
 
   private updateRow(
-    table: TableInfo,
+    table: PackageTableInfo,
     worldKey: KeyObject,
     values: Record<string, unknown>,
   ): void {
@@ -1702,7 +1361,7 @@ export class WorldPackageImportService {
   }
 
   private findExistingByUnique(
-    table: TableInfo,
+    table: PackageTableInfo,
     values: Record<string, unknown>,
   ): KeyObject | null {
     const candidates = [
@@ -1755,7 +1414,7 @@ export class WorldPackageImportService {
   }
 
   private findRowByKey(
-    table: TableInfo,
+    table: PackageTableInfo,
     worldKey: KeyObject,
   ): Row | undefined {
     if (table.primaryKey.length === 0) {
@@ -1785,7 +1444,7 @@ export class WorldPackageImportService {
   }
 
   private findRowChanges(
-    table: TableInfo,
+    table: PackageTableInfo,
     worldKey: KeyObject,
     incoming: Record<string, unknown>,
   ): Array<{
@@ -1838,7 +1497,7 @@ export class WorldPackageImportService {
   }
 
   private persistIdentity(
-    table: TableInfo,
+    table: PackageTableInfo,
     worldKey: KeyObject,
     incomingRow: Row,
     runtime: ImportRuntime,
@@ -2062,266 +1721,41 @@ export class WorldPackageImportService {
     }
   }
 
-  private recordProvenance(
-    runtime: ImportRuntime,
-    table: TableInfo,
-    worldKey: KeyObject,
-    incoming: Row,
-    resolution: string,
-    winningColumns: Set<string>,
-  ): void {
-    const now = new Date().toISOString();
-    const rowKey = serializeKey(
-      table,
-      worldKey,
-    );
-
-    this.world.connection
-      .prepare(
-        `INSERT OR REPLACE INTO world_entity_provenance(
-          table_name,row_key,package_id,resolution,imported_at
-        ) VALUES(?,?,?,?,?)`,
-      )
-      .run(
-        table.name,
-        rowKey,
-        runtime.packageId,
-        resolution,
-        now,
-      );
-
-    for (const [column, value] of Object.entries(
-      incoming,
-    )) {
-      if (
-        column === "id" &&
-        table.rowIdPrimaryKey
-      ) {
-        continue;
-      }
-
-      this.recordAttributeProvenance(
-        table,
-        rowKey,
-        column,
-        runtime.packageId,
-        value,
-        winningColumns.has(column),
-        resolution,
-        now,
-      );
-    }
+private recordProvenance(runtime: ImportRuntime, table: PackageTableInfo, worldKey: KeyObject, incoming: Row, resolution: string, winningColumns: Set<string>): void {
+    this.provenance.recordEntity({ table, rowKey: serializeKey(table, worldKey), packageId: runtime.packageId, incoming, resolution, winningColumns });
   }
 
-  private persistProvenanceColumns(
-    runtime: ImportRuntime,
-    table: TableInfo,
-    worldKey: KeyObject,
-    incoming: Row,
-    values: Record<string, unknown>,
-    resolution: string,
-  ): void {
-    const now = new Date().toISOString();
-    const rowKey = serializeKey(
-      table,
-      worldKey,
-    );
-
-    for (const column of Object.keys(values)) {
-      this.recordAttributeProvenance(
-        table,
-        rowKey,
-        column,
-        runtime.packageId,
-        incoming[column],
-        true,
-        resolution,
-        now,
-      );
-    }
+  private persistProvenanceColumns(runtime: ImportRuntime, table: PackageTableInfo, worldKey: KeyObject, incoming: Row, values: Record<string, unknown>, resolution: string): void {
+    this.provenance.recordAttributes({ table, rowKey: serializeKey(table, worldKey), packageId: runtime.packageId, incoming, columns: values, resolution });
   }
 
-  private recordAttributeProvenance(
-    table: TableInfo,
-    rowKey: string,
-    column: string,
-    packageId: number,
-    value: unknown,
-    current: boolean,
-    resolution: string,
-    now: string,
-  ): void {
-    if (current) {
-      this.world.connection
-        .prepare(
-          `UPDATE world_attribute_provenance
-           SET is_current=0
-           WHERE table_name=?
-             AND row_key=?
-             AND column_name=?`,
-        )
-        .run(
-          table.name,
-          rowKey,
-          column,
-        );
-    }
-
-    this.world.connection
-      .prepare(
-        `INSERT OR REPLACE INTO world_attribute_provenance(
-          table_name,row_key,column_name,package_id,
-          value_hash,resolution,is_current,updated_at
-        ) VALUES(?,?,?,?,?,?,?,?)`,
-      )
-      .run(
-        table.name,
-        rowKey,
-        column,
-        packageId,
-        sha256Value(value),
-        resolution,
-        current ? 1 : 0,
-        now,
-      );
+  private recordIdMap(runtime: ImportRuntime, table: PackageTableInfo, row: Row, incomingKey: string, worldKey: KeyObject, resolution: string): void {
+    const worldId = table.primaryKey.length === 1 ? toNumberOrNull(worldKey[table.primaryKey[0]]) : null;
+    const context = this.createIdentityContext(runtime.alias, runtime.tableInfos);
+    this.provenance.recordIdMap({
+      sessionId: runtime.sessionId, tableName: table.name, incomingKey,
+      incomingId: table.primaryKey.length === 1 ? toNumberOrNull(row[table.primaryKey[0]]) : null,
+      incomingUuid: row.uuid == null ? null : String(row.uuid),
+      worldKey: serializeKey(table, worldKey), worldId, resolution,
+      naturalKey: safeNaturalKey(identityPolicy(table.name), row, context),
+    });
   }
 
-  private recordIdMap(
-    runtime: ImportRuntime,
-    table: TableInfo,
-    row: Row,
-    incomingKey: string,
-    worldKey: KeyObject,
-    resolution: string,
-  ): void {
-    const worldId =
-      table.primaryKey.length === 1
-        ? toNumberOrNull(
-            worldKey[
-              table.primaryKey[0]
-            ],
-          )
-        : null;
-
-    const context = this.createIdentityContext(
-      runtime.alias,
-      runtime.tableInfos,
-    );
-
-    this.world.connection
-      .prepare(
-        `INSERT OR REPLACE INTO world_import_id_map(
-          import_session_id,table_name,incoming_key,incoming_id,
-          incoming_uuid,world_key,world_id,resolution,natural_key
-        ) VALUES(?,?,?,?,?,?,?,?,?)`,
-      )
-      .run(
-        runtime.sessionId,
-        table.name,
-        incomingKey,
-        table.primaryKey.length === 1
-          ? toNumberOrNull(
-              row[
-                table.primaryKey[0]
-              ],
-            )
-          : null,
-        row.uuid == null
-          ? null
-          : String(row.uuid),
-        serializeKey(
-          table,
-          worldKey,
-        ),
-        worldId,
-        resolution,
-        safeNaturalKey(
-          identityPolicy(table.name),
-          row,
-          context,
-        ),
-      );
+  private recordConflict(sessionId: number, packageId: number, table: PackageTableInfo, row: Row, worldKey: KeyObject | null, worldId: number | null, conflictType: string, column: string | null, existingValue: unknown, incomingValue: unknown): void {
+    this.provenance.recordConflict({
+      sessionId, packageId, tableName: table.name, incomingKey: serializeKey(table, row),
+      incomingId: table.primaryKey.length === 1 ? toNumberOrNull(row[table.primaryKey[0]]) : null,
+      worldKey: worldKey ? serializeKey(table, worldKey) : null, worldId,
+      conflictType, column, existingValue, incomingValue,
+    });
   }
 
-  private recordConflict(
-    sessionId: number,
-    packageId: number,
-    table: TableInfo,
-    row: Row,
-    worldKey: KeyObject | null,
-    worldId: number | null,
-    conflictType: string,
-    column: string | null,
-    existingValue: unknown,
-    incomingValue: unknown,
-  ): void {
-    this.world.connection
-      .prepare(
-        `INSERT INTO world_import_conflict(
-          import_session_id,package_id,table_name,incoming_key,
-          incoming_id,world_key,world_id,conflict_type,column_name,
-          existing_value,incoming_value,resolution,resolved
-        ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,0)`,
-      )
-      .run(
-        sessionId,
-        packageId,
-        table.name,
-        serializeKey(table, row),
-        table.primaryKey.length === 1
-          ? toNumberOrNull(
-              row[table.primaryKey[0]],
-            )
-          : null,
-        worldKey
-          ? serializeKey(table, worldKey)
-          : null,
-        worldId,
-        conflictType,
-        column,
-        existingValue == null
-          ? null
-          : String(existingValue),
-        incomingValue == null
-          ? null
-          : String(incomingValue),
-        "MANUAL",
-      );
+  private resolveSessionConflict(id: number | null, resolution: ConflictPolicy): void {
+    if (id != null) this.provenance.resolveConflict(id, resolution);
   }
-
-  private resolveSessionConflict(
-    id: number | null,
-    resolution: ConflictPolicy,
-  ): void {
-    if (id == null) return;
-
-    this.world.connection
-      .prepare(
-        "UPDATE world_import_conflict SET resolution=?,resolved=1 WHERE id=?",
-      )
-      .run(resolution, id);
+private findSessionConflict(sessionId: number, table: PackageTableInfo, incomingKey: string, column: string | null): ImportConflictRecord | null {
+    return this.listConflicts(sessionId).find(conflict => conflict.tableName === table.name && conflict.incomingKey === incomingKey && conflict.columnName === column && !conflict.resolved) ?? null;
   }
-
-  private findSessionConflict(
-    sessionId: number,
-    table: TableInfo,
-    incomingKey: string,
-    column: string | null,
-  ): ImportConflictRecord | null {
-    return (
-      this.listConflicts(sessionId).find(
-        conflict =>
-          conflict.tableName ===
-            table.name &&
-          conflict.incomingKey ===
-            incomingKey &&
-          conflict.columnName ===
-            column &&
-          !conflict.resolved,
-      ) ?? null
-    );
-  }
-
   private previousImportMapping(
     packageId: number,
     tableName: string,
@@ -2356,350 +1790,17 @@ export class WorldPackageImportService {
     }
   }
 
-  private listEnabledPackages(): PackageRuntime[] {
-    const rows = this.world.connection
-      .prepare(
-        `SELECT
-          p.id,
-          p.package_key AS packageKey,
-          p.name,
-          p.version,
-          p.package_type AS packageType,
-          p.priority,
-          p.source_file AS sourceFile,
-          p.source_sha256 AS sourceSha256,
-          p.schema_version AS schemaVersion,
-          COALESCE(o.load_order,p.id) AS loadOrder
-        FROM world_package p
-        LEFT JOIN world_package_load_order o
-          ON o.package_id=p.id
-        WHERE p.enabled=1
-        ORDER BY COALESCE(o.load_order,p.id),p.id`,
-      )
-      .all() as Array<Record<string, unknown>>;
+  private listEnabledPackages(): PackageRuntime[] { return this.packageRegistry.listEnabled(); }
 
-    return rows.map(row => {
-      const packageId = Number(row.id);
-      return {
-        id: packageId,
-        manifest: this.packageManifestFromRegistry(
-          packageId,
-          {
-            packageKey: String(row.packageKey),
-            name: String(row.name),
-            version: String(row.version),
-            packageType: String(
-              row.packageType ?? "CONTENT",
-            ),
-            priority: Number(
-              row.priority ?? 100,
-            ),
-            schemaVersion: Number(
-              row.schemaVersion ?? 0,
-            ),
-          },
-        ),
-        sourceFile:
-          row.sourceFile == null
-            ? ""
-            : path.resolve(
-                String(row.sourceFile),
-              ),
-        sourceSha256: String(
-          row.sourceSha256 ?? "",
-        ),
-        loadOrder: Number(row.loadOrder),
-        priority: Number(
-          row.priority ?? 100,
-        ),
-        alias: "",
-      };
-    });
-  }
-
-  private packageManifestFromRegistry(
-    packageId: number,
-    base: PackageManifest,
-  ): PackageManifest {
-    const provides = (
-      this.world.connection
-        .prepare(
-          "SELECT provide_key AS value FROM world_package_provides WHERE package_id=? ORDER BY provide_key",
-        )
-        .all(packageId) as Array<{
-        value: string;
-      }>
-    ).map(row => row.value);
-
-    const dependencies = (
-      this.world.connection
-        .prepare(
-          "SELECT dependency_key AS key,min_version AS minVersion FROM world_package_dependency WHERE package_id=? ORDER BY dependency_key",
-        )
-        .all(packageId) as Array<{
-        key: string;
-        minVersion: string | null;
-      }>
-    ).map(row => ({
-      key: row.key,
-      minVersion: row.minVersion,
-    }));
-
-    const conflicts = (
-      this.world.connection
-        .prepare(
-          "SELECT conflict_key AS value FROM world_package_conflict WHERE package_id=? ORDER BY conflict_key",
-        )
-        .all(packageId) as Array<{
-        value: string;
-      }>
-    ).map(row => row.value);
-
-    return {
-      ...base,
-      provides,
-      dependencies,
-      conflicts,
-    };
-  }
-
-  private ensurePackage(
-    manifest: PackageManifest,
-    sourceFile: string,
-    sourceSha256: string,
-    applyUpdate = true,
-  ): number {
-    const now = new Date().toISOString();
-    const packageKey = manifest.packageKey.trim().toLowerCase();
-    const existing = this.world.connection
-      .prepare(
-        "SELECT id,package_key AS packageKey,version,package_type AS packageType,source_file AS sourceFile,source_sha256 AS sourceSha256 FROM world_package WHERE lower(package_key)=? LIMIT 1",
-      )
-      .get(packageKey) as
-      | {
-          id: number;
-          packageKey: string;
-          version: string;
-          packageType: string;
-          sourceFile: string | null;
-          sourceSha256: string | null;
-        }
-      | undefined;
-
-    let packageId: number;
-
-    if (existing) {
-      packageId = existing.id;
-
-      if (!applyUpdate) {
-        return packageId;
-      }
-
-      if (existing.version !== manifest.version || existing.sourceSha256 !== sourceSha256) {
-        this.world.connection
-          .prepare(
-            `INSERT INTO world_package_version_history(
-              package_id,package_key,version,package_type,
-              source_file,source_sha256,replaced_at,replacement_reason
-            ) VALUES(?,?,?,?,?,?,?,?)`,
-          )
-          .run(
-            existing.id,
-            existing.packageKey,
-            existing.version,
-            existing.packageType,
-            existing.sourceFile,
-            existing.sourceSha256,
-            now,
-            "PACKAGE_UPDATE",
-          );
-      }
-
-      this.world.connection
-        .prepare(
-          `UPDATE world_package
-           SET package_key=?,name=?,version=?,package_type=?,priority=?,
-               source_file=?,source_sha256=?,categories_json=?,
-               description=?,schema_version=?,updated_at=?,status='ACTIVE',enabled=1
-           WHERE id=?`,
-        )
-        .run(
-          packageKey,
-          manifest.name, 
-          manifest.version,
-          manifest.packageType ??
-            "CONTENT",
-          manifest.priority ?? 100,
-          sourceFile,
-          sourceSha256,
-          JSON.stringify(
-            manifest.categories ?? [],
-          ),
-          manifest.description ?? null,
-          manifest.schemaVersion,
-          now,
-          packageId,
-        );
-    } else {
-      const nextOrder = Number(
-        (
-          this.world.connection
-            .prepare(
-              "SELECT COALESCE(MAX(load_order),0)+1 AS value FROM world_package_load_order",
-            )
-            .get() as { value: number }
-        ).value,
-      );
-
-      const result = this.world.connection
-        .prepare(
-          `INSERT INTO world_package(
-            package_key,name,version,package_type,priority,status,
-            source_file,source_sha256,categories_json,description,
-            schema_version,imported_at,installed_at,updated_at,enabled
-          ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,1)`,
-        )
-        .run(
-          packageKey,
-          manifest.name,
-          manifest.version,
-          manifest.packageType ??
-            "CONTENT",
-          manifest.priority ?? 100,
-          "ACTIVE",
-          sourceFile,
-          sourceSha256,
-          JSON.stringify(
-            manifest.categories ?? [],
-          ),
-          manifest.description ?? null,
-          manifest.schemaVersion,
-          now,
-          now,
-          now,
-        );
-
-      packageId = Number(
-        result.lastInsertRowid,
-      );
-
-      this.world.connection
-        .prepare(
-          "INSERT INTO world_package_load_order(package_id,load_order) VALUES(?,?)",
-        )
-        .run(
-          packageId,
-          nextOrder,
-        );
-    }
-
-    this.replacePackageCapabilities(
-      packageId,
-      manifest,
-    );
-
-    this.setBuildDirty();
+  private ensurePackage(manifest: PackageManifest, sourceFile: string, sourceSha256: string, applyUpdate = true): number {
+    const packageId = this.packageRegistry.ensure(manifest, sourceFile, sourceSha256, applyUpdate);
+    if (applyUpdate) this.setBuildDirty();
     return packageId;
   }
 
-  private replacePackageCapabilities(
-    packageId: number,
-    manifest: PackageManifest,
-  ): void {
-    this.world.connection
-      .prepare(
-        "DELETE FROM world_package_provides WHERE package_id=?",
-      )
-      .run(packageId);
+  private createSession(packageId: number, sourceFile: string, sourceSha256: string): number { return this.sessions.create(packageId, sourceFile, sourceSha256); }
 
-    for (const provide of manifest.provides ?? []) {
-      this.world.connection
-        .prepare(
-          "INSERT INTO world_package_provides(package_id,provide_key) VALUES(?,?)",
-        )
-        .run(packageId, provide);
-    }
-
-    this.world.connection
-      .prepare(
-        "DELETE FROM world_package_dependency WHERE package_id=?",
-      )
-      .run(packageId);
-
-    for (const dependency of manifest.dependencies ?? []) {
-      this.world.connection
-        .prepare(
-          "INSERT INTO world_package_dependency(package_id,dependency_key,min_version) VALUES(?,?,?)",
-        )
-        .run(
-          packageId,
-          dependency.key,
-          dependency.minVersion ?? null,
-        );
-    }
-
-    this.world.connection
-      .prepare(
-        "DELETE FROM world_package_conflict WHERE package_id=?",
-      )
-      .run(packageId);
-
-    for (const conflict of manifest.conflicts ?? []) {
-      this.world.connection
-        .prepare(
-          "INSERT INTO world_package_conflict(package_id,conflict_key) VALUES(?,?)",
-        )
-        .run(packageId, conflict);
-    }
-  }
-
-  private createSession(
-    packageId: number,
-    sourceFile: string,
-    sourceSha256: string,
-  ): number {
-    const result = this.world.connection
-      .prepare(
-        `INSERT INTO world_import_session(
-          status,package_id,source_file,source_sha256,started_at
-        ) VALUES('CREATED',?,?,?,?)`,
-      )
-      .run(
-        packageId,
-        sourceFile,
-        sourceSha256,
-        new Date().toISOString(),
-      );
-
-    return Number(
-      result.lastInsertRowid,
-    );
-  }
-
-  private setSessionStatus(
-    id: number,
-    status: string,
-    summary?: Record<string, unknown>,
-    error?: string,
-  ): void {
-    const terminal =
-      status === "COMPLETED" ||
-      status === "FAILED";
-
-    this.world.connection
-      .prepare(
-        "UPDATE world_import_session SET status=?,summary_json=?,error_message=?,completed_at=? WHERE id=?",
-      )
-      .run(
-        status,
-        JSON.stringify(summary ?? {}),
-        error ?? null,
-        terminal
-          ? new Date().toISOString()
-          : null,
-        id,
-      );
-  }
+  private setSessionStatus(id: number, status: string, summary?: Record<string, unknown>, error?: string): void { this.sessions.setStatus(id, status, summary, error); }
 
   private validateManifest(
     manifest: PackageManifest,
@@ -2755,70 +1856,21 @@ export class WorldPackageImportService {
     }
   }
 
-  private validateCompatibleTables(
-    tableInfos: Map<string, TableInfo>,
-  ): void {
-    for (const table of tableInfos.values()) {
-      if (!this.world.tableExists(table.name)) {
-        throw new Error(
-          "Package table is not part of World schema: " +
-            table.name,
-        );
-      }
-
-      const worldSchema =
-        this.world.tableSchema(
-          table.name,
-        );
-
-      const worldColumns = new Set(
-        worldSchema.columns.map(
-          column => column.name,
-        ),
-      );
-
-      for (const column of table.columns) {
-        if (!worldColumns.has(column.name)) {
-          throw new Error(
-            "Package table " +
-              table.name +
-              " contains unsupported column: " +
-              column.name,
-          );
-        }
-      }
-
-      const worldPk =
-        worldSchema.primaryKey;
-      if (
-        worldPk.length !==
-          table.primaryKey.length ||
-        worldPk.some(
-          (column, index) =>
-            table.primaryKey[index] !==
-            column,
-        )
-      ) {
-        throw new Error(
-          "Package primary key differs from World schema for table " +
-            table.name +
-            ".",
-        );
-      }
-    }
+  private validateCompatibleTables(tableInfos: Map<string, PackageTableInfo>): void {
+    this.packageSchema.validateCompatibleTables(tableInfos, table => this.world.tableExists(table), table => this.world.tableSchema(table));
   }
 
-  private loadTableInfos(
+  private loadPackageTableInfos(
     alias: string,
-  ): Map<string, TableInfo> {
-    const infos = new Map<string, TableInfo>();
+  ): Map<string, PackageTableInfo> {
+    const infos = new Map<string, PackageTableInfo>();
 
     for (const table of this.listIncomingTables(
       alias,
     )) {
       infos.set(
         table.name,
-        this.readTableInfo(
+        this.readPackageTableInfo(
           alias,
           table.name,
         ),
@@ -2853,10 +1905,10 @@ export class WorldPackageImportService {
     );
   }
 
-  private readTableInfo(
+  private readPackageTableInfo(
     alias: string,
     tableName: string,
-  ): TableInfo {
+  ): PackageTableInfo {
     const columns = this.world.connection
       .prepare(
         "PRAGMA " +
@@ -2945,7 +1997,7 @@ export class WorldPackageImportService {
 
   private createIdentityContext(
     alias: string,
-    tableInfos: Map<string, TableInfo>,
+    tableInfos: Map<string, PackageTableInfo>,
   ): IdentityContext {
     const cache = new Map<
       string,
@@ -2973,7 +2025,7 @@ export class WorldPackageImportService {
         if (!exists) return null;
 
         try {
-          table = this.readTableInfo(
+          table = this.readPackageTableInfo(
             alias,
             tableName,
           );
@@ -3057,9 +2109,15 @@ export class WorldPackageImportService {
     return { token };
   }
 
+  private *iterateRows(alias: string, tableName: string): IterableIterator<Row> {
+    const statement = this.world.connection.prepare(
+      "SELECT * FROM " + quoteIdentifier(alias) + "." + quoteIdentifier(tableName),
+    );
+    for (const row of statement.iterate()) yield row as Row;
+  }
   private findAttachedRow(
     alias: string,
-    table: TableInfo,
+    table: PackageTableInfo,
     keyObject: KeyObject,
   ): Row | undefined {
     if (
@@ -3094,99 +2152,8 @@ export class WorldPackageImportService {
       ) as Row | undefined;
   }
 
-  private orderTables(
-    tableInfos: Map<string, TableInfo>,
-  ): TableInfo[] {
-    const tables =
-      Array.from(
-        tableInfos.values(),
-      );
-    const names = new Set(
-      tables.map(
-        table => table.name,
-      ),
-    );
-
-    const dependencies =
-      new Map<
-        string,
-        Set<string>
-      >();
-
-    for (const table of tables) {
-      const deps = new Set<string>();
-
-      for (const fk of table.foreignKeys) {
-        if (
-          fk.table !== table.name &&
-          names.has(fk.table)
-        ) {
-          deps.add(fk.table);
-        }
-      }
-
-      dependencies.set(
-        table.name,
-        deps,
-      );
-    }
-
-    const result: TableInfo[] = [];
-    const remaining = new Set(
-      tables.map(
-        table => table.name,
-      ),
-    );
-
-    while (remaining.size > 0) {
-      const ready =
-        Array.from(remaining)
-          .filter(
-            tableName =>
-              Array.from(
-                dependencies.get(
-                  tableName,
-                ) ?? [],
-              ).every(
-                dep =>
-                  result.some(
-                    table =>
-                      table.name ===
-                      dep,
-                  ),
-              ),
-          )
-          .sort();
-
-      if (ready.length === 0) {
-        for (const tableName of Array.from(
-          remaining,
-        ).sort()) {
-          result.push(
-            tableInfos.get(
-              tableName,
-            )!,
-          );
-          remaining.delete(
-            tableName,
-          );
-        }
-        continue;
-      }
-
-      for (const tableName of ready) {
-        result.push(
-          tableInfos.get(
-            tableName,
-          )!,
-        );
-        remaining.delete(
-          tableName,
-        );
-      }
-    }
-
-    return result;
+  private orderTables(tableInfos: Map<string, PackageTableInfo>): PackageTableInfo[] {
+    return this.packageSchema.orderTables(tableInfos);
   }
 
   private clearBuiltWorld(): void {
@@ -3251,194 +2218,7 @@ export class WorldPackageImportService {
     );
   }
 
-  private detach(alias: string): void {
-    try {
-      this.world.connection.exec(
-        "DETACH DATABASE " +
-          quoteIdentifier(alias),
-      );
-    } catch {
-      // no-op if the alias was already detached
-    }
-  }
 
-  private attach(
-    alias: string,
-    sourceFile: string,
-  ): void {
-    const escaped =
-      sourceFile.replaceAll(
-        "'",
-        "''",
-      );
-
-    this.world.connection.exec(
-      "ATTACH DATABASE '" +
-        escaped +
-        "' AS " +
-        quoteIdentifier(alias),
-    );
-  }
-
-  private resolveSource(
-    sourceFile: string,
-  ): string {
-    const absolute =
-      path.resolve(sourceFile);
-
-    if (!fs.existsSync(absolute)) {
-      throw new Error(
-        "Package file not found: " +
-          absolute,
-      );
-    }
-
-    return absolute;
-  }
-
-  private readManifest(
-    alias: string,
-  ): PackageManifest {
-    const manifestTable =
-      this.world.connection
-        .prepare(
-          "SELECT 1 FROM " +
-            quoteIdentifier(alias) +
-            ".sqlite_master " +
-            "WHERE type='table' " +
-            "AND name='package_manifest' " +
-            "LIMIT 1",
-        )
-        .get();
-
-    if (manifestTable) {
-      const row =
-        this.world.connection
-          .prepare(
-            "SELECT manifest_json FROM " +
-              quoteIdentifier(alias) +
-              ".package_manifest LIMIT 1",
-          )
-          .get() as
-          | {
-              manifest_json?: string;
-            }
-          | undefined;
-
-      if (row?.manifest_json) {
-        const parsed = JSON.parse(
-          row.manifest_json,
-        ) as Partial<PackageManifest> & { id?: string };
-
-        return {
-          ...parsed,
-          id: parsed.packageKey ?? parsed.id ?? "",
-          packageKey: parsed.packageKey ?? parsed.id ?? "",
-        } as PackageManifest;
-      }
-    }
-
-    const metadataTable =
-      this.world.connection
-        .prepare(
-          "SELECT 1 FROM " +
-            quoteIdentifier(alias) +
-            ".sqlite_master " +
-            "WHERE type='table' " +
-            "AND name='database_metadata' " +
-            "LIMIT 1",
-        )
-        .get();
-
-    if (!metadataTable) {
-      throw new Error(
-        "Package manifest is missing. Expected package_manifest or database_metadata.",
-      );
-    }
-
-    const metadata =
-      this.world.connection
-        .prepare(
-          "SELECT key,value FROM " +
-            quoteIdentifier(alias) +
-            ".database_metadata",
-        )
-        .all() as Array<{
-        key: string;
-        value: string;
-      }>;
-
-    const values = new Map(
-      metadata.map(item => [
-        item.key,
-        item.value,
-      ]),
-    );
-
-    const packageKey =
-      values.get("package_key") ??
-      values.get("package_id");
-    const name =
-      values.get("package_name");
-
-    if (!packageKey || !name) {
-      throw new Error(
-        "Package manifest is incomplete: package_key and package_name are required.",
-      );
-    }
-
-    return {
-      packageKey,
-      name,
-      version:
-        values.get(
-          "package_version",
-        ) ?? "1.0.0",
-      packageType:
-        values.get(
-          "package_type",
-        ) ?? "CONTENT",
-      priority: Number(
-        values.get(
-          "package_priority",
-        ) ?? 100,
-      ),
-      schemaVersion:
-        Number(
-          values.get(
-            "schema_version",
-          ) ?? 0,
-        ),
-      categories:
-        parseJsonArray(
-          values.get(
-            "package_categories",
-          ),
-        ),
-      description:
-        values.get(
-          "package_description",
-        ) ?? null,
-      provides:
-        parseJsonArray(
-          values.get(
-            "package_provides",
-          ),
-        ),
-      dependencies:
-        parseJsonDependencies(
-          values.get(
-            "package_dependencies",
-          ),
-        ),
-      conflicts:
-        parseJsonArray(
-          values.get(
-            "package_conflicts",
-          ),
-        ),
-    };
-  }
 }
 
 function mapKey(
@@ -3453,7 +2233,7 @@ function mapKey(
 }
 
 function serializeKey(
-  table: TableInfo,
+  table: PackageTableInfo,
   row: Row | KeyObject,
 ): string {
   const values: KeyObject = {};
@@ -3469,7 +2249,7 @@ function serializeKey(
 }
 
 function virtualKey(
-  table: TableInfo,
+  table: PackageTableInfo,
   incomingKey: string,
 ): KeyObject {
   return Object.fromEntries(
@@ -3486,7 +2266,7 @@ function virtualKey(
 }
 
 function pickKey(
-  table: TableInfo,
+  table: PackageTableInfo,
   row: Row,
 ): KeyObject {
   const values: KeyObject = {};
@@ -3500,12 +2280,12 @@ function pickKey(
 }
 
 function groupForeignKeys(
-  foreignKeys: ForeignKeyInfo[],
-): ForeignKeyInfo[][] {
+  foreignKeys: PackageForeignKeyInfo[],
+): PackageForeignKeyInfo[][] {
   const groups =
     new Map<
       number,
-      ForeignKeyInfo[]
+      PackageForeignKeyInfo[]
     >();
 
   for (const fk of foreignKeys) {
@@ -3550,7 +2330,7 @@ function infoToTableInfo(schema: {
     onDelete: string;
   }>;
   uniqueColumns: string[][];
-}): TableInfo {
+}): PackageTableInfo {
   return {
     name: schema.name,
     columns: schema.columns.map(
@@ -3646,84 +2426,6 @@ function toNumberOrNull(
   return Number.isFinite(number)
     ? number
     : null;
-}
-
-function sha256File(
-  filePath: string,
-): string {
-  return crypto
-    .createHash("sha256")
-    .update(
-      fs.readFileSync(
-        filePath,
-      ),
-    )
-    .digest("hex");
-}
-
-function sha256Value(
-  value: unknown,
-): string {
-  return crypto
-    .createHash("sha256")
-    .update(
-      JSON.stringify(value),
-    )
-    .digest("hex");
-}
-
-function parseJsonArray(
-  value?: string,
-): string[] {
-  if (!value) return [];
-
-  try {
-    const parsed =
-      JSON.parse(value);
-
-    return Array.isArray(parsed)
-      ? parsed.map(String)
-      : [];
-  } catch {
-    return [];
-  }
-}
-
-function parseJsonDependencies(
-  value?: string,
-): Array<{
-  key: string;
-  minVersion?: string | null;
-}> {
-  if (!value) return [];
-
-  try {
-    const parsed =
-      JSON.parse(value);
-
-    if (!Array.isArray(parsed)) {
-      return [];
-    }
-
-    return parsed
-      .map(item => ({
-        key: String(
-          item?.key ?? "",
-        ),
-        minVersion:
-          item?.minVersion == null
-            ? null
-            : String(
-                item.minVersion,
-              ),
-      }))
-      .filter(
-        item =>
-          item.key.length > 0,
-      );
-  } catch {
-    return [];
-  }
 }
 
 export function quoteIdentifier(

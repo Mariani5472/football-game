@@ -6,6 +6,7 @@ import { validationApi } from "./validationApi";
 import { worldApi } from "./worldApi";
 
 export * from "./types";
+export type { DefaultDataSummary } from "./worldApi";
 
 export const editorApi = {
   world: worldApi,

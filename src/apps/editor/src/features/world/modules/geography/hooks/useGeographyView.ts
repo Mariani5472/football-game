@@ -10,6 +10,7 @@ export function useGeographyView(
   const [view, setView] = useState<GeographyView>({ level: "continents" });
   const [importing, setImporting] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [previewRegions, setPreviewRegions] = useState<Array<{ line: number; name: string; shortName?: string; population?: number; error?: string }> | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const selectedContinent = useMemo(() => {
@@ -80,67 +81,54 @@ export function useGeographyView(
 
   async function importRegions(file: File) {
     if (view.level !== "country") return;
-
     setImporting(true);
     setMessage(null);
-
+    setPreviewRegions(null);
     try {
       const rows = parseCsv(await file.text());
-      let created = 0;
-      let skipped = 0;
-
-      for (const row of rows) {
-        const name = String(row.name ?? "").trim();
-
-        if (!name) {
-          skipped++;
-          continue;
-        }
-
-        try {
-          const population =
-            row.population === ""
-              ? null
-              : Number(row.population);
-
-          await editorApi.entity.create("nation_region", {
-            nation_id: view.countryId,
-            name,
-            short_name:
-              String(row.short_name ?? "").trim() || null,
-            population:
-              Number.isFinite(population)
-                ? population
-                : null,
-          });
-
-          created++;
-        } catch {
-          skipped++;
-        }
-      }
-
-      setMessage(
-        skipped
-          ? `Imported ${created} regions; ${skipped} rows skipped.`
-          : `Imported ${created} regions.`,
-      );
-      await reload();
+      if (!rows.length) throw new Error("CSV has no data rows.");
+      const headers = Object.keys(rows[0]).filter(key => key !== "__line");
+      if (!headers.includes("name")) throw new Error('CSV must contain a "name" column.');
+      setPreviewRegions(rows.map(row => {
+        const populationText = String(row.population ?? "").trim();
+        const population = populationText === "" ? undefined : Number(populationText);
+        let error: string | undefined;
+        if (!String(row.name ?? "").trim()) error = "Name is required.";
+        else if (population !== undefined && (!Number.isInteger(population) || population < 0)) error = "Population must be a non-negative whole number.";
+        return {
+          line: Number(row.__line),
+          name: String(row.name ?? "").trim(),
+          shortName: String(row.short_name ?? "").trim() || undefined,
+          population,
+          error,
+        };
+      }));
+      setMessage(`Preview ready: ${rows.length} rows. Review issues before importing.`);
     } catch (cause) {
-      setMessage(
-        cause instanceof Error
-          ? cause.message
-          : String(cause),
-      );
+      setMessage(cause instanceof Error ? cause.message : String(cause));
     } finally {
       setImporting(false);
-
-      if (fileRef.current) {
-        fileRef.current.value = "";
-      }
+      if (fileRef.current) fileRef.current.value = "";
     }
   }
 
+  async function commitRegions() {
+    if (view.level !== "country" || !previewRegions) return;
+    const valid = previewRegions.filter(row => !row.error).map(({ error: _error, ...row }) => row);
+    setImporting(true);
+    setMessage(null);
+    try {
+      const result = await editorApi.domain.importNationRegions(view.countryId, valid);
+      const details = result.errors.map(item => `Line ${item.line}: ${item.message}`).join("; ");
+      setMessage(`Imported ${result.imported} regions.${result.errors.length ? ` ${result.errors.length} row(s) failed: ${details}` : ""}`);
+      setPreviewRegions(null);
+      await reload();
+    } catch (cause) {
+      setMessage(cause instanceof Error ? cause.message : String(cause));
+    } finally {
+      setImporting(false);
+    }
+  }
   return {
     view,
     selectedContinent,
@@ -148,6 +136,9 @@ export function useGeographyView(
     countryNodes,
     importing,
     message,
+    previewRegions,
+    commitRegions,
+    cancelImport: () => setPreviewRegions(null),
     fileRef,
     openContinent,
     openCountry,
@@ -191,15 +182,15 @@ function parseCsv(
 
   const headers = splitCsvLine(lines[0]);
 
-  return lines.slice(1).map(line => {
+  return lines.slice(1).map((line, index) => {
     const cells = splitCsvLine(line);
 
-    return Object.fromEntries(
+    return { __line: String(index + 2), ...Object.fromEntries(
       headers.map((header, index) => [
         header,
         cells[index] ?? "",
       ]),
-    );
+    ) };
   });
 }
 

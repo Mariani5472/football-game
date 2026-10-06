@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { DashboardQuickCreate } from "../components/DashboardQuickCreate";
 import { PackageManagerPanel } from "../components/PackageManagerPanel";
 import { WorldHeader } from "../components/WorldHeader";
@@ -6,6 +6,7 @@ import { WorldPackages } from "../components/WorldPackages";
 import { useDashboard } from "../hooks/useDashboard";
 import { QuickCreateModal, type QuickCreatePreset } from "../../quick-create";
 import { editorApi, type WorldPackageRecord } from "../../../shared/api/editorApi";
+import type { DefaultDataSummary } from "../../../shared/api/worldApi";
 
 export function DashboardPage() {
   const { data, isLoading, error, refresh } = useDashboard();
@@ -14,6 +15,8 @@ export function DashboardPage() {
     useState<QuickCreatePreset | undefined>();
   const [busyPackageId, setBusyPackageId] = useState<number | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [defaultData, setDefaultData] = useState<DefaultDataSummary | null>(null);
+  useEffect(() => { void editorApi.world.defaultData().then(setDefaultData).catch(() => setDefaultData(null)); }, []);
 
   function openCreate(preset: QuickCreatePreset) {
     setQuickCreatePreset(preset);
@@ -75,9 +78,34 @@ export function DashboardPage() {
     );
   }
 
+  console.log(data)
+
   return (
     <div className="space-y-8">
       <WorldHeader world={data.world} build={data.build} />
+
+      <section className="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-6">
+        {([
+          ["Continents", data.statistics.continents], ["Countries", data.statistics.countries],
+          ["Cities", data.statistics.cities], ["Clubs", data.statistics.clubs],
+          ["Teams", data.statistics.teams], ["People", data.statistics.people],
+          ["Players", data.statistics.players], ["Stadiums", data.statistics.stadiums],
+          ["Competitions", data.statistics.competitions], ["Seasons", data.statistics.seasons],
+          ["Languages", data.statistics.languages], ["Climates", data.statistics.climates],
+        ] as Array<[string, number]>).map(([label, value]) => (
+          <div key={label} className="rounded-xl border border-white/10 bg-white/[0.02] px-4 py-3">
+            <div className="text-[10px] uppercase tracking-[0.14em] text-slate-600">{label}</div>
+            <div className="mt-1 text-xl font-semibold text-white">{value.toLocaleString()}</div>
+          </div>
+        ))}
+      </section>
+
+      {defaultData && <section className="rounded-2xl border border-sky-400/15 bg-sky-400/[0.03] p-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div><h2 className="font-medium text-white">Default reference data · v{defaultData.version}</h2><p className="mt-1 text-xs text-slate-500">{defaultData.importedEntities.toLocaleString()} entities · {defaultData.attributedValues.toLocaleString()} attributed values · priority {defaultData.priority} · {defaultData.sourceHashRecorded ? "source hash recorded" : "source hash missing"}</p></div>
+          <div className="flex flex-wrap gap-2">{defaultData.provides.map(scope => <span key={scope} className="rounded-md border border-sky-400/10 px-2 py-1 font-mono text-[10px] text-sky-300">{scope}</span>)}</div>
+        </div>
+      </section>}
 
       <PackageManagerPanel
         packages={data.packages}

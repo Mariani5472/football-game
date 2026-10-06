@@ -156,8 +156,8 @@ export class CompetitionRepository {
         ? null
         : {
             winPoints: row.winPoints,
-            drawPoints: row.drawPoints,
-            lossPoints: row.lossPoints,
+            drawPoints: row.drawPoints ?? 1,
+            lossPoints: row.lossPoints ?? 0,
           };
 
     const schedule: StageSchedule | null =

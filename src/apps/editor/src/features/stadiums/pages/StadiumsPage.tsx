@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { domainApi } from "../../../shared/api/domainApi";
 import { CrudEntityPage, Tabs } from "../../../shared/components";
 import {
   alternativeStadiumConfig,
@@ -32,7 +33,7 @@ export function StadiumsPage() {
           {
             id: "stadiums",
             label: "Stadiums",
-            content: <CrudEntityPage config={{ ...stadiumConfig, duplicate: true }} />,
+            content: <CrudEntityPage config={{ ...stadiumConfig, duplicate: true, duplicateEntity: row => domainApi.duplicateStadium(Number(row.id)) }} />,
           },
           {
             id: "changes",

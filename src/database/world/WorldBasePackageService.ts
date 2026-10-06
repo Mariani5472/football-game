@@ -6,10 +6,10 @@ import DatabaseConnection from "better-sqlite3";
 
 import { initializeWorldCompositionSchema } from "./WorldCompositionSchema.js";
 import type { WorldDatabase } from "./WorldDatabase.js";
-import { WorldPackageImportService } from "../../editor/WorldPackageImportService.js";
+import { WorldPackageImportService } from "../../infrastructure/packages/WorldPackageImportService.js";
 
 const BASE_PACKAGE_KEY = "world.base";
-const BASE_PACKAGE_VERSION = "1.0.0";
+const BASE_PACKAGE_VERSION = "1.3.0";
 
 const CONTINENTS = [
   ["Africa", "AF"],
@@ -178,22 +178,22 @@ const CURRENCIES = [
 ] as const;
 
 const LANGUAGES = [
-  ["English", "Germanic"],
-  ["Spanish", "Romance"],
-  ["Portuguese", "Romance"],
-  ["French", "Romance"],
-  ["Italian", "Romance"],
-  ["German", "Germanic"],
-  ["Dutch", "Germanic"],
-  ["Polish", "Slavic"],
-  ["Russian", "Slavic"],
-  ["Arabic", "Semitic"],
-  ["Persian", "Indo-Iranian"],
-  ["Turkish", "Turkic"],
-  ["Japanese", "Japonic"],
-  ["Korean", "Koreanic"],
-  ["Mandarin Chinese", "Sinitic"],
-  ["Hindi", "Indo-Iranian"],
+  ["English", "Indo-European", "Germanic", "West Germanic"],
+  ["Spanish", "Indo-European", "Italic", "Romance"],
+  ["Portuguese", "Indo-European", "Italic", "Romance"],
+  ["French", "Indo-European", "Italic", "Romance"],
+  ["Italian", "Indo-European", "Italic", "Romance"],
+  ["German", "Indo-European", "Germanic", "West Germanic"],
+  ["Dutch", "Indo-European", "Germanic", "West Germanic"],
+  ["Polish", "Indo-European", "Balto-Slavic", "West Slavic"],
+  ["Russian", "Indo-European", "Balto-Slavic", "East Slavic"],
+  ["Arabic", "Afro-Asiatic", "Semitic", "Central Semitic"],
+  ["Persian", "Indo-European", "Indo-Iranian", "Iranian"],
+  ["Turkish", "Turkic", "Common Turkic", "Oghuz"],
+  ["Japanese", "Japonic", "Japanese", "Eastern Japonic"],
+  ["Korean", "Koreanic", "Korean", "Korean"],
+  ["Mandarin Chinese", "Sino-Tibetan", "Sinitic", "Chinese"],
+  ["Hindi", "Indo-European", "Indo-Iranian", "Indo-Aryan"],
 ] as const;
 
 const CLIMATES = [
@@ -224,6 +224,11 @@ const REFERENCE_LISTS = {
   competitionStageTypes: ["League", "Group", "Knockout"],
   pitchTypes: ["Natural Grass", "Artificial Turf", "Hybrid"],
   stadiumOwnerTypes: ["Club", "Municipal", "Private", "National"],
+  personTypes: ["PLAYER", "STAFF", "OFFICIAL", "AGENT"],
+  positions: ["Goalkeeper", "Defender", "Centre-Back", "Left-Back", "Right-Back", "Defensive Midfielder", "Central Midfielder", "Attacking Midfielder", "Left Winger", "Right Winger", "Striker"],
+  refereeCategories: ["International", "Professional", "National", "Regional"],
+  employments: ["Manager", "Assistant Manager", "Coach", "Goalkeeping Coach", "Fitness Coach", "Scout", "Physiotherapist", "Doctor", "Analyst", "Director", "Chief Executive", "Chairperson"],
+  weatherSeasons: ["Spring", "Summer", "Autumn", "Winter"],
 } as const;
 
 export class WorldBasePackageService {
@@ -234,71 +239,88 @@ export class WorldBasePackageService {
       initializeWorldCompositionSchema(database);
 
       const existing = database
-        .prepare("SELECT id FROM world_package WHERE lower(package_key)=? LIMIT 1")
-        .get(BASE_PACKAGE_KEY) as { id: number } | undefined;
-
-      if (existing) return;
+        .prepare("SELECT id,version,source_file AS sourceFile,source_sha256 AS sourceSha256 FROM world_package WHERE lower(package_key)=? LIMIT 1")
+        .get(BASE_PACKAGE_KEY) as { id: number; version: string; sourceFile: string | null; sourceSha256: string | null } | undefined;
 
       packageFile = path.resolve(
         path.dirname(worldPath),
         ".packages",
-        "world.base.db",
+        `world.base.${BASE_PACKAGE_VERSION}.db`,
       );
 
-      fs.mkdirSync(path.dirname(packageFile), { recursive: true });
-      this.createPackageDatabase(packageFile);
-
-      const now = new Date().toISOString();
-      const pkg = database
-        .prepare(
-          `INSERT INTO world_package(
-            package_key,name,version,package_type,priority,status,
-            source_file,source_sha256,categories_json,description,
-            schema_version,imported_at,installed_at,updated_at,enabled
-          ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-        )
-        .run(
-          BASE_PACKAGE_KEY,
-          "Base World",
-          BASE_PACKAGE_VERSION,
-          "BASE",
-          0,
-          "ACTIVE",
-          packageFile,
-          sha256File(packageFile),
-          JSON.stringify(["reference", "geography", "languages", "currencies", "climate"]),
-          "Immutable foundational reference data for every World.",
-          4,
-          now,
-          now,
-          now,
-          1,
-        );
-
-      const packageId = Number(pkg.lastInsertRowid);
-      database
-        .prepare(
-          "INSERT INTO world_package_load_order(package_id,load_order) VALUES(?,?)",
-        )
-        .run(packageId, 1);
-
-      for (const provide of [
-        "reference:base",
-        "geography:continents",
-        "geography:regions",
-        "geography:nations",
-        "geography:confederations",
-        "reference:currencies",
-        "reference:languages",
-        "reference:climates",
-      ]) {
-        database
-          .prepare(
-            "INSERT INTO world_package_provides(package_id,provide_key) VALUES(?,?)",
-          )
-          .run(packageId, provide);
+      if (existing && existing.version === BASE_PACKAGE_VERSION && existing.sourceFile && path.resolve(existing.sourceFile) === packageFile && fs.existsSync(packageFile) && sha256File(packageFile) === existing.sourceSha256) {
+        return;
       }
 
+      fs.mkdirSync(path.dirname(packageFile), { recursive: true });
+      if (!fs.existsSync(packageFile)) this.createPackageDatabase(packageFile);
+      const sourceHash = sha256File(packageFile);
+
+      if (!existing) {
+        const now = new Date().toISOString();
+        const pkg = database
+          .prepare(
+            `INSERT INTO world_package(
+              package_key,name,version,package_type,priority,status,
+              source_file,source_sha256,categories_json,description,
+              schema_version,imported_at,installed_at,updated_at,enabled
+            ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+          )
+          .run(
+            BASE_PACKAGE_KEY,
+            "Base World",
+            BASE_PACKAGE_VERSION,
+            "BASE",
+            0,
+            "ACTIVE",
+            packageFile,
+            sourceHash,
+            JSON.stringify(["reference", "geography", "languages", "currencies", "climate", "people", "competition", "stadiums"]),
+            "Immutable foundational reference data for every World.",
+            4,
+            now,
+            now,
+            now,
+            1,
+          );
+
+        const packageId = Number(pkg.lastInsertRowid);
+        database
+          .prepare(
+            "INSERT INTO world_package_load_order(package_id,load_order) VALUES(?,?)",
+          )
+          .run(packageId, 1);
+
+        for (const provide of [
+          "reference:base",
+          "geography:continents",
+          "geography:regions",
+          "geography:nations",
+          "geography:confederations",
+          "reference:currencies",
+          "reference:languages",
+          "reference:climates",
+          "reference:people",
+          "reference:competition",
+          "reference:stadiums",
+        ]) {
+          database
+            .prepare(
+              "INSERT INTO world_package_provides(package_id,provide_key) VALUES(?,?)",
+            )
+            .run(packageId, provide);
+        }
+
+      }
+
+      if (existing) {
+        if (existing.version !== BASE_PACKAGE_VERSION) database.prepare("INSERT INTO world_package_version_history(package_id,package_key,version,package_type,source_file,source_sha256,replaced_at,replacement_reason) SELECT id,package_key,version,package_type,source_file,source_sha256,?,? FROM world_package WHERE id=?").run(new Date().toISOString(), "DEFAULT_DATA_VERSION_UPGRADE", Number(existing.id));
+        database.prepare("UPDATE world_package SET source_file=?,source_sha256=?,version=?,updated_at=? WHERE id=?").run(packageFile, sourceHash, BASE_PACKAGE_VERSION, new Date().toISOString(), Number(existing.id));
+        for (const provide of ["reference:people", "reference:competition", "reference:stadiums"]) {
+          database.prepare("INSERT OR IGNORE INTO world_package_provides(package_id,provide_key) VALUES(?,?)").run(Number(existing.id), provide);
+        }
+      }
+      database.prepare("UPDATE world_package SET source_sha256=?,updated_at=? WHERE lower(package_key)=?").run(sourceHash, new Date().toISOString(), BASE_PACKAGE_KEY);
       database
         .prepare(
           "UPDATE database_metadata SET value=? WHERE key='world_build_status'",
@@ -310,7 +332,7 @@ export class WorldBasePackageService {
         )
         .run("PACKAGE_COMPOSITION");
     } catch (err: unknown) {
-      throw new Error(err.message)
+      throw new Error(err instanceof Error ? err.message : String(err))
     }
 
     const importService = new WorldPackageImportService(world);
@@ -319,7 +341,7 @@ export class WorldBasePackageService {
   }
 
   private static createPackageDatabase(file: string): void {
-    if (fs.existsSync(file)) fs.unlinkSync(file);
+    if (fs.existsSync(file)) throw new Error("Refusing to overwrite an existing versioned default-data package.");
 
     const db = new DatabaseConnection(file);
     try {
@@ -369,6 +391,11 @@ export class WorldBasePackageService {
         "nationality_method",
         "nation_development_state",
         "club_status",
+        "person_type",
+        "position_definition",
+        "referee_category",
+        "employment",
+        "weather_season",
         "competition_type",
         "competition_stage_type",
         "pitch_type",
@@ -395,6 +422,9 @@ export class WorldBasePackageService {
         "reference:currencies",
         "reference:languages",
         "reference:climates",
+        "reference:people",
+        "reference:competition",
+        "reference:stadiums",
       ]));
       metadata.run("package_dependencies", "[]");
       metadata.run("package_conflicts", "[]");
@@ -434,24 +464,42 @@ export class WorldBasePackageService {
       }
 
       const languageFamilyByName = new Map<string, number>();
-      const insertFamily = db.prepare(
-        "INSERT INTO language_family(uuid,name) VALUES(?,?)",
-      );
+      const insertFamily = db.prepare("INSERT INTO language_family(uuid,name) VALUES(?,?)");
       const families = [...new Set(LANGUAGES.map(([, family]) => family))];
       for (const family of families) {
         const result = insertFamily.run(crypto.randomUUID(), family);
         languageFamilyByName.set(family, Number(result.lastInsertRowid));
       }
 
+      const languageGroupByKey = new Map<string, number>();
+      const insertGroup = db.prepare("INSERT INTO language_group(family_id,name) VALUES(?,?)");
+      for (const [, family, group] of LANGUAGES) {
+        const key = `${family}:${group}`;
+        if (languageGroupByKey.has(key)) continue;
+        const result = insertGroup.run(languageFamilyByName.get(family) ?? null, group);
+        languageGroupByKey.set(key, Number(result.lastInsertRowid));
+      }
+
+      const languageSubgroupByKey = new Map<string, number>();
+      const insertSubgroup = db.prepare("INSERT INTO language_subgroup(group_id,name) VALUES(?,?)");
+      for (const [, family, group, subgroup] of LANGUAGES) {
+        const groupKey = `${family}:${group}`;
+        const key = `${groupKey}:${subgroup}`;
+        if (languageSubgroupByKey.has(key)) continue;
+        const result = insertSubgroup.run(languageGroupByKey.get(groupKey) ?? null, subgroup);
+        languageSubgroupByKey.set(key, Number(result.lastInsertRowid));
+      }
+
       const languageByName = new Map<string, number>();
-      const insertLanguage = db.prepare(
-        "INSERT INTO language(uuid,name,family_id) VALUES(?,?,?)",
-      );
-      for (const [name, family] of LANGUAGES) {
+      const insertLanguage = db.prepare("INSERT INTO language(uuid,name,family_id,group_id,subgroup_id) VALUES(?,?,?,?,?)");
+      for (const [name, family, group, subgroup] of LANGUAGES) {
+        const groupKey = `${family}:${group}`;
+        const subgroupKey = `${groupKey}:${subgroup}`;
         const result = insertLanguage.run(
-          crypto.randomUUID(),
-          name,
+          crypto.randomUUID(), name,
           languageFamilyByName.get(family) ?? null,
+          languageGroupByKey.get(groupKey) ?? null,
+          languageSubgroupByKey.get(subgroupKey) ?? null,
         );
         languageByName.set(name, Number(result.lastInsertRowid));
       }
@@ -518,6 +566,16 @@ export class WorldBasePackageService {
       for (const name of REFERENCE_LISTS.pitchTypes) {
         insertPitchType.run(crypto.randomUUID(), name);
       }
+
+      const insertReferenceList = (table: string, values: readonly string[]) => {
+        const insert = db.prepare(`INSERT INTO "${table}"(name) VALUES(?)`);
+        for (const value of values) insert.run(value);
+      };
+      insertReferenceList("person_type", REFERENCE_LISTS.personTypes);
+      insertReferenceList("position_definition", REFERENCE_LISTS.positions);
+      insertReferenceList("referee_category", REFERENCE_LISTS.refereeCategories);
+      insertReferenceList("employment", REFERENCE_LISTS.employments);
+      insertReferenceList("weather_season", REFERENCE_LISTS.weatherSeasons);
 
       const insertOwnerType = db.prepare(
         "INSERT INTO stadium_owner_type(uuid,name) VALUES(?,?)",

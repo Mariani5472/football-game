@@ -1,6 +1,13 @@
 import { request } from "./client";
 
 export const domainApi = {
+  duplicateStadium: (id: number) => request<Record<string, unknown>>("/domain/stadium/" + id + "/duplicate", { method: "POST" }),
+  importNationRegions: (nationId: number, rows: Array<{ line: number; name: string; shortName?: string; population?: number }>) => request<{ imported: number; errors: Array<{ line: number; message: string }> }>("/domain/nation-regions-import", { method: "POST", body: JSON.stringify({ nationId, rows }) }),
+  createLeague: (payload: { name: string; nationId?: number; competitionTypeId?: number; shortName?: string; year: number; teamIds: number[]; startDate: string; endDate?: string; intervalDays?: number; winPoints?: number; drawPoints?: number; lossPoints?: number }) => request<{ competitionId: number; seasonId: number; stageId: number; fixtureCount: number }>("/domain/league", { method: "POST", body: JSON.stringify(payload) }),
+  createCompetitionStage: (payload: unknown) => request<{ id: number; seasonId: number; name: string; stageOrder: number }>("/domain/competition-stage", { method: "POST", body: JSON.stringify(payload) }),
+  updateCompetitionStage: (id: number, payload: unknown) => request<{ id: number; seasonId: number; name: string; stageOrder: number }>(`/domain/competition-stage/${id}`, { method: "PUT", body: JSON.stringify(payload) }),
+  createClub: (payload: { name: string; shortName?: string; nationId?: number; cityId?: number; stadiumName?: string }) => request<unknown>("/domain/club", { method: "POST", body: JSON.stringify(payload) }),
+  createPlayer: (payload: { fullName: string; commonName?: string; birthDate?: string; personTypeId: number; positionId?: number; positionRating?: number }) => request<unknown>("/domain/player", { method: "POST", body: JSON.stringify(payload) }),
   transfer: (payload: unknown) => request<unknown>("/domain/transfer", { method: "POST", body: JSON.stringify(payload) }),
   contract: (payload: unknown) => request<unknown>("/domain/contract", { method: "POST", body: JSON.stringify(payload) }),
   finance: (payload: unknown) => request<unknown>("/domain/finance", { method: "POST", body: JSON.stringify(payload) }),

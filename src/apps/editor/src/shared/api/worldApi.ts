@@ -1,7 +1,11 @@
 import { request } from "./client";
 import type { WorldDashboard, WorldBuildStatus, WorldPackageRecord, ImportPreview, ImportSession, ImportConflict, RegisterPackagePayload, UpdatePackagePayload } from "./types";
 
+export interface DefaultDataSummary { packageKey: string; version: string; priority: number; sourceFile: string | null; sourceSha256: string | null; categories: string[]; provides: string[]; importedEntities: number; attributedValues: number; sourceHashRecorded: boolean }
+
 export const worldApi = {
+  defaultData: () => request<DefaultDataSummary | null>("/world/default-data"),
+  fastStart: (payload: { template: "EMPTY" | "SANDBOX" | "BRAZIL"; seasonYear: number }) => request<{ template: string; seasonYear: number; result: "COMPLETED" }>("/world/fast-start", { method: "POST", body: JSON.stringify(payload) }),
   get: () => request<WorldDashboard>("/world"),
   build: () => request<WorldBuildStatus>("/world/build"),
   settings: () => request<{ name: string; year: number }>("/world/settings"),

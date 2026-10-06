@@ -95,6 +95,7 @@ export interface WorldDashboard {
   };
   build: WorldBuildStatus;
   packages: WorldPackageRecord[];
+  statistics: { countries: number; cities: number; teams: number; clubs: number; stadiums: number; people: number; players: number; competitions: number; seasons: number; continents: number; languages: number; climates: number };
 }
 
 export interface TemplateRelationOption {

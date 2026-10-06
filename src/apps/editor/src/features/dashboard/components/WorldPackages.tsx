@@ -110,6 +110,7 @@ export function WorldPackages({
                     <input
                       value={pkg.priority}
                       onChange={event => onPriority(pkg, Number(event.target.value))}
+                      disabled={pkg.packageType === "BASE" || pkg.packageKey === "world.base"}
                       type="number"
                       className="w-16 bg-transparent text-right text-slate-200 outline-none"
                     />

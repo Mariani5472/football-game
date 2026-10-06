@@ -118,6 +118,16 @@ export function GeographyPage() {
             onImport={() => view.fileRef.current?.click()}
           />
 
+          {view.previewRegions && (
+            <section className="space-y-3 rounded-xl border border-white/10 bg-white/[0.02] p-4">
+              <header className="flex flex-wrap items-center justify-between gap-2">
+                <div><h3 className="text-sm font-semibold text-white">CSV preview</h3><p className="mt-1 text-xs text-slate-500">{view.previewRegions.length} rows · {view.previewRegions.filter(row => row.error).length} invalid</p></div>
+                <div className="flex gap-2"><button type="button" onClick={view.cancelImport} className="rounded-lg border border-white/10 px-3 py-2 text-xs text-slate-300">Cancel</button><button type="button" disabled={view.importing || view.previewRegions.every(row => row.error)} onClick={() => void view.commitRegions()} className="rounded-lg bg-emerald-500 px-3 py-2 text-xs font-medium text-slate-950 disabled:opacity-50">{view.importing ? "Importing…" : "Import valid rows"}</button></div>
+              </header>
+              <div className="max-h-64 overflow-auto rounded-lg border border-white/5"><table className="w-full text-left text-xs"><thead className="sticky top-0 bg-[#111820] text-slate-500"><tr><th className="p-2">Line</th><th className="p-2">Name</th><th className="p-2">Short name</th><th className="p-2">Population</th><th className="p-2">Status</th></tr></thead><tbody>{view.previewRegions.slice(0, 100).map(row => <tr key={row.line} className="border-t border-white/5"><td className="p-2 text-slate-500">{row.line}</td><td className="p-2 text-slate-200">{row.name}</td><td className="p-2 text-slate-400">{row.shortName ?? "—"}</td><td className="p-2 text-slate-400">{row.population ?? "—"}</td><td className={row.error ? "p-2 text-red-300" : "p-2 text-emerald-300"}>{row.error ?? "Ready"}</td></tr>)}</tbody></table></div>
+              {view.previewRegions.length > 100 && <p className="text-xs text-slate-500">Showing the first 100 rows; all valid rows will be imported.</p>}
+            </section>
+          )}
           <input
             ref={view.fileRef}
             type="file"

@@ -11,8 +11,14 @@ import {
 } from "../database/Database.js";
 import { generateUuid, identityPolicy } from "../database/world/WorldIdentity.js";
 import { WorldDatabase } from "../database/world/WorldDatabase.js";
+import { DefaultDataRepository } from "../database/world/DefaultDataRepository.js";
+import { FastStartService, type FastStartTemplate } from "../world/services/FastStartService.js";
+import { WorldStatisticsService } from "../world/services/WorldStatisticsService.js";
 import { WorldTemplateService, type TemplateRecord, type TemplateRelationOption } from "./WorldTemplateService.js";
 import { WorldDomainService } from "./WorldDomainService.js";
+import type { ContractInput } from "../modules/career/domain/ContractRepository.js";
+import type { FinanceInput } from "../modules/finance/domain/FinanceRepository.js";
+import { CsvImportService, type CsvImportRow } from "./CsvImportService.js";
 import { WorldValidator, type ValidationIssue, type ValidationProfile } from "./WorldValidator.js";
 import {
   WorldPackageService,
@@ -29,7 +35,7 @@ import type {
   ImportPreview,
   ImportSessionRecord,
   RebuildResult,
-} from "./WorldPackageImportService.js";
+} from "../infrastructure/packages/WorldPackageImportService.js";
 
 export interface WorldDashboardSummary {
   world: {
@@ -43,6 +49,7 @@ export interface WorldDashboardSummary {
   };
   build: WorldBuildStatus;
   packages: WorldPackageRecord[];
+  statistics: ReturnType<WorldStatisticsService["get"]>;
 }
 
 export interface WorldEditorServiceOptions {
@@ -56,6 +63,8 @@ export class WorldEditorService {
   private readonly domainService: WorldDomainService;
   private readonly validator: WorldValidator;
   private readonly packageService: WorldPackageService;
+  private readonly csvImportService: CsvImportService;
+  private readonly defaultDataRepository: DefaultDataRepository;
   private readonly filePath: string;
 
   constructor(options: WorldEditorServiceOptions) {
@@ -70,6 +79,8 @@ export class WorldEditorService {
     this.domainService = new WorldDomainService(this.database);
     this.validator = new WorldValidator(this.database);
     this.packageService = new WorldPackageService(this.database);
+    this.csvImportService = new CsvImportService(this.database);
+    this.defaultDataRepository = new DefaultDataRepository(this.database);
   }
 
   list<T extends SqlRow = SqlRow>(
@@ -95,6 +106,20 @@ export class WorldEditorService {
 
   tables(): string[] {
     return this.database.listTables();
+  }
+
+  getDefaultData() {
+    return this.defaultDataRepository.get();
+  }
+
+  previewCsvImport(table: string, rows: CsvImportRow[]) {
+    return this.csvImportService.preview(table, rows);
+  }
+
+  importCsv(table: string, rows: CsvImportRow[]) {
+    const result = this.csvImportService.import(table, rows);
+    if (result.imported) this.markDirectEdit();
+    return result;
   }
 
   create<T extends SqlRow = SqlRow>(
@@ -227,6 +252,77 @@ export class WorldEditorService {
     return result;
   }
 
+  importNationRegions(nationId: number, rows: Array<{ line: number; name: string; shortName?: string; population?: number }>) {
+    if (!Number.isInteger(nationId) || !this.database.findById("nation", nationId)) {
+      throw new Error("Nation does not exist.");
+    }
+    const result = this.database.transaction(() => {
+      const imported: number[] = [];
+      const errors: Array<{ line: number; message: string }> = [];
+      for (const row of rows) {
+        try {
+          this.database.transaction(() => {
+            const name = row.name.trim();
+            if (!name) throw new Error("Name is required.");
+            if (row.population !== undefined && (!Number.isInteger(row.population) || row.population < 0)) throw new Error("Population must be a non-negative whole number.");
+            const created = this.database.create("nation_region", {
+              nation_id: nationId,
+              name,
+              short_name: row.shortName?.trim() || null,
+              population: row.population ?? null,
+            });
+            imported.push(Number(created.id));
+          });
+        } catch (error) {
+          errors.push({ line: row.line, message: error instanceof Error ? error.message : String(error) });
+        }
+      }
+      return { imported: imported.length, errors };
+    });
+    if (result.imported) this.markDirectEdit();
+    return result;
+  }
+  fastStart(template: FastStartTemplate, seasonYear: number) {
+    if (!Number.isInteger(seasonYear) || seasonYear < 1900 || seasonYear > 3000) {
+      throw new Error("Season year must be between 1900 and 3000.");
+    }
+    const result = new FastStartService(this.database).run({ template, seasonYear });
+    this.markDirectEdit();
+    return { template, seasonYear, result: "COMPLETED" as const };
+  }
+  createLeague(input: Parameters<WorldDomainService["createLeague"]>[0]) {
+    const result = this.domainService.createLeague(input);
+    this.markDirectEdit();
+    return result;
+  }
+  createCompetitionStage(input: Parameters<WorldDomainService["createCompetitionStage"]>[0]) {
+    const result = this.domainService.createCompetitionStage(input);
+    this.markDirectEdit();
+    return result;
+  }
+  updateCompetitionStage(stageId: number, input: Parameters<WorldDomainService["updateCompetitionStage"]>[1]) {
+    const result = this.domainService.updateCompetitionStage(stageId, input);
+    this.markDirectEdit();
+    return result;
+  }
+
+  duplicateStadium(stadiumId: number) {
+    const result = this.domainService.duplicateStadium(stadiumId);
+    this.markDirectEdit();
+    return result;
+  }
+
+  createClub(input: Parameters<WorldDomainService["createClub"]>[0]) {
+    const result = this.domainService.createClub(input);
+    this.markDirectEdit();
+    return result;
+  }
+
+  createPlayer(input: Parameters<WorldDomainService["createPlayer"]>[0]) {
+    const result = this.domainService.createPlayer(input);
+    this.markDirectEdit();
+    return result;
+  }
   createTransfer(
     input: Parameters<WorldDomainService["createTransfer"]>[0],
   ) {
@@ -236,7 +332,7 @@ export class WorldEditorService {
   }
 
   createContract(
-    input: Parameters<WorldDomainService["createContract"]>[0],
+    input: ContractInput,
   ) {
     const result = this.domainService.createContract(input);
     this.markDirectEdit();
@@ -244,7 +340,7 @@ export class WorldEditorService {
   }
 
   saveClubFinance(
-    input: Parameters<WorldDomainService["saveClubFinance"]>[0],
+    input: FinanceInput,
   ) {
     const result = this.domainService.saveClubFinance(input);
     this.markDirectEdit();
@@ -380,8 +476,8 @@ export class WorldEditorService {
     const stat =
       fs.existsSync(this.filePath)
         ? fs.statSync(
-            this.filePath,
-          )
+          this.filePath,
+        )
         : null;
 
     return {
@@ -395,7 +491,7 @@ export class WorldEditorService {
             this.database.metadata(
               "world_year",
             ) ??
-              new Date().getFullYear(),
+            new Date().getFullYear(),
           ),
         schemaVersion:
           Number(
@@ -419,8 +515,8 @@ export class WorldEditorService {
       },
       build:
         this.packageService.getBuildStatus(),
-      packages:
-        this.packageService.listPackages(),
+      packages: this.packageService.listPackages(),
+      statistics: new WorldStatisticsService(this.database).get(),
     };
   }
 
@@ -442,7 +538,7 @@ export class WorldEditorService {
           this.database.metadata(
             "world_year",
           ) ??
-            new Date().getFullYear(),
+          new Date().getFullYear(),
         ),
     };
   }
@@ -595,17 +691,17 @@ export class WorldEditorService {
         .validate()
         .map(
           issue =>
-            ({
-              severity:
-                issue.severity ===
+          ({
+            severity:
+              issue.severity ===
                 "ERROR"
-                  ? "ERROR"
-                  : "WARNING",
-              ruleKey:
-                issue.ruleKey,
-              message:
-                issue.message,
-            } satisfies WorldPackageIssue),
+                ? "ERROR"
+                : "WARNING",
+            ruleKey:
+              issue.ruleKey,
+            message:
+              issue.message,
+          } satisfies WorldPackageIssue),
         );
 
     return this.packageService.exportWorld(

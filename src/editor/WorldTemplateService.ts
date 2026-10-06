@@ -483,7 +483,7 @@ export class WorldTemplateService {
       const targetKey: SqlKey = value;
       const mapped = mappings.get(keyToken(fk.table, targetKey));
       if (mapped === undefined) continue;
-      if (typeof mapped === "object" && mapped !== null) return mapped[targetSchema.primaryKey[0]] as SqlValue;
+      if (isCompositeSqlKey(mapped)) return mapped[targetSchema.primaryKey[0]] as SqlValue;
       return mapped as SqlValue;
     }
     return undefined;
@@ -503,7 +503,7 @@ export class WorldTemplateService {
       const fk = group[0];
       const mapped = mappings.get(keyToken(fk.table, value));
       if (mapped === undefined) return value;
-      if (typeof mapped === "object" && mapped !== null) {
+      if (isCompositeSqlKey(mapped)) {
         const targetSchema = schemas.get(fk.table)!;
         return mapped[targetSchema.primaryKey[0]] as SqlValue;
       }
@@ -544,4 +544,8 @@ function rowReferencesWithSchemas(
     if (JSON.stringify(candidate) === JSON.stringify(targetKey)) return true;
   }
   return false;
+}
+
+function isCompositeSqlKey(value: SqlKey): value is Record<string, SqlValue> {
+  return typeof value === "object" && value !== null && !Buffer.isBuffer(value) && !(value instanceof Uint8Array);
 }
