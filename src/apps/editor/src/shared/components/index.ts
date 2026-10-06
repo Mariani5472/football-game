@@ -1,5 +1,5 @@
 export { DataTable } from "./data-table/DataTable";
-export type { DataTableColumn, DataTableProps } from "./data-table/types";
+export type { DataTableColumn, DataTableProps, DataTableSelection } from "./data-table/types";
 
 export { EntityForm } from "./form/EntityForm";
 export type { EntityFormField, EntityFormProps, EntityFieldType, EntityFormValue } from "./form/EntityForm";
