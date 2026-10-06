@@ -386,6 +386,131 @@ export class WorldDefaultDataPackageBuilder {
     }
   }
 
+  private static assertReferenceDataset(
+    db: DatabaseConnection.Database,
+  ): void {
+    const requiredTables = [
+      "nationality_method",
+      "nation_development_state",
+      "climate",
+      "gender",
+      "weekday",
+      "club_status",
+      "stadium_owner_type",
+      "pitch_type",
+      "grass_deterioration_rate",
+      "quality_state",
+      "environment_quality",
+      "competition_stage_type",
+      "competition_type",
+      "referee_category",
+      "person_type",
+      "position_definition",
+      "employment",
+      "second_nationality_info",
+      "money_direction",
+      "payment_interval",
+      "clause_condition",
+      "ownership_type",
+      "ownership_promise",
+      "president_title",
+      "patron_type",
+      "embargo_type",
+      "revenue_type",
+      "debt_source",
+      "equipment_type",
+      "equipment_piece",
+      "equipment_style",
+      "objective_type",
+      "retired_number_reason",
+      "club_affiliation_type",
+      "transfer_status",
+      "transfer_type",
+      "contract_type",
+      "contract_clause_type",
+      "player_achievement_type",
+      "press_period",
+      "news_reach",
+      "press_type",
+      "award_period",
+      "award_recipient_type",
+      "award_type",
+      "award_voting_type",
+      "award_organizer",
+      "award_statistic",
+      "record_type",
+      "trophy",
+      "injury_classification",
+      "injury_subclassification",
+      "injury_reason",
+      "suspension",
+      "suspension_type",
+      "game_location_type",
+      "role_duty",
+      "player_role",
+    ] as const;
+
+    for (const table of requiredTables) {
+      if (!this.tableExists(db, table)) {
+        throw new Error(
+          "Default reference dataset is missing required table: " +
+            table,
+        );
+      }
+
+      const row = db
+        .prepare(
+          'SELECT COUNT(*) AS count FROM "' +
+            table +
+            '"',
+        )
+        .get() as { count: number };
+
+      if (Number(row.count) === 0) {
+        throw new Error(
+          "Default reference dataset is empty: " +
+            table,
+        );
+      }
+    }
+
+    const invalidWeekdays = db
+      .prepare(
+        "SELECT COUNT(*) AS count FROM weekday WHERE index_value NOT BETWEEN 1 AND 7",
+      )
+      .get() as { count: number };
+
+    if (Number(invalidWeekdays.count) > 0) {
+      throw new Error(
+        "Default reference dataset contains invalid weekday indexes.",
+      );
+    }
+
+    const invalidRoles = db
+      .prepare(
+        "SELECT COUNT(*) AS count FROM player_role WHERE position_id IS NULL",
+      )
+      .get() as { count: number };
+
+    if (Number(invalidRoles.count) > 0) {
+      throw new Error(
+        "Default tactical reference dataset contains a role without a position.",
+      );
+    }
+  }
+
+  private static tableExists(
+    db: DatabaseConnection.Database,
+    table: string,
+  ): boolean {
+    const row = db
+      .prepare(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name=? LIMIT 1",
+      )
+      .get(table);
+    return Boolean(row);
+  }
+
   private static addUuids(
     db: DatabaseConnection.Database,
     tables: string[],
