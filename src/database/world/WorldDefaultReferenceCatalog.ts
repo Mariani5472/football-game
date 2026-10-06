@@ -1,22 +1,34 @@
 export const DEFAULT_CLIMATES = [
-  "Tropical", "Dry", "Temperate", "Continental", "Polar", "Mediterranean", "Subtropical",
-  "Oceanic", "Humid Subtropical", "Monsoon", "Savanna", "Steppe", "Desert", "Subarctic", "Tundra", "Alpine",
+  "Tropical", "Dry", "Temperate", "Continental", "Polar", "Mediterranean",
+  "Subtropical", "Oceanic", "Humid Subtropical", "Monsoon", "Savanna",
+  "Steppe", "Desert", "Subarctic", "Tundra", "Alpine",
 ] as const;
 
-export const DEFAULT_REFERENCE_LISTS = {
-  genders: ["Male", "Female"],
-  weekdays: [
-    ["Monday", 1, 0], ["Tuesday", 2, 0], ["Wednesday", 3, 0], ["Thursday", 4, 0],
-    ["Friday", 5, 0], ["Saturday", 6, 1], ["Sunday", 7, 1],
-  ],
+export const GEOGRAPHY_REFERENCES = {
+  climates: DEFAULT_CLIMATES,
   nationalityMethods: ["Birth", "Descent", "Naturalization", "Marriage"],
   developmentStates: ["Developed", "Emerging", "Developing"],
+  weatherSeasons: ["Spring", "Summer", "Autumn", "Winter"],
+  secondNationalityInfo: [
+    "No Data", "Born in Country", "Family Born in Country", "Eligible for Country",
+    "Not Eligible for Country", "Previously Played for Country", "Citizenship by Descent",
+    "Naturalized but Not Eligible", "Naturalized but Still Foreign", "Declared for National Team",
+    "Citizenship by Descent but Not Yet Eligible",
+  ],
+} as const;
+
+export const FOOTBALL_REFERENCES = {
+  genders: ["Male", "Female"],
+  weekdays: [
+    ["Monday", 1, 0], ["Tuesday", 2, 0], ["Wednesday", 3, 0],
+    ["Thursday", 4, 0], ["Friday", 5, 0], ["Saturday", 6, 1], ["Sunday", 7, 1],
+  ],
   clubStatuses: ["Active", "Reserve", "Inactive"],
   competitionTypes: ["League", "Cup", "Tournament"],
   competitionStageTypes: ["League", "Group", "Knockout"],
   pitchTypes: [
-    "Natural Grass", "Artificial Turf", "Hybrid", "Soft Artificial Turf", "Hard Artificial Turf", "Gravel and Dirt",
-    "Gravel", "Dirt", "Sand", "Hybrid Grass",
+    "Natural Grass", "Artificial Turf", "Hybrid", "Soft Artificial Turf",
+    "Hard Artificial Turf", "Gravel and Dirt", "Gravel", "Dirt", "Sand", "Hybrid Grass",
   ],
   stadiumOwnerTypes: ["Club", "Municipal", "Private", "National", "Council", "Chairman", "Supporters"],
   grassDeteriorationRates: [["Slow", 1], ["Medium", 2], ["Fast", 3]],
@@ -26,26 +38,52 @@ export const DEFAULT_REFERENCE_LISTS = {
   positions: [
     "Goalkeeper", "Defender", "Centre-Back", "Left-Back", "Right-Back", "Defensive Midfielder",
     "Central Midfielder", "Attacking Midfielder", "Left Winger", "Right Winger", "Striker",
-    "Left Back", "Centre Back", "Right Back", "Right Wing-Back", "Left Wing-Back", "Left Midfielder",
-    "Right Midfielder",
+    "Left Back", "Centre Back", "Right Back", "Right Wing-Back", "Left Wing-Back",
+    "Left Midfielder", "Right Midfielder",
   ],
   refereeCategories: ["International", "Professional", "National", "Regional"],
-  employments: ["Manager", "Assistant Manager", "Coach", "Goalkeeping Coach", "Fitness Coach", "Scout", "Physiotherapist", "Doctor", "Analyst", "Director", "Chief Executive", "Chairperson"],
-  weatherSeasons: ["Spring", "Summer", "Autumn", "Winter"],
-  secondNationalityInfo: [
-    "No Data", "Born in Country", "Family Born in Country", "Eligible for Country",
-    "Not Eligible for Country", "Previously Played for Country", "Citizenship by Descent",
-    "Naturalized but Not Eligible", "Naturalized but Still Foreign", "Declared for National Team",
-    "Citizenship by Descent but Not Yet Eligible",
+  employments: [
+    "Manager", "Assistant Manager", "Coach", "Goalkeeping Coach", "Fitness Coach",
+    "Scout", "Physiotherapist", "Doctor", "Analyst", "Director", "Chief Executive", "Chairperson",
   ],
-  moneyDirections: ["Income", "Expense"],
-  paymentIntervals: [["Daily", 1, 0, 0], ["Weekly", 7, 0, 0], ["Monthly", 0, 1, 0], ["Quarterly", 0, 3, 0], ["Semiannual", 0, 6, 0], ["Annual", 0, 0, 1]],
-  clauseConditions: ["After International Appearances", "League Appearances", "League Goals", "Per League Appearance", "Per League Goal"],
-  suspensionTypes: ["League", "Cup", "National", "Continental", "International", "International Including Friendlies"],
-  suspensions: ["Global", "League", "Continental", "National", "Cup", "Sabbatical", "Holiday", "Military Leave", "Study Leave"],
   gameLocationTypes: ["All Matches", "Away Matches", "Home Matches"],
+} as const;
+
+export const TACTICAL_REFERENCES = {
+  roleDuties: ["Defend", "Support", "Attack"],
+} as const;
+
+export const INJURY_REFERENCES = {
   injuryClassifications: ["Internal", "Foot", "Knee", "Thigh", "Groin", "Torso", "Hand", "Arm", "Shoulder", "Head", "Rehabilitation"],
-  injuryReasons: ["Impact with Player", "Impact from Fall", "Weightlifting", "Turning", "Sprint", "Jumping", "Overuse", "Kicking Ball", "Catching Ball", "Saving", "Tackle", "Violent Conduct"],
+  injuryReasons: [
+    "Impact with Player", "Impact from Fall", "Weightlifting", "Turning", "Sprint", "Jumping",
+    "Overuse", "Kicking Ball", "Catching Ball", "Saving", "Tackle", "Violent Conduct",
+  ],
+  injurySubclasses: [
+    ["Internal", ["General"]],
+    ["Foot", ["Foot", "Heel", "Toe", "Achilles Tendon", "Ankle"]],
+    ["Knee", ["Knee", "Collateral Ligament", "Cruciate Ligament", "Joint"]],
+    ["Thigh", ["Thigh", "Hamstring", "Quadriceps", "Femur", "Upper Leg"]],
+    ["Groin", ["Adductor", "Hip", "Pelvis"]],
+    ["Torso", ["Rib", "Spine", "Back", "Chest", "General"]],
+    ["Hand", ["Wrist", "Hand", "Finger"]],
+    ["Arm", ["Radius", "Elbow", "Humerus", "Arm"]],
+    ["Shoulder", ["Shoulder"]],
+    ["Head", ["Brain", "Head", "Face", "Jaw", "Skull", "Nose", "Neck"]],
+    ["Rehabilitation", ["General", "Illness"]],
+  ] as const,
+  suspensions: ["Global", "League", "Continental", "National", "Cup", "Sabbatical", "Holiday", "Military Leave", "Study Leave"],
+  suspensionTypes: ["League", "Cup", "National", "Continental", "International", "International Including Friendlies"],
+} as const;
+
+export const GENERIC_REFERENCES = {
+  nationalityMethods: GEOGRAPHY_REFERENCES.nationalityMethods,
+  moneyDirections: ["Income", "Expense"],
+  paymentIntervals: [
+    ["Daily", 1, 0, 0], ["Weekly", 7, 0, 0], ["Monthly", 0, 1, 0],
+    ["Quarterly", 0, 3, 0], ["Semiannual", 0, 6, 0], ["Annual", 0, 0, 1],
+  ],
+  clauseConditions: ["After International Appearances", "League Appearances", "League Goals", "Per League Appearance", "Per League Goal"],
   ownershipTypes: [["Private", 0], ["Member-Owned", 1], ["Public", 1], ["Municipal", 0], ["National", 0]],
   ownershipPromises: ["Improve Youth Development", "Improve Training Facilities", "Improve Stadium", "Increase Transfer Budget", "Reduce Debt"],
   presidentTitles: ["President", "Chairman", "Owner"],
@@ -56,7 +94,12 @@ export const DEFAULT_REFERENCE_LISTS = {
   equipmentTypes: ["Home", "Away", "Third", "Special", "Goalkeeper Home", "Goalkeeper Away", "Goalkeeper Third", "Goalkeeper Special"],
   equipmentPieces: ["Shirt", "Text", "Shorts", "Socks"],
   equipmentStyles: ["Plain", "Vertical Stripes", "Horizontal Stripes", "Hoops", "Diagonal Sash", "Halves", "Quarters", "Gradient"],
-  objectiveTypes: ["Become Most Respected in Country", "Become Most Respected in Continent", "Become Most Respected in World", "Sign Players of a Nationality", "Sign Renowned Players", "Play Attacking Football", "Play Defensive Football", "Play Possession Football", "Play Direct Football", "Excel at Set Pieces", "Play Attractive Football", "Play Counter-Attacking Football", "Play High-Intensity Football", "Develop Youth Players"],
+  objectiveTypes: [
+    "Become Most Respected in Country", "Become Most Respected in Continent", "Become Most Respected in World",
+    "Sign Players of a Nationality", "Sign Renowned Players", "Play Attacking Football", "Play Defensive Football",
+    "Play Possession Football", "Play Direct Football", "Excel at Set Pieces", "Play Attractive Football",
+    "Play Counter-Attacking Football", "Play High-Intensity Football", "Develop Youth Players",
+  ],
   retiredNumberReasons: ["In Memoriam", "Club Legend", "Supporter", "Famous Player"],
   affiliationTypes: ["Partner Club", "Reserve Team", "Satellite Club", "B Team", "C Team", "Good Relations", "Friendly Partner", "Shared Academy", "Regional Academy"],
   transferStatuses: ["Planned", "Negotiating", "Confirmed", "Completed", "Cancelled"],
@@ -75,23 +118,18 @@ export const DEFAULT_REFERENCE_LISTS = {
   awardStatistics: ["Appearances", "Goals", "Assists", "Clean Sheets", "Average Rating"],
   recordTypes: ["Biggest Win", "Biggest Defeat", "Highest Scoring Match", "Highest Attendance", "Most Consecutive Wins", "Most Consecutive Matches Unbeaten", "Most Appearances", "Most Goals", "Youngest Player", "Oldest Player", "Highest Transfer Fee"],
   trophyTypes: ["League Trophy", "Cup Trophy", "Super Cup Trophy"],
-  roleDuties: ["Defend", "Support", "Attack"],
 } as const;
 
-export const DEFAULT_INJURY_SUBCLASSIFICATIONS: ReadonlyArray<readonly [string, readonly string[]]> = [
-  ["Internal", ["General"]],
-  ["Foot", ["Foot", "Heel", "Toe", "Achilles Tendon", "Ankle"]],
-  ["Knee", ["Knee", "Collateral Ligament", "Cruciate Ligament", "Joint"]],
-  ["Thigh", ["Thigh", "Hamstring", "Quadriceps", "Femur", "Upper Leg"]],
-  ["Groin", ["Adductor", "Hip", "Pelvis"]],
-  ["Torso", ["Rib", "Spine", "Back", "Chest", "General"]],
-  ["Hand", ["Wrist", "Hand", "Finger"]],
-  ["Arm", ["Radius", "Elbow", "Humerus", "Arm"]],
-  ["Shoulder", ["Shoulder"]],
-  ["Head", ["Brain", "Head", "Face", "Jaw", "Skull", "Nose", "Neck"]],
-  ["Rehabilitation", ["General", "Illness"]],
-];
+export const DEFAULT_CLIMATES = GEOGRAPHY_REFERENCES.climates;
+export const DEFAULT_REFERENCE_LISTS = {
+  ...GEOGRAPHY_REFERENCES,
+  ...FOOTBALL_REFERENCES,
+  ...TACTICAL_REFERENCES,
+  ...INJURY_REFERENCES,
+  ...GENERIC_REFERENCES,
+} as const;
 
+export const DEFAULT_INJURY_SUBCLASSIFICATIONS = INJURY_REFERENCES.injurySubclasses;
 export const DEFAULT_PLAYER_ROLES: ReadonlyArray<readonly [string, readonly string[]]> = [
   ["Striker", ["Deep-Lying Forward", "Centre Forward", "Target Forward", "Poacher", "Channel Forward", "False Nine", "Tracking Centre Forward", "Central Outlet Centre Forward", "Second Striker", "Splitting Outlet Centre Forward"]],
   ["Left Winger", ["Winger", "Inside Forward", "Playmaking Winger", "Wide Forward", "Inside Winger", "Tracking Winger", "Inside Outlet Winger", "Wide Outlet Winger"]],
@@ -108,4 +146,3 @@ export const DEFAULT_PLAYER_ROLES: ReadonlyArray<readonly [string, readonly stri
   ["Centre Back", ["Centre-Back", "Advanced Centre-Back", "Ball-Playing Centre-Back", "No-Nonsense Centre-Back", "Stopping Centre-Back", "Covering Centre-Back"]],
   ["Goalkeeper", ["No-Nonsense Goalkeeper", "Ball-Playing Goalkeeper", "Goalkeeper", "Sweeper Keeper", "Line-Holding Keeper"]],
 ];
-
