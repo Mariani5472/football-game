@@ -1,8 +1,8 @@
 
 import type { CrudEntityConfig, CrudField } from "../../../shared/components";
 import {
+  teamConfig,
   clubConfig,
-  clubConfig as _clubConfig,
   ownershipConfig,
   reserveTeamConfig,
   financeConfig,
