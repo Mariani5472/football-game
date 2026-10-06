@@ -375,6 +375,19 @@ CREATE TABLE IF NOT EXISTS stadium (
     FOREIGN KEY (environment_quality_id) REFERENCES environment_quality(id)
 );
 
+CREATE TABLE IF NOT EXISTS stadium_image (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    stadium_id INTEGER NOT NULL,
+    url TEXT NOT NULL,
+    caption TEXT,
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    is_primary INTEGER NOT NULL DEFAULT 0 CHECK (is_primary IN (0,1)),
+    source TEXT,
+    FOREIGN KEY (stadium_id) REFERENCES stadium(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_stadium_image_stadium ON stadium_image(stadium_id, sort_order);
+
 CREATE TABLE IF NOT EXISTS stadium_change_type (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL UNIQUE
