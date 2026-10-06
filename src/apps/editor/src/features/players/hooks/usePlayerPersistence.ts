@@ -187,7 +187,7 @@ export function usePlayerPersistence() {
       await editorApi.entity.create("player", input.values);
     }
 
-    const resolvedPlayerId = input.playerId ?? personId;
+    const resolvedPlayerId = personId;
 
     await savePositions(
       resolvedPlayerId,
