@@ -97,3 +97,28 @@ export function getInitialGeographyValues(spec: GeographySpec, parent?: Geograph
   }
   return values;
 }
+
+
+export const geographyKindsByLevel: Record<string, GeographyEntityKind[]> = {
+  root: ["continent"],
+  continent: ["continent-region"],
+  "continent-region": ["country"],
+  country: ["nation-region"],
+  "nation-region": ["city"],
+  city: [],
+};
+
+export function getGeographyParentDefaults(
+  kind: GeographyEntityKind,
+  parent?: GeographyTreeNode,
+): Record<string, EntityFormValue> {
+  const values = getInitialGeographyValues(geographySpecs[kind], parent);
+  return { ...values };
+}
+
+export function getGeographyRequiredRelations(kind: GeographyEntityKind): string[] {
+  return geographySpecs[kind].fields
+    .filter(field => field.required && field.relation)
+    .map(field => field.relation!)
+    .filter(Boolean);
+}
