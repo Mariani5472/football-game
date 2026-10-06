@@ -8,7 +8,6 @@ import { PlayerAttributesPanel } from "./PlayerAttributesPanel";
 import { PlayerRelationTabs } from "./PlayerRelationTabs";
 import { playerRelationConfigs } from "../config/playerConfig";
 import { usePlayerEditor } from "../hooks/usePlayerEditor";
-import { PlayerSuspensionsEditor } from "./PlayerSuspensionsEditor";
 
 const relationConfigMap = new Map(playerRelationConfigs.map(config => [config.id, config]));
 
@@ -164,7 +163,7 @@ export function PlayerEditor({ playerId, onBack, onSaved }: {
             content: <div className="space-y-5">
               {relation("injuries") && <PlayerRelationsEditor playerId={playerId ?? 0} config={relation("injuries")!} />}
               {relation("suspensions") && <PlayerRelationsEditor playerId={playerId ?? 0} config={relation("suspensions")!} />}
-              {playerId && <PlayerSuspensionsEditor playerId={playerId} />}
+              {playerId && relation("suspensions") && null}
             </div>,
           },
           {
