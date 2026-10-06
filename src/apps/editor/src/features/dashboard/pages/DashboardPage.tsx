@@ -103,7 +103,35 @@ export function DashboardPage() {
       {defaultData && <section className="rounded-2xl border border-sky-400/15 bg-sky-400/[0.03] p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div><h2 className="font-medium text-white">Default reference data · v{defaultData.version}</h2><p className="mt-1 text-xs text-slate-500">{defaultData.importedEntities.toLocaleString()} entities · {defaultData.attributedValues.toLocaleString()} attributed values · priority {defaultData.priority} · {defaultData.sourceHashRecorded ? "source hash recorded" : "source hash missing"}</p></div>
-          <div className="flex flex-wrap gap-2">{defaultData.provides.map(scope => <span key={scope} className="rounded-md border border-sky-400/10 px-2 py-1 font-mono text-[10px] text-sky-300">{scope}</span>)}</div>
+          <div className="flex flex-wrap gap-2">
+            {defaultData.provides.map(scope => (
+              <span
+                key={scope}
+                className="rounded-md border border-sky-400/10 px-2 py-1 font-mono text-[10px] text-sky-300"
+              >
+                {scope}
+              </span>
+            ))}
+          </div>
+        </div>
+        <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+          {Object.entries(defaultData.domains).map(([domain, tables]) => (
+            <div
+              key={domain}
+              className="rounded-xl border border-white/5 bg-black/10 p-3"
+            >
+              <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+                {domain}
+              </div>
+              <div className="mt-2 text-lg font-semibold text-white">
+                {tables.length}
+              </div>
+              <div className="mt-1 text-[10px] text-slate-600">
+                reference tables
+              </div>
+            </div>
+          ))}
+        </div>
         </div>
       </section>}
 
