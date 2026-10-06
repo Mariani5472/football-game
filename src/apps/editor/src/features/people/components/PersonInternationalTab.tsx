@@ -1,9 +1,8 @@
 import { useEffect, useState } from "react";
-import { EntityForm, EntityPicker } from "../../../shared/components";
-import { editorApi } from "../../../shared/api/editorApi";
-import type { PersonReferenceData } from "../types";
+import { editorApi, type EntityRow } from "../../../shared/api/editorApi";
+import { EntityForm } from "../../../shared/components";
 
-export function PersonInternationalTab({ personId, references }: { personId?: number; references: PersonReferenceData }) {
+export function PersonInternationalTab({ personId }: { personId?: number }) {
   const [values, setValues] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -17,9 +16,10 @@ export function PersonInternationalTab({ personId, references }: { personId?: nu
 
   async function save() {
     if (!personId) return;
-    setSaving(true); setMessage(null);
+    setSaving(true);
+    setMessage(null);
     try {
-      const payload = {
+      const payload: Record<string, string | number | null> = {
         person_id: personId,
         caps: values.caps ? Number(values.caps) : null,
         goals: values.goals ? Number(values.goals) : null,
@@ -36,35 +36,37 @@ export function PersonInternationalTab({ personId, references }: { personId?: nu
       if (existing) await editorApi.entity.update("person_international_data", personId, payload);
       else await editorApi.entity.create("person_international_data", payload);
       setMessage("International data saved.");
-    } catch (cause) { setMessage(cause instanceof Error ? cause.message : String(cause)); }
-    finally { setSaving(false); }
+    } catch (cause) {
+      setMessage(cause instanceof Error ? cause.message : String(cause));
+    } finally {
+      setSaving(false);
+    }
   }
 
   if (!personId) return <Empty text="Save the Person first to manage international data." />;
 
-  return <section className="space-y-5 rounded-2xl border border-white/10 bg-white/[0.02] p-5">
-    <EntityForm
-      fields={[
-        { name: "caps", label: "Senior Caps", type: "number", min: 0 },
-        { name: "goals", label: "Senior Goals", type: "number", min: 0 },
-        { name: "under_21_caps", label: "U21 Caps", type: "number", min: 0 },
-        { name: "under_21_goals", label: "U21 Goals", type: "number", min: 0 },
-        { name: "debut_date", label: "Debut Date", type: "date" },
-        { name: "first_goal_date", label: "First Goal Date", type: "date" },
-      ]}
-      values={values}
-      onChange={(name, value) => setValues(current => ({ ...current, [name]: String(value ?? "") }))}
-      onSubmit={() => void save()} submitLabel="Save International Data" submitting={saving}
-    >
-      <div className="grid gap-5 md:grid-cols-2">
-        <EntityPicker label="Debut Opponent" value={values.debut_opponent_nation_id ?? ""} options={references.nations.map(row => ({ id: Number(row.id), label: String(row.name ?? row.id) }))} onChange={value => setValues(current => ({ ...current, debut_opponent_nation_id: String(value) }))} />
-        <EntityPicker label="First Goal Opponent" value={values.first_goal_opponent_nation_id ?? ""} options={references.nations.map(row => ({ id: Number(row.id), label: String(row.name ?? row.id) }))} onChange={value => setValues(current => ({ ...current, first_goal_opponent_nation_id: String(value) }))} />
-        <EntityPicker label="Current National Team" value={values.current_national_team_id ?? ""} options={references.nationalTeams.map(row => ({ id: Number(row.id), label: String(row.name ?? row.id) }))} onChange={value => setValues(current => ({ ...current, current_national_team_id: String(value) }))} />
-        <EntityPicker label="Youth National Team" value={values.youth_national_team_id ?? ""} options={references.nationalTeams.map(row => ({ id: Number(row.id), label: String(row.name ?? row.id) }))} onChange={value => setValues(current => ({ ...current, youth_national_team_id: String(value) }))} />
-      </div>
-    </EntityForm>
-    {message && <p className="text-xs text-slate-400">{message}</p>}
-  </section>;
+  return (
+    <section className="rounded-2xl border border-white/10 bg-white/[0.02] p-5">
+      <EntityForm
+        fields={[
+          { name: "caps", label: "Senior Caps", type: "number", min: 0 },
+          { name: "goals", label: "Senior Goals", type: "number", min: 0 },
+          { name: "under_21_caps", label: "U21 Caps", type: "number", min: 0 },
+          { name: "under_21_goals", label: "U21 Goals", type: "number", min: 0 },
+          { name: "debut_date", label: "Debut Date", type: "date" },
+          { name: "first_goal_date", label: "First Goal Date", type: "date" },
+        ]}
+        values={values}
+        onChange={(name, value) => setValues(current => ({ ...current, [name]: String(value ?? "") }))}
+        onSubmit={() => void save()}
+        submitLabel="Save International Data"
+        submitting={saving}
+      />
+      {message && <p className="mt-3 text-xs text-slate-400">{message}</p>}
+    </section>
+  );
 }
 
-function Empty({ text }: { text: string }) { return <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-8 text-sm text-slate-600">{text}</div>; }
+function Empty({ text }: { text: string }) {
+  return <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-8 text-sm text-slate-600">{text}</div>;
+}
