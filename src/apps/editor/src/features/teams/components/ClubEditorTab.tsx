@@ -1,12 +1,9 @@
 import { useState } from "react";
-import { CrudEntityPage, Tabs } from "../../../shared/components";
+
 import { clubEditorRelations, type ClubEditorTabDefinition } from "../config/clubEditorConfig";
 import { ClubScopedRelationEditor } from "./ClubScopedRelationEditor";
 import { ClubIdentityEditor } from "./ClubIdentityEditor";
 import { ClubLocationEditor } from "./ClubLocationEditor";
-import { editorApi } from "../../../shared/api/editorApi";
-
-const financeKeys = new Set(["finance", "fan-profile", "tactical-profile"]);
 
 export function ClubEditorTab({ clubId, tab }: { clubId: number; tab: ClubEditorTabDefinition }) {
   if (tab.id === "identity") return <ClubIdentityEditor clubId={clubId} onSaved={() => undefined} />;
