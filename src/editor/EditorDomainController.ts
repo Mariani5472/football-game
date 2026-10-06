@@ -1,6 +1,7 @@
 import http from "node:http";
 import type { WorldEditorService } from "./WorldEditorService.js";
 import type { SqlValue } from "../database/Database.js";
+// Domain use cases are exposed by the compatibility service while the EditorApplication migration continues.
 import { isRecord, optionalId, optionalString, readJsonBody, routeParts, sendJson } from "./EditorHttp.js";
 
 export async function handleDomainRequest(request: http.IncomingMessage, response: http.ServerResponse, service: WorldEditorService): Promise<boolean> {
