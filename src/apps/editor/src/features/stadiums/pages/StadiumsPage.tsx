@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Building2, Database, ImagePlus, Link2, ShieldCheck } from "lucide-react";
+import { Building2, Database, Link2, ShieldCheck } from "lucide-react";
 import { CrudEntityPage, EntityForm, Tabs } from "../../../shared/components";
 import {
   alternativeStadiumConfig,
@@ -39,7 +39,7 @@ export function StadiumsPage() {
         activeTab={tab}
         onChange={setTab}
         items={[
-          { id: "stadiums", label: "Stadiums", icon: Building2, content: <StadiumListWithOpen onOpen={openStadium} /> },
+          { id: "stadiums", label: "Stadiums", icon: Building2, content: <StadiumListWithOpen onOpen={openStadium} onCreate={() => setCreateOpen(true)} /> },
           { id: "workspace", label: selectedName ? `Workspace · ${selectedName}` : "Stadium Workspace", icon: Link2, content: selectedId ? <StadiumWorkspace stadiumId={selectedId} /> : <WorkspaceEmpty /> },
           { id: "changes", label: "Stadium Changes", icon: Database, content: <CrudEntityPage config={stadiumChangeConfig} /> },
           { id: "alternatives", label: "Alternative Stadiums", icon: Database, content: <CrudEntityPage config={alternativeStadiumConfig} /> },
@@ -51,8 +51,8 @@ export function StadiumsPage() {
   );
 }
 
-function StadiumListWithOpen({ onOpen }: { onOpen: (row: EntityRow) => void }) {
-  return <StadiumCatalog onOpen={onOpen} onCreate={() => window.dispatchEvent(new CustomEvent("stadium:create"))} />;
+function StadiumListWithOpen({ onOpen, onCreate }: { onOpen: (row: EntityRow) => void; onCreate: () => void }) {
+  return <StadiumCatalog onOpen={onOpen} onCreate={onCreate} />;
 }
 
 function NewStadiumPanel({ onCreated }: { onCreated: (row: EntityRow) => void }) {
