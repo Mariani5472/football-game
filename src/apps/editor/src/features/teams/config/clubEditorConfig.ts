@@ -185,7 +185,7 @@ export const clubEditorRelations = {
     primaryKey: ["id"],
     scope: { type: "club", field: "club_id" },
   },
-  playerPeriods: rawRelation({
+  playerPeriods: {
     id: "players",
     title: "Players",
     description: "Players associated with this club over time.",
@@ -202,7 +202,7 @@ export const clubEditorRelations = {
     ],
     primaryKey: ["id"],
     scope: { type: "club", field: "club_id" },
-  }),
+  },
 } as const;
 
 export const clubEditorTabs: ClubEditorTabDefinition[] = [
