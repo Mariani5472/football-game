@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Building2, CircleDollarSign, History, MapPin, Shield, Star, Trophy, Users, WalletCards } from "lucide-react";
 import { Tabs } from "../../../shared/components";
 import { clubEditorTabs, type ClubEditorTabId } from "../config/clubEditorConfig";
@@ -29,7 +30,7 @@ export interface ClubEditorProps {
 
 export function ClubEditor({ clubId, onBack }: ClubEditorProps) {
   const { team, loading, error } = useClubEditor(clubId);
-  const [tab, setTab] = React.useState<ClubEditorTabId>("identity");
+  const [tab, setTab] = useState<ClubEditorTabId>("identity");
   const name = String(team?.name ?? `Club #${clubId}`);
 
   if (loading) {
@@ -68,4 +69,3 @@ export function ClubEditor({ clubId, onBack }: ClubEditorProps) {
   );
 }
 
-import * as React from "react";
