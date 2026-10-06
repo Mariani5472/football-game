@@ -1,25 +1,45 @@
-import type { EntityRow, Scalar } from "../../shared/api/editorApi";
+import type { EntityRow, Scalar } from "../../../shared/api/editorApi";
 
-export interface Person {
+export interface Person extends EntityRow {
   id: number;
-  first_name?: string | null;
-  second_name?: string | null;
-  common_name?: string | null;
+  first_name: string | null;
+  second_name: string | null;
+  common_name: string | null;
   full_name: string;
   person_type_id: number;
-  sex?: string | null;
-  height?: number | null;
-  birth_date?: string | null;
-  birth_city_id?: number | null;
-  agent_person_id?: number | null;
-  retirement_after_current_club?: boolean | number | null;
+  sex: string | null;
+  height: number | null;
+  birth_date: string | null;
+  birth_city_id: number | null;
+  agent_person_id: number | null;
+  retirement_after_current_club: boolean | number;
 }
 
-export interface PersonSecondNationality extends EntityRow {
-  id: number;
-  person_id: number;
-  nation_id: number;
-  information_id?: number | null;
+export interface PersonDraft {
+  firstName: string;
+  secondName: string;
+  commonName: string;
+  fullName: string;
+  personTypeId: string;
+  sex: string;
+  height: string;
+  birthDate: string;
+  birthCityId: string;
+  agentPersonId: string;
+  retirementAfterCurrentClub: boolean;
+}
+
+export interface PersonReferenceData {
+  personTypes: EntityRow[];
+  cities: EntityRow[];
+  nations: EntityRow[];
+  people: EntityRow[];
+  languages: EntityRow[];
+  secondNationalityInfo: EntityRow[];
+  employments: EntityRow[];
+  teams: EntityRow[];
+  relationshipReasons: EntityRow[];
+  nationalTeams: EntityRow[];
 }
 
 export interface PersonInternationalData extends EntityRow {
@@ -43,6 +63,13 @@ export interface PersonGeneralAttribute extends EntityRow {
   world_reputation?: number | null;
 }
 
+export interface PersonSecondNationality extends EntityRow {
+  id: number;
+  person_id: number;
+  nation_id: number;
+  information_id?: number | null;
+}
+
 export interface PersonTendency extends EntityRow {
   id: number;
   person_id: number;
@@ -50,35 +77,4 @@ export interface PersonTendency extends EntityRow {
   enabled: boolean | number;
 }
 
-export interface PersonDraft {
-  firstName: string;
-  secondName: string;
-  commonName: string;
-  fullName: string;
-  personTypeId: string;
-  sex: string;
-  height: string;
-  birthDate: string;
-  birthCityId: string;
-  agentPersonId: string;
-  retirementAfterCurrentClub: boolean;
-}
-
-export interface PersonReferenceData {
-  personTypes: EntityRow[];
-  genders: EntityRow[];
-  cities: EntityRow[];
-  nations: EntityRow[];
-  people: EntityRow[];
-  languages: EntityRow[];
-  secondNationalityInfo: EntityRow[];
-  employments: EntityRow[];
-  teams: EntityRow[];
-  competitions: EntityRow[];
-  relationshipReasons: EntityRow[];
-  nationalTeams: EntityRow[];
-}
-
-export interface PersonSavePayload {
-  person: Record<string, Scalar>;
-}
+export type PersonScalar = Scalar;
