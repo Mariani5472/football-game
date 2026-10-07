@@ -67,7 +67,7 @@ export class FastStartService {
     this.calendar = new CalendarGenerationService(database);
   }
 
-  scenarios() {
+  listScenarios() {
     return this.scenarios.listScenarios();
   }
 
