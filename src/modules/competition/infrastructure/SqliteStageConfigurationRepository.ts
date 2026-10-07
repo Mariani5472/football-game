@@ -28,6 +28,7 @@ export class SqliteStageConfigurationRepository implements StageConfigurationRep
 
   private createStageConfiguration(stageId: number, setup: CompetitionStageSetup) {
     const format = setup.format;
+
     if (setup.participantRule) {
       this.database.create("stage_participant_rule", {
         stage_id: stageId,
@@ -35,41 +36,98 @@ export class SqliteStageConfigurationRepository implements StageConfigurationRep
         min_participants: setup.participantRule.minimum,
         max_participants: setup.participantRule.maximum,
       });
-    }
-    if (setup.participantRule && (setup.participantRule as { sourceType?: string }).sourceType) {
-      const participantRule = setup.participantRule as CompetitionStageSetup["participantRule"] & { sourceType?: string; sourceCompetitionId?: number; sourceSeasonId?: number; sourceStageId?: number; positionFrom?: number; positionTo?: number };
-      this.database.create("stage_participant_source", {
-        stage_id: stageId,
-        source_type: participantRule.sourceType,
-        source_competition_id: participantRule.sourceCompetitionId,
-        source_stage_id: participantRule.sourceStageId,
-        position_from: participantRule.positionFrom,
-        position_to: participantRule.positionTo,
-      });
+
+      const source = setup.participantRule as CompetitionStageSetup["participantRule"] & {
+        sourceType?: string;
+        sourceCompetitionId?: number;
+        sourceStageId?: number;
+        positionFrom?: number;
+        positionTo?: number;
+      };
+
+      if (source.sourceType && source.sourceType !== "DIRECT") {
+        this.database.create("stage_participant_source", {
+          stage_id: stageId,
+          source_type: source.sourceType,
+          source_competition_id: source.sourceCompetitionId,
+          source_stage_id: source.sourceStageId,
+          position_from: source.positionFrom,
+          position_to: source.positionTo,
+        });
+      }
     }
 
     this.database.create("stage_format", {
-      stage_id: stageId, format_type: format.type, participant_count: format.participantCount,
-      group_count: format.groupCount, participants_per_group: format.participantsPerGroup,
-      legs: format.legs, home_away: format.homeAway ? 1 : 0,
-      aggregate_score: format.aggregateScore ? 1 : 0, extra_time: format.extraTime ? 1 : 0,
-      penalties: format.penalties ? 1 : 0, away_goals_rule: format.awayGoalsRule ? 1 : 0,
+      stage_id: stageId,
+      format_type: format.type,
+      participant_count: format.participantCount,
+      group_count: format.groupCount,
+      participants_per_group: format.participantsPerGroup,
+      legs: format.legs,
+      home_away: format.homeAway ? 1 : 0,
+      aggregate_score: format.aggregateScore ? 1 : 0,
+      extra_time: format.extraTime ? 1 : 0,
+      penalties: format.penalties ? 1 : 0,
+      away_goals_rule: format.awayGoalsRule ? 1 : 0,
     });
-    if (setup.points) this.database.create("stage_points_rule", { stage_id: stageId, win_points: setup.points.win, draw_points: setup.points.draw, loss_points: setup.points.loss });
-    if (setup.schedule) this.database.create("schedule_profile", {
-      stage_id: stageId, scheduling_type: setup.schedule.type, start_date: setup.schedule.startDate,
-      end_date: setup.schedule.endDate, interval_days: setup.schedule.intervalDays,
-      home_away_balanced: setup.schedule.homeAwayBalanced === false ? 0 : 1,
-    });
-    for (const [index, ruleType] of (setup.standingRules ?? []).entries()) this.database.create("standing_rule", { stage_id: stageId, rule_order: index + 1, rule_type: ruleType });
-    for (const rule of setup.matchRules ?? []) this.database.create("stage_match_rule", { stage_id: stageId, rule_type: rule.type, rule_value: rule.value });
+
+    if (setup.points) {
+      this.database.create("stage_points_rule", {
+        stage_id: stageId,
+        win_points: setup.points.win,
+        draw_points: setup.points.draw,
+        loss_points: setup.points.loss,
+      });
+    }
+
+    if (setup.schedule) {
+      this.database.create("schedule_profile", {
+        stage_id: stageId,
+        scheduling_type: setup.schedule.type,
+        start_date: setup.schedule.startDate,
+        end_date: setup.schedule.endDate,
+        interval_days: setup.schedule.intervalDays,
+        home_away_balanced: setup.schedule.homeAwayBalanced === false ? 0 : 1,
+      });
+    }
+
+    for (const [index, ruleType] of (setup.standingRules ?? []).entries()) {
+      this.database.create("standing_rule", {
+        stage_id: stageId,
+        rule_order: index + 1,
+        rule_type: ruleType,
+      });
+    }
+
+    for (const rule of setup.matchRules ?? []) {
+      this.database.create("stage_match_rule", {
+        stage_id: stageId,
+        rule_type: rule.type,
+        rule_value: rule.value,
+      });
+    }
+
     for (const rule of setup.qualificationRules ?? []) {
       const created = this.database.create("qualification_rule", {
+        stage_id: stageId,
+        position_from: rule.positionFrom,
+        position_to: rule.positionTo,
+        qualification_type: rule.type,
+        destination_competition_id: rule.destinationCompetitionId,
+        destination_stage_id: rule.destinationStageId,
+      });
 
-      stage_id: stageId, position_from: rule.positionFrom, position_to: rule.positionTo,
-        qualification_type: rule.type, destination_competition_id: rule.destinationCompetitionId,
-      destination_stage_id: rule.destinationStageId,
-    });
-    return { id: stageId, seasonId: setup.seasonId, name: setup.name, stageOrder: setup.stageOrder };
+      if (rule.destinationStageId != null) {
+        for (let position = rule.positionFrom; position <= rule.positionTo; position += 1) {
+          this.database.create("stage_transition", {
+            from_stage_id: stageId,
+            to_stage_id: rule.destinationStageId,
+            source_type: rule.type,
+            source_position: position,
+            qualification_rule_id: Number(created.id),
+          });
+        }
+      }
+    }
   }
 }
