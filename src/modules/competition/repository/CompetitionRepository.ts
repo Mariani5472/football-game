@@ -2,6 +2,7 @@ import type { WorldDatabase } from "../../../database/world/WorldDatabase.js";
 import type { Competition } from "../domain/Competition.js";
 import type { CompetitionParticipant, ParticipantSource, ResolvedParticipantSource } from "../domain/CompetitionParticipant.js";
 import type { CompetitionSeason } from "../domain/CompetitionSeason.js";
+import { StandingEngine } from "../engine/StandingEngine.js";
 import type {
   CompetitionStage,
   StageFormat,
