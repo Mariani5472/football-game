@@ -16,6 +16,38 @@ export class CalendarGenerationService {
   }
 
   generateSeason(seasonId: number): CalendarGenerationResult {
+    const existing = this.database.connection
+      .prepare(`SELECT COUNT(*) AS count
+               FROM competition_round r
+               JOIN competition_stage s ON s.id = r.stage_id
+               WHERE s.competition_season_id = ?`)
+      .get(seasonId) as { count: number };
+
+    if (Number(existing.count) > 0) {
+      const counts = this.database.connection
+        .prepare(`SELECT
+                    COUNT(DISTINCT r.id) AS rounds,
+                    COUNT(f.id) AS fixtures
+                  FROM competition_round r
+                  JOIN competition_stage s ON s.id = r.stage_id
+                  LEFT JOIN fixture f ON f.round_id = r.id
+                 WHERE s.competition_season_id = ?`)
+        .get(seasonId) as { rounds: number; fixtures: number };
+
+      const stageCount = this.database.connection
+        .prepare(`SELECT COUNT(*) AS count
+                  FROM competition_stage
+                  WHERE competition_season_id = ?`)
+        .get(seasonId) as { count: number };
+
+      return {
+        seasonId,
+        stages: Number(stageCount.count),
+        rounds: Number(counts.rounds),
+        fixtures: Number(counts.fixtures),
+      };
+    }
+
     const stages = this.competitionEngine.generateMultiStageSeason(seasonId);
     let rounds = 0;
     let fixtures = 0;
