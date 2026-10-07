@@ -36,8 +36,7 @@ export function StagesTab({
     setError(null);
 
     try {
-      const source = stage.participantSources[0];
-      const saved = await editorApi.domain.createCompetitionStage({
+          const saved = await editorApi.domain.createCompetitionStage({
         seasonId: activeSeason.id,
         name: stage.name,
         stageOrder: stage.stageOrder,
@@ -45,13 +44,14 @@ export function StagesTab({
           type: stage.participantRule.participantType,
           minimum: stage.participantRule.minParticipants,
           maximum: stage.participantRule.maxParticipants,
-          sourceType: source?.sourceType,
-          sourceCompetitionId: source?.sourceCompetitionId,
-          sourceSeasonId: undefined,
-          sourceStageId: source?.sourceStageId,
-          positionFrom: source?.positionFrom,
-          positionTo: source?.positionTo,
         },
+        participantSources: stage.participantSources.map(item => ({
+          sourceType: item.sourceType,
+          sourceCompetitionId: item.sourceCompetitionId,
+          sourceStageId: item.sourceStageId,
+          positionFrom: item.positionFrom,
+          positionTo: item.positionTo,
+        })),
         format: {
           type: stage.formatRule.formatType,
           participantCount: stage.formatRule.participantCount,
