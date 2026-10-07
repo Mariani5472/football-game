@@ -48,6 +48,78 @@ export class CompetitionEngine {
     return conditionalDraw(input.teams, { groupCount: input.groupCount, teamsPerGroup: input.teamsPerGroup, restrictions: input.restrictions ?? [], random: input.random });
   }
 
+  resolveStageParticipants(seasonId: number, stageId: number) {
+    const stage = this.repository.findStages(seasonId).find(item => item.id === stageId);
+    if (!stage) throw new Error(`Stage não encontrada: ${stageId}`);
+
+    const direct = this.repository.findParticipants(seasonId);
+    const sources = this.repository.findStageParticipantSources(stageId);
+    if (!sources.length) return direct;
+
+    const teamIds = new Set<number>();
+    for (const source of sources) {
+      if (source.sourceStageId == null) continue;
+      const resolved = this.repository.resolveParticipantSource(source);
+      for (const teamId of resolved.teamIds) teamIds.add(teamId);
+    }
+
+    const byId = new Map(direct.map(team => [team.teamId, team]));
+    return [...teamIds]
+      .map(teamId => byId.get(teamId))
+      .filter((team): team is NonNullable<typeof team> => Boolean(team));
+  }
+
+  executeDraw(input: {
+    teams: DrawTeam[];
+    type: "RANDOM" | "SEEDED" | "CONDITIONAL";
+    groupCount: number;
+    teamsPerGroup: number;
+    restrictions?: DrawRestriction[];
+    random?: () => number;
+  }): DrawResult {
+    if (input.type === "RANDOM") {
+      return randomDraw(input.teams, input.groupCount, input.teamsPerGroup, input.random);
+    }
+    return conditionalDraw(input.teams, {
+      groupCount: input.groupCount,
+      teamsPerGroup: input.teamsPerGroup,
+      restrictions: input.restrictions ?? [],
+      random: input.random,
+    });
+  }
+
+  buildStageTransitions(seasonId: number) {
+    const stages = this.repository.findStages(seasonId);
+    const transitions: Array<{ fromStageId: number; toStageId: number; sourceType: string; sourcePosition: number | null }> = [];
+
+    for (let index = 0; index < stages.length - 1; index += 1) {
+      const from = stages[index];
+      const to = stages[index + 1];
+      const sources = this.repository.findStageParticipantSources(to.id);
+
+      if (!sources.length) {
+        transitions.push({ fromStageId: from.id, toStageId: to.id, sourceType: "DIRECT", sourcePosition: null });
+        continue;
+      }
+
+      for (const source of sources) {
+        if (source.sourceStageId != null && source.sourceStageId !== from.id) continue;
+        const fromPosition = source.positionFrom ?? 1;
+        const toPosition = source.positionTo ?? fromPosition;
+        for (let position = fromPosition; position <= toPosition; position += 1) {
+          transitions.push({
+            fromStageId: from.id,
+            toStageId: to.id,
+            sourceType: source.type,
+            sourcePosition: position,
+          });
+        }
+      }
+    }
+
+    return transitions;
+  }
+
   generateSeason(
     setup: CompetitionSeasonSetup,
   ): GeneratedSeason {
