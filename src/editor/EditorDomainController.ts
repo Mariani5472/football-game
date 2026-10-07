@@ -102,7 +102,7 @@ export async function handleDomainRequest(request: http.IncomingMessage, respons
     }
     if (request.method === "GET" && parts[2] === "competition-stage" && parts[4] === "participants" && parts[5] === undefined) {
     const seasonId = positiveInteger(parts[3], "seasonId");
-    const stageId = positiveInteger(parts[5 - 1], "stageId");
+    const stageId = positiveInteger(parts[5], "stageId");
     sendJson(response, 200, { participants: service.resolveCompetitionStageParticipants(seasonId, stageId) });
     return true;
   }
