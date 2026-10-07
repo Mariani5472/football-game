@@ -112,15 +112,9 @@ export class FastStartService {
         options.seasonYear,
       );
 
-      let calendarRounds = 0;
-      let calendarFixtures = 0;
       for (const seasonId of currentSeasonIds) {
-        const generated = this.calendar.generateSeason(seasonId);
-        calendarRounds += generated.rounds;
-        calendarFixtures += generated.fixtures;
+        this.calendar.generateSeason(seasonId);
       }
-      void calendarRounds;
-      void calendarFixtures;
       steps.push("CALENDAR");
 
       const validation = this.validator.validate();
