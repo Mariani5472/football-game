@@ -172,27 +172,55 @@ export class ScheduleEngine {
     return this.scheduleRounds(rounds);
   }
 
-  private nextKnockoutParticipants(current: CompetitionParticipant[]): CompetitionParticipant[] {
-    const realTeams = current.filter((team) => team.teamId !== 0);
-    const next: CompetitionParticipant[] = [];
+  generateKnockoutRound(
+    matchups: Array<{ homeTeamId: number; awayTeamId: number }>,
+    startDate: string,
+    intervalDays: number,
+    roundNumber: number,
+    legs = 1,
+  ): GeneratedRound[] {
+    if (matchups.length === 0) {
+      throw new Error("Knockout round requires at least one matchup.");
+    }
+    if (!startDate || intervalDays < 1) {
+      throw new Error("Knockout round schedule is invalid.");
+    }
+    if (!Number.isInteger(roundNumber) || roundNumber < 1) {
+      throw new Error("Knockout round number must be positive.");
+    }
+    if (!Number.isInteger(legs) || legs < 1 || legs > 2) {
+      throw new Error("Knockout round supports one or two legs.");
+    }
 
-    for (let index = 0; index < realTeams.length; index += 2) {
-      const first = realTeams[index];
-      const second = realTeams[index + 1];
+    const rounds: GeneratedRound[] = [];
+    const first = {
+      roundNumber,
+      date: this.addDays(startDate, (roundNumber - 1) * intervalDays),
+      fixtures: matchups.map((matchup) => ({
+        roundNumber,
+        homeTeamId: matchup.homeTeamId,
+        awayTeamId: matchup.awayTeamId,
+        scheduledAt: "",
+        status: "SCHEDULED" as const,
+      })),
+    };
+    rounds.push(first);
 
-      if (!second) {
-        next.push(first);
-        continue;
-      }
-
-      next.push({
-        teamId: 0,
-        name: "TBD",
-        reputation: Math.max(first.reputation, second.reputation),
+    if (legs === 2) {
+      rounds.push({
+        roundNumber: roundNumber + 1,
+        date: this.addDays(startDate, roundNumber * intervalDays),
+        fixtures: matchups.map((matchup) => ({
+          roundNumber: roundNumber + 1,
+          homeTeamId: matchup.awayTeamId,
+          awayTeamId: matchup.homeTeamId,
+          scheduledAt: "",
+          status: "SCHEDULED" as const,
+        })),
       });
     }
 
-    return next;
+    return this.scheduleRounds(rounds);
   }
 
   private scheduleRounds(rounds: GeneratedRound[]): GeneratedRound[] {
