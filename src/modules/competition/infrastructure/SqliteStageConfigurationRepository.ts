@@ -28,7 +28,26 @@ export class SqliteStageConfigurationRepository implements StageConfigurationRep
 
   private createStageConfiguration(stageId: number, setup: CompetitionStageSetup) {
     const format = setup.format;
-    if (setup.participantRule) this.database.create("stage_participant_rule", { stage_id: stageId, participant_type: setup.participantRule.type, min_participants: setup.participantRule.minimum, max_participants: setup.participantRule.maximum });
+    if (setup.participantRule) {
+      this.database.create("stage_participant_rule", {
+        stage_id: stageId,
+        participant_type: setup.participantRule.type,
+        min_participants: setup.participantRule.minimum,
+        max_participants: setup.participantRule.maximum,
+      });
+    }
+    if (setup.participantRule && (setup.participantRule as { sourceType?: string }).sourceType) {
+      const participantRule = setup.participantRule as CompetitionStageSetup["participantRule"] & { sourceType?: string; sourceCompetitionId?: number; sourceSeasonId?: number; sourceStageId?: number; positionFrom?: number; positionTo?: number };
+      this.database.create("stage_participant_source", {
+        stage_id: stageId,
+        source_type: participantRule.sourceType,
+        source_competition_id: participantRule.sourceCompetitionId,
+        source_stage_id: participantRule.sourceStageId,
+        position_from: participantRule.positionFrom,
+        position_to: participantRule.positionTo,
+      });
+    }
+
     this.database.create("stage_format", {
       stage_id: stageId, format_type: format.type, participant_count: format.participantCount,
       group_count: format.groupCount, participants_per_group: format.participantsPerGroup,
@@ -44,9 +63,11 @@ export class SqliteStageConfigurationRepository implements StageConfigurationRep
     });
     for (const [index, ruleType] of (setup.standingRules ?? []).entries()) this.database.create("standing_rule", { stage_id: stageId, rule_order: index + 1, rule_type: ruleType });
     for (const rule of setup.matchRules ?? []) this.database.create("stage_match_rule", { stage_id: stageId, rule_type: rule.type, rule_value: rule.value });
-    for (const rule of setup.qualificationRules ?? []) this.database.create("qualification_rule", {
+    for (const rule of setup.qualificationRules ?? []) {
+      const created = this.database.create("qualification_rule", {
+
       stage_id: stageId, position_from: rule.positionFrom, position_to: rule.positionTo,
-      qualification_type: rule.type, destination_competition_id: rule.destinationCompetitionId,
+        qualification_type: rule.type, destination_competition_id: rule.destinationCompetitionId,
       destination_stage_id: rule.destinationStageId,
     });
     return { id: stageId, seasonId: setup.seasonId, name: setup.name, stageOrder: setup.stageOrder };
