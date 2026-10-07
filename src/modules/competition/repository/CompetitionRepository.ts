@@ -1,6 +1,6 @@
 import type { WorldDatabase } from "../../../database/world/WorldDatabase.js";
 import type { Competition } from "../domain/Competition.js";
-import type { CompetitionParticipant } from "../domain/CompetitionParticipant.js";
+import type { CompetitionParticipant, ParticipantSource, ResolvedParticipantSource } from "../domain/CompetitionParticipant.js";
 import type { CompetitionSeason } from "../domain/CompetitionSeason.js";
 import type {
   CompetitionStage,
@@ -172,15 +172,92 @@ export class CompetitionRepository {
               row.homeAwayBalanced === 1,
           };
 
-    return {
-      id: row.id,
-      competitionSeasonId: row.competitionSeasonId,
-      name: row.name,
-      stageOrder: row.stageOrder,
-      format,
-      points,
-      schedule,
+    return this.mapStage(row);
+  }
+
+
+  findStages(seasonId: number): CompetitionStage[] {
+    return this.database.connection.prepare(
+      `SELECT cs.id, cs.competition_season_id AS competitionSeasonId, cs.name, cs.stage_order AS stageOrder,
+              sf.format_type AS formatType, sf.participant_count AS participantCount, sf.legs, sf.home_away AS homeAway,
+              spr.win_points AS winPoints, spr.draw_points AS drawPoints, spr.loss_points AS lossPoints,
+              sp.scheduling_type AS schedulingType, sp.start_date AS startDate, sp.end_date AS endDate,
+              sp.interval_days AS intervalDays, sp.home_away_balanced AS homeAwayBalanced
+         FROM competition_stage cs
+         LEFT JOIN stage_format sf ON sf.stage_id = cs.id
+         LEFT JOIN stage_points_rule spr ON spr.stage_id = cs.id
+         LEFT JOIN schedule_profile sp ON sp.stage_id = cs.id
+        WHERE cs.competition_season_id = ?
+        ORDER BY cs.stage_order`
+    ).all(seasonId).map(row => this.mapStage(row as StageRow));
+  }
+
+  findStageParticipantSources(stageId: number): ParticipantSource[] {
+    const rows = this.database.connection.prepare(
+      `SELECT source_type, source_competition_id, source_season_id, source_stage_id,
+              position_from, position_to, qualification_type
+         FROM stage_participant_source
+        WHERE stage_id = ?
+        ORDER BY id`
+    ).all(stageId) as Array<{
+      source_type: string;
+      source_competition_id: number | null;
+      source_season_id: number | null;
+      source_stage_id: number | null;
+      position_from: number | null;
+      position_to: number | null;
+      qualification_type: string | null;
+    }>;
+
+    return rows.map(row => ({
+      type: row.source_type as ParticipantSource["type"],
+      sourceCompetitionId: row.source_competition_id ?? undefined,
+      sourceSeasonId: row.source_season_id ?? undefined,
+      sourceStageId: row.source_stage_id ?? undefined,
+      positionFrom: row.position_from ?? undefined,
+      positionTo: row.position_to ?? undefined,
+      qualificationType: row.qualification_type === null ? undefined : row.qualification_type as ParticipantSource["qualificationType"],
+    }));
+  }
+
+  resolveStandings(sourceStageId: number, positionFrom: number, positionTo: number): number[] {
+    const rows = this.database.connection.prepare(
+      `SELECT team_id FROM stage_standing
+        WHERE stage_id = ? AND position BETWEEN ? AND ?
+        ORDER BY position`
+    ).all(sourceStageId, positionFrom, positionTo) as Array<{ team_id: number }>;
+    return rows.map(row => row.team_id);
+  }
+
+  resolveParticipantSource(source: ParticipantSource): ResolvedParticipantSource {
+    const stageId = source.sourceStageId;
+    if (stageId == null) throw new Error("Participant source requires sourceStageId.");
+    const from = source.positionFrom ?? 1;
+    const to = source.positionTo ?? from;
+    return { source, teamIds: this.resolveStandings(stageId, from, to) };
+  }
+
+
+  private mapStage(row: StageRow): CompetitionStage {
+    const format: StageFormat | null = row.formatType === null ? null : {
+      formatType: row.formatType,
+      participantCount: row.participantCount,
+      legs: row.legs ?? 1,
+      homeAway: row.homeAway === 1,
     };
+    const points: StagePointsRule | null = row.winPoints === null ? null : {
+      winPoints: row.winPoints,
+      drawPoints: row.drawPoints ?? 1,
+      lossPoints: row.lossPoints ?? 0,
+    };
+    const schedule: StageSchedule | null = row.schedulingType === null ? null : {
+      schedulingType: row.schedulingType,
+      startDate: row.startDate,
+      endDate: row.endDate,
+      intervalDays: row.intervalDays ?? 0,
+      homeAwayBalanced: row.homeAwayBalanced === 1,
+    };
+    return { id: row.id, competitionSeasonId: row.competitionSeasonId, name: row.name, stageOrder: row.stageOrder, format, points, schedule };
   }
 
   findParticipants(
