@@ -47,8 +47,13 @@ export function FormationsPage() {
       },
       {
         key: "positions",
-        header: "Positions",
+        header: "Slots",
         render: row => row.positions.length || "Open editor",
+      },
+      {
+        key: "tactical",
+        header: "Tactical state",
+        render: row => row.positions.length >= 11 ? "XI configured" : "Needs setup",
       },
       {
         key: "description",
