@@ -65,7 +65,6 @@ export class SqliteStageConfigurationRepository implements StageConfigurationRep
       "standing_rule",
       "stage_match_rule",
       "qualification_rule",
-      "stage_transition",
       "schedule_profile",
       "stage_points_rule",
       "stage_format",
@@ -74,6 +73,9 @@ export class SqliteStageConfigurationRepository implements StageConfigurationRep
     for (const table of dependentTables) {
       this.database.connection.prepare(`DELETE FROM "${table}" WHERE stage_id = ?`).run(stageId);
     }
+    this.database.connection
+      .prepare("DELETE FROM stage_transition WHERE from_stage_id = ? OR to_stage_id = ?")
+      .run(stageId, stageId);
 
     this.createStageConfiguration(stageId, setup);
 
