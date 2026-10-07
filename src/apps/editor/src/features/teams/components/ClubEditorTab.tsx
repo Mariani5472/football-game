@@ -44,13 +44,13 @@ export function ClubEditorTab({
   );
 }
 
-
+function TacticalProfileEditor({ teamId }: { teamId: number }) {
   return (
     <div className="space-y-4">
       <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-5">
         <div className="text-sm font-semibold text-white">Tactical profile</div>
         <p className="mt-1 text-xs text-slate-500">
-          Configure the team&apos;s base, offensive and defensive formation preferences.
+          Configure the team's preferred, offensive and defensive formations.
         </p>
         <ClubScopedRelationEditor
           clubId={teamId}
