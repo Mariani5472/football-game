@@ -289,7 +289,7 @@ export class WorldEditorService {
     return result;
   }
   fastStartScenarios() {
-    return new FastStartService(this.database).scenarios();
+    return new FastStartService(this.database).listScenarios();
   }
 
   fastStart(template: FastStartTemplate, seasonYear: number) {
