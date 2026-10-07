@@ -293,8 +293,7 @@ export class WorldEditorService {
       throw new Error("Season year must be between 1900 and 3000.");
     }
     const result = new FastStartService(this.database).run({ template, seasonYear });
-    this.markDirectEdit();
-    return { template, seasonYear, result: "COMPLETED" as const };
+    return result;
   }
 
   resolveCompetitionStageParticipants(seasonId: number, stageId: number) {
