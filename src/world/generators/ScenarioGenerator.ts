@@ -11,43 +11,121 @@ import { PlayerGenerator } from "./PlayerGenerator.js";
 import { StadiumGenerator } from "./StadiumGenerator.js";
 import { TeamGenerator } from "./TeamGenerator.js";
 
+export type ScenarioId = "EMPTY" | "SANDBOX" | "BRAZIL";
+
+export interface ScenarioDefinition {
+  id: ScenarioId;
+  label: string;
+  teamCount: number;
+  teamNamePrefix: string;
+  teamShortNamePrefix: string;
+  brazil: boolean;
+}
+
+const SCENARIOS: Record<ScenarioId, ScenarioDefinition> = {
+  EMPTY: {
+    id: "EMPTY",
+    label: "Empty",
+    teamCount: 0,
+    teamNamePrefix: "",
+    teamShortNamePrefix: "",
+    brazil: false,
+  },
+  SANDBOX: {
+    id: "SANDBOX",
+    label: "Sandbox",
+    teamCount: 8,
+    teamNamePrefix: "Sandbox FC",
+    teamShortNamePrefix: "SB",
+    brazil: false,
+  },
+  BRAZIL: {
+    id: "BRAZIL",
+    label: "Brazil Sandbox",
+    teamCount: 20,
+    teamNamePrefix: "Brazil FC",
+    teamShortNamePrefix: "BR",
+    brazil: true,
+  },
+};
+
 export class ScenarioGenerator {
+  private readonly geography: GeographyGenerator;
+  private readonly language: LanguageGenerator;
+  private readonly climate: ClimateGenerator;
+  private readonly city: CityGenerator;
+  private readonly team: TeamGenerator;
+  private readonly stadium: StadiumGenerator;
+  private readonly person: PersonGenerator;
+  private readonly player: PlayerGenerator;
+  private readonly competition: CompetitionGenerator;
+
   constructor(
     private readonly database: WorldDatabase,
-  ) {}
-
-  generateSandbox(
-    seasonYear: number,
-  ): GenerationContext {
-    return this.generateScenario(
-      seasonYear,
-      8,
-      "Sandbox FC",
-      "SB",
-      false,
-    );
+  ) {
+    this.geography = new GeographyGenerator(database);
+    this.language = new LanguageGenerator(database);
+    this.climate = new ClimateGenerator(database);
+    this.city = new CityGenerator(database);
+    this.team = new TeamGenerator(database);
+    this.stadium = new StadiumGenerator(database);
+    this.person = new PersonGenerator(database);
+    this.player = new PlayerGenerator(database);
+    this.competition = new CompetitionGenerator(database);
   }
 
-  generateBrazilSandbox(
-    seasonYear: number,
-  ): GenerationContext {
-    return this.generateScenario(
-      seasonYear,
-      20,
-      "Brazil FC",
-      "BR",
-      true,
-    );
+  listScenarios(): ScenarioDefinition[] {
+    return Object.values(SCENARIOS);
   }
 
-  private generateScenario(
+  generate(
+    scenarioId: ScenarioId,
     seasonYear: number,
-    teamCount: number,
-    teamNamePrefix: string,
-    teamShortNamePrefix: string,
-    brazil: boolean,
   ): GenerationContext {
-    const context: GenerationContext = {
+    const definition = SCENARIOS[scenarioId];
+
+    if (!definition) {
+      throw new Error(`Unknown fast-start scenario: ${scenarioId}`);
+    }
+
+    if (scenarioId === "EMPTY") {
+      return this.createContext();
+    }
+
+    const context = this.createContext();
+
+    this.geography.generateSandbox(context);
+    this.language.generateSandbox(context);
+    this.climate.generateSandbox(context);
+    this.city.generateSandbox(context, definition.teamCount);
+    this.team.generateSandbox(context, {
+      count: definition.teamCount,
+      namePrefix: definition.teamNamePrefix,
+      shortNamePrefix: definition.teamShortNamePrefix,
+    });
+    this.stadium.generateSandbox(context, definition.teamCount);
+    this.person.generateSandbox(context);
+    this.player.generateSandbox(context);
+
+    if (definition.brazil) {
+      this.competition.generateBrazilSandbox(context, seasonYear);
+    } else {
+      this.competition.generateSandbox(context, seasonYear);
+    }
+
+    return context;
+  }
+
+  generateSandbox(seasonYear: number): GenerationContext {
+    return this.generate("SANDBOX", seasonYear);
+  }
+
+  generateBrazilSandbox(seasonYear: number): GenerationContext {
+    return this.generate("BRAZIL", seasonYear);
+  }
+
+  private createContext(): GenerationContext {
+    return {
       climateIds: [],
       nationIds: [],
       nationRegionIds: [],
@@ -61,86 +139,5 @@ export class ScenarioGenerator {
       competitionSeasonIds: [],
       competitionStageIds: [],
     };
-
-    const geography =
-      new GeographyGenerator(
-        this.database,
-      );
-
-    const language =
-      new LanguageGenerator(
-        this.database,
-      );
-
-    const climate =
-      new ClimateGenerator(
-        this.database,
-      );
-
-    const city =
-      new CityGenerator(
-        this.database,
-      );
-
-    const team =
-      new TeamGenerator(
-        this.database,
-      );
-
-    const stadium =
-      new StadiumGenerator(
-        this.database,
-      );
-
-    const person =
-      new PersonGenerator(
-        this.database,
-      );
-
-    const player =
-      new PlayerGenerator(
-        this.database,
-      );
-
-    const competition =
-      new CompetitionGenerator(
-        this.database,
-      );
-
-    geography.generateSandbox(context);
-    language.generateSandbox(context);
-    climate.generateSandbox(context);
-    city.generateSandbox(
-      context,
-      teamCount,
-    );
-    team.generateSandbox(
-      context,
-      {
-        count: teamCount,
-        namePrefix: teamNamePrefix,
-        shortNamePrefix: teamShortNamePrefix,
-      },
-    );
-    stadium.generateSandbox(
-      context,
-      teamCount,
-    );
-    person.generateSandbox(context);
-    player.generateSandbox(context);
-
-    if (brazil) {
-      competition.generateBrazilSandbox(
-        context,
-        seasonYear,
-      );
-    } else {
-      competition.generateSandbox(
-        context,
-        seasonYear,
-      );
-    }
-
-    return context;
   }
 }
