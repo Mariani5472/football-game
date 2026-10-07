@@ -47,7 +47,7 @@ export const copaDoBrasilStages = [
     qualification: [{ positionFrom: 1, positionTo: 20, type: "QUALIFY" as const, destinationStageId: 103 }],
     draw: { drawType: "CONDITIONAL" as const, groupCount: 20, teamsPerGroup: 2, seedCount: 20 },
   },
-] satisfies Array<any>;
+ ];
 
 export const competitions: Competition[] = [
   {
