@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { editorApi, type FastStartResult, type FastStartScenario } from "../../shared/api/editorApi";
+import { editorApi } from "../../shared/api/editorApi";
+import type { FastStartResult, FastStartScenario } from "../../shared/api/types";
 import { FastStartProgress } from "./FastStartProgress";
 import { FastStartSummary } from "./FastStartSummary";
 
