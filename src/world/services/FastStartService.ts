@@ -3,10 +3,9 @@ import {
   ScenarioGenerator,
   type ScenarioId,
 } from "../generators/ScenarioGenerator.js";
-import {
-  WorldValidationResult,
-  WorldValidator,
-} from "../validation/index.js";
+import type { WorldValidationResult } from "../validation/index.js";
+import { WorldValidator } from "../validation/index.js";
+import { CalendarGenerationService } from "./CalendarGenerationService.js";
 
 export type FastStartTemplate = ScenarioId;
 
@@ -58,12 +57,14 @@ export interface FastStartResult {
 export class FastStartService {
   private readonly scenarios: ScenarioGenerator;
   private readonly validator: WorldValidator;
+  private readonly calendar: CalendarGenerationService;
 
   constructor(
     private readonly database: WorldDatabase,
   ) {
     this.scenarios = new ScenarioGenerator(database);
     this.validator = new WorldValidator(database);
+    this.calendar = new CalendarGenerationService(database);
   }
 
   run(options: FastStartOptions): FastStartResult {
@@ -100,8 +101,23 @@ export class FastStartService {
         "PEOPLE",
         "STADIUMS",
         "COMPETITIONS",
-        "CALENDAR",
       );
+
+      const currentSeasonIds = this.currentSeasonIds(
+        context.competitionSeasonIds,
+        options.seasonYear,
+      );
+
+      let calendarRounds = 0;
+      let calendarFixtures = 0;
+      for (const seasonId of currentSeasonIds) {
+        const generated = this.calendar.generateSeason(seasonId);
+        calendarRounds += generated.rounds;
+        calendarFixtures += generated.fixtures;
+      }
+      void calendarRounds;
+      void calendarFixtures;
+      steps.push("CALENDAR");
 
       const validation = this.validator.validate();
 
@@ -112,6 +128,8 @@ export class FastStartService {
       }
 
       steps.push("VALIDATION", "COMPLETED");
+
+      this.markWorldReady();
 
       const summary = this.buildSummary(
         options.template,
@@ -142,6 +160,31 @@ export class FastStartService {
     if (!["EMPTY", "SANDBOX", "BRAZIL"].includes(options.template)) {
       throw new Error(`Unsupported fast-start scenario: ${options.template}`);
     }
+  }
+
+  private currentSeasonIds(
+    seasonIds: number[],
+    seasonYear: number,
+  ): number[] {
+    if (!seasonIds.length) return [];
+    const placeholders = seasonIds.map(() => "?").join(",");
+    const rows = this.database.connection
+      .prepare(
+        `SELECT id
+         FROM competition_season
+         WHERE id IN (${placeholders})
+           AND year = ?
+         ORDER BY id`,
+      )
+      .all(...seasonIds, seasonYear) as Array<{ id: number }>;
+
+    return rows.map(row => row.id);
+  }
+
+  private markWorldReady(): void {
+    this.database.setMetadata("world_build_status", "VALID");
+    this.database.setMetadata("world_dirty_reason", "FAST_START");
+    this.database.setMetadata("world_last_build_at", new Date().toISOString());
   }
 
   private buildSummary(
