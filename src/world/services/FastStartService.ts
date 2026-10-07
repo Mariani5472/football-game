@@ -2,6 +2,7 @@ import type { WorldDatabase } from "../../database/world/WorldDatabase.js";
 import {
   ScenarioGenerator,
   type ScenarioId,
+  type ScenarioDefinition,
 } from "../generators/ScenarioGenerator.js";
 import type { WorldValidationResult } from "../validation/index.js";
 import { WorldValidator } from "../validation/index.js";
@@ -67,7 +68,7 @@ export class FastStartService {
     this.calendar = new CalendarGenerationService(database);
   }
 
-  listScenarios() {
+  listScenarios(): ScenarioDefinition[] {
     return this.scenarioGenerator.listScenarios();
   }
 
