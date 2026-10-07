@@ -55,20 +55,20 @@ export interface FastStartResult {
 }
 
 export class FastStartService {
-  private readonly scenarios: ScenarioGenerator;
+  private readonly scenarioGenerator: ScenarioGenerator;
   private readonly validator: WorldValidator;
   private readonly calendar: CalendarGenerationService;
 
   constructor(
     private readonly database: WorldDatabase,
   ) {
-    this.scenarios = new ScenarioGenerator(database);
+    this.scenarioGenerator = new ScenarioGenerator(database);
     this.validator = new WorldValidator(database);
     this.calendar = new CalendarGenerationService(database);
   }
 
   listScenarios() {
-    return this.scenarios.listScenarios();
+    return this.scenarioGenerator.listScenarios();
   }
 
   run(options: FastStartOptions): FastStartResult {
@@ -77,7 +77,7 @@ export class FastStartService {
     return this.database.transaction(() => {
       const steps: FastStartStep[] = ["SCENARIO", "WORLD"];
 
-      const context = this.scenarios.generate(
+      const context = this.scenarioGenerator.generate(
         options.template,
         options.seasonYear,
       );
