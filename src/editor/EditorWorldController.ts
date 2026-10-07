@@ -31,11 +31,17 @@ export async function handleWorldRequest(request: http.IncomingMessage, response
     const year = integer(body.year, "year");
     sendJson(response, 200, service.updateWorldSettings(name, year)); return true;
   }
+  if (request.method === "GET" && parts[2] === "fast-start" && parts[3] === "scenarios" && parts[4] === undefined) {
+    sendJson(response, 200, { scenarios: service.fastStartScenarios() });
+    return true;
+  }
+
   if (request.method === "POST" && parts[2] === "fast-start" && parts[3] === undefined) {
     const body = await readJsonBody(request);
     if (!isRecord(body) || !["EMPTY", "SANDBOX", "BRAZIL"].includes(String(body.template))) throw new Error("template must be EMPTY, SANDBOX or BRAZIL.");
     const seasonYear = integer(body.seasonYear, "seasonYear");
-    sendJson(response, 201, service.fastStart(body.template as "EMPTY" | "SANDBOX" | "BRAZIL", seasonYear)); return true;
+    sendJson(response, 201, service.fastStart(body.template as "EMPTY" | "SANDBOX" | "BRAZIL", seasonYear));
+    return true;
   }
   if (request.method === "GET" && parts[2] === "build" && parts[3] === undefined) { sendJson(response, 200, service.worldBuild()); return true; }
   if (request.method === "POST" && parts[2] === "rebuild" && parts[3] === undefined) { sendJson(response, 200, service.rebuildWorld()); return true; }
