@@ -49,26 +49,6 @@ export class CompetitionEngine {
     return conditionalDraw(input.teams, { groupCount: input.groupCount, teamsPerGroup: input.teamsPerGroup, restrictions: input.restrictions ?? [], random: input.random });
   }
 
-  resolveStageParticipants(seasonId: number, stageId: number) {
-    const stage = this.repository.findStages(seasonId).find(item => item.id === stageId);
-    if (!stage) throw new Error(`Stage não encontrada: ${stageId}`);
-
-    const direct = this.repository.findParticipants(seasonId);
-    const sources = this.repository.findStageParticipantSources(stageId);
-    if (!sources.length) return direct;
-
-    const teamIds = new Set<number>();
-    for (const source of sources) {
-      if (source.sourceStageId == null) continue;
-      const resolved = this.repository.resolveParticipantSource(source);
-      for (const teamId of resolved.teamIds) teamIds.add(teamId);
-    }
-
-    const byId = new Map(direct.map(team => [team.teamId, team]));
-    return [...teamIds]
-      .map(teamId => byId.get(teamId))
-      .filter((team): team is NonNullable<typeof team> => Boolean(team));
-  }
 
   executeDraw(input: {
     teams: DrawTeam[];
