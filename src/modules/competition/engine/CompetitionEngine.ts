@@ -2,7 +2,6 @@ import type { WorldDatabase } from "../../../database/world/WorldDatabase.js";
 import type { GeneratedSeason } from "../domain/GeneratedSeason.js";
 import type { SimulationResult, Standing } from "../domain/Standing.js";
 import type { DrawRestriction, DrawTeam, DrawResult } from "../domain/Draw.js";
-import type { ParticipantSource } from "../domain/CompetitionParticipant.js";
 import { conditionalDraw, randomDraw, seededDraw } from "./DrawEngine.js";
 import { CompetitionRepository } from "../repository/CompetitionRepository.js";
 import { MatchEngine } from "./MatchEngine.js";
