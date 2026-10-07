@@ -44,11 +44,7 @@ export function ClubEditorTab({
   );
 }
 
-function TacticalProfileEditor({ teamId }: { teamId: number }) {
-  return <TacticalProfileEditorView teamId={teamId} />;
-}
 
-function TacticalProfileEditorView({ teamId }: { teamId: number }) {
   return (
     <div className="space-y-4">
       <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-5">
