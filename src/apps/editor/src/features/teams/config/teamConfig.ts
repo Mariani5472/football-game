@@ -659,4 +659,5 @@ export const teamDomainConfigs = {
   expectation: expectationConfig,
   coefficient: coefficientConfig,
   tacticalProfile: tacticalProfileConfig,
+  preferredFormation: tacticalProfileConfig,
 } as const;
