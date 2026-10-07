@@ -7,13 +7,16 @@ export interface CompetitionStageSetup {
     type: string;
     minimum?: number;
     maximum?: number;
-    sourceType?: string;
+  };
+  participantSources?: Array<{
+    sourceType: string;
     sourceCompetitionId?: number;
     sourceSeasonId?: number;
     sourceStageId?: number;
     positionFrom?: number;
     positionTo?: number;
-  };
+    qualificationType?: string;
+  }>;
   format: { type: "LEAGUE" | "GROUP" | "KNOCKOUT"; participantCount?: number; groupCount?: number; participantsPerGroup?: number; legs: number; homeAway: boolean; aggregateScore?: boolean; extraTime?: boolean; penalties?: boolean; awayGoalsRule?: boolean };
   points?: { win: number; draw: number; loss: number };
   schedule?: { type: string; startDate?: string; endDate?: string; intervalDays?: number; homeAwayBalanced?: boolean };
