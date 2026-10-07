@@ -288,6 +288,10 @@ export class WorldEditorService {
     if (result.imported) this.markDirectEdit();
     return result;
   }
+  fastStartScenarios() {
+    return new FastStartService(this.database).scenarios();
+  }
+
   fastStart(template: FastStartTemplate, seasonYear: number) {
     if (!Number.isInteger(seasonYear) || seasonYear < 1900 || seasonYear > 3000) {
       throw new Error("Season year must be between 1900 and 3000.");
