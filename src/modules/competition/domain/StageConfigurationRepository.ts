@@ -3,7 +3,7 @@ export interface CompetitionStageSetup {
   name: string;
   stageOrder: number;
   stageTypeId?: number;
-  participantRule?: { type: string; minimum?: number; maximum?: number };
+  participantRule?: { type: string; minimum?: number; maximum?: number; sourceType?: string; sourceCompetitionId?: number; sourceSeasonId?: number; sourceStageId?: number; positionFrom?: number; positionTo?: number };
   format: { type: "LEAGUE" | "GROUP" | "KNOCKOUT"; participantCount?: number; groupCount?: number; participantsPerGroup?: number; legs: number; homeAway: boolean; aggregateScore?: boolean; extraTime?: boolean; penalties?: boolean; awayGoalsRule?: boolean };
   points?: { win: number; draw: number; loss: number };
   schedule?: { type: string; startDate?: string; endDate?: string; intervalDays?: number; homeAwayBalanced?: boolean };
