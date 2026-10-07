@@ -14,6 +14,7 @@ function canDraw(team: DrawTeam, groupNumber: number, groups: DrawGroup[], restr
   if (!group) return false;
 
   for (const restriction of restrictions) {
+    if (restriction.type === "SEEDING") continue;
     if (restriction.type === "SAME_NATION" && !restriction.sameGroupAllowed && team.nationId != null) {
       if (group.teamIds.some(teamId => allTeams.get(teamId)?.nationId === team.nationId)) return false;
     }
