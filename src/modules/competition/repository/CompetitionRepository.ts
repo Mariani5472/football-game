@@ -221,12 +221,90 @@ export class CompetitionRepository {
   }
 
   resolveStandings(sourceStageId: number, positionFrom: number, positionTo: number): number[] {
-    const rows = this.database.connection.prepare(
-      `SELECT team_id FROM stage_standing
-        WHERE stage_id = ? AND position BETWEEN ? AND ?
-        ORDER BY position`
-    ).all(sourceStageId, positionFrom, positionTo) as Array<{ team_id: number }>;
-    return rows.map(row => row.team_id);
+    const stage = this.findStages(
+      this.stageSeasonId(sourceStageId),
+    ).find(item => item.id === sourceStageId);
+
+    if (!stage) throw new Error("Source stage not found.");
+    if (!stage.points) throw new Error("Source stage has no points rule.");
+
+    const participants = this.findStageParticipants(sourceStageId);
+    const standings = new Map(participants.map(team => [team.teamId, {
+      teamId: team.teamId,
+      played: 0,
+      wins: 0,
+      draws: 0,
+      losses: 0,
+      goalsFor: 0,
+      goalsAgainst: 0,
+      points: 0,
+    }]));
+
+    const fixtures = this.database.connection.prepare(
+      `SELECT f.home_team_id AS homeTeamId, f.away_team_id AS awayTeamId,
+              f.home_score AS homeGoals, f.away_score AS awayGoals
+         FROM fixture f
+         JOIN competition_round r ON r.id = f.round_id
+        WHERE r.stage_id = ? AND f.status = 'PLAYED'
+          AND f.home_score IS NOT NULL AND f.away_score IS NOT NULL
+        ORDER BY r.round_number, f.id`
+    ).all(sourceStageId) as Array<{
+      homeTeamId: number; awayTeamId: number; homeGoals: number; awayGoals: number;
+    }>;
+
+    for (const fixture of fixtures) {
+      const home = standings.get(fixture.homeTeamId);
+      const away = standings.get(fixture.awayTeamId);
+      if (!home || !away) continue;
+      home.played += 1; away.played += 1;
+      home.goalsFor += fixture.homeGoals; home.goalsAgainst += fixture.awayGoals;
+      away.goalsFor += fixture.awayGoals; away.goalsAgainst += fixture.homeGoals;
+      if (fixture.homeGoals > fixture.awayGoals) {
+        home.wins += 1; away.losses += 1;
+        home.points += stage.points.winPoints; away.points += stage.points.lossPoints;
+      } else if (fixture.homeGoals < fixture.awayGoals) {
+        away.wins += 1; home.losses += 1;
+        away.points += stage.points.winPoints; home.points += stage.points.lossPoints;
+      } else {
+        home.draws += 1; away.draws += 1;
+        home.points += stage.points.drawPoints; away.points += stage.points.drawPoints;
+      }
+    }
+
+    return [...standings.values()]
+      .sort((a, b) =>
+        b.points - a.points ||
+        (b.goalsFor - b.goalsAgainst) - (a.goalsFor - a.goalsAgainst) ||
+        b.goalsFor - a.goalsFor ||
+        b.wins - a.wins ||
+        a.teamId - b.teamId)
+      .slice(Math.max(0, positionFrom - 1), Math.max(0, positionTo))
+      .map(row => row.teamId);
+  }
+
+  private stageSeasonId(stageId: number): number {
+    const row = this.database.connection.prepare(
+      "SELECT competition_season_id AS seasonId FROM competition_stage WHERE id=?",
+    ).get(stageId) as { seasonId: number } | undefined;
+    if (!row) throw new Error(`Stage not found: ${stageId}`);
+    return row.seasonId;
+  }
+
+  private findStageParticipants(stageId: number): CompetitionParticipant[] {
+    return this.database.connection.prepare(
+      `SELECT DISTINCT t.id AS teamId, t.name, COALESCE(t.reputation, 50) AS reputation
+         FROM fixture f
+         JOIN competition_round r ON r.id = f.round_id
+         JOIN team t ON t.id = f.home_team_id
+        WHERE r.stage_id = ?
+        UNION
+       SELECT DISTINCT t.id AS teamId, t.name, COALESCE(t.reputation, 50) AS reputation
+         FROM fixture f
+         JOIN competition_round r ON r.id = f.round_id
+         JOIN team t ON t.id = f.away_team_id
+        WHERE r.stage_id = ?
+        ORDER BY teamId`
+    ).all(stageId, stageId) as CompetitionParticipant[];
   }
 
   resolveParticipantSource(source: ParticipantSource): ResolvedParticipantSource {
