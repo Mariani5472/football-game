@@ -1,9 +1,13 @@
-export { FormationsPage } from "./pages";
 export type {
-  Duty,
   Formation,
   FormationPosition,
   FormationSide,
-  Role,
   TacticalPosition,
+  Role,
+  RoleKeyAttribute,
+  Duty,
+  TacticalInstruction,
+  FormationInstruction,
 } from "./types";
+export { FormationsPage } from "./pages/FormationsPage";
+export { FormationEditor } from "./components/FormationEditor";
