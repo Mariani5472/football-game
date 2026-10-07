@@ -4,7 +4,18 @@ export const domainApi = {
   duplicateStadium: (id: number) => request<Record<string, unknown>>("/domain/stadium/" + id + "/duplicate", { method: "POST" }),
   duplicateCompetition: (id: number) => request<Record<string, unknown>>("/domain/competition/" + id + "/duplicate", { method: "POST" }),
   importNationRegions: (nationId: number, rows: Array<{ line: number; name: string; shortName?: string; population?: number }>) => request<{ imported: number; errors: Array<{ line: number; message: string }> }>("/domain/nation-regions-import", { method: "POST", body: JSON.stringify({ nationId, rows }) }),
-  createLeague: (payload: { name: string; nationId?: number; competitionTypeId?: number; shortName?: string; year: number; teamIds: number[]; startDate: string; endDate?: string; intervalDays?: number; winPoints?: number; drawPoints?: number; lossPoints?: number }) => request<{ competitionId: number; seasonId: number; stageId: number; fixtureCount: number }>("/domain/league", { method: "POST", body: JSON.stringify(payload) }),
+  resolveCompetitionStageParticipants: (seasonId: number, stageId: number) =>
+    request<{ participants: Array<Record<string, unknown>> }>(`/domain/competition-stage/${seasonId}/${stageId}/participants`),
+  competitionDraw: (payload: {
+    teams: Array<{ teamId: number; nationId?: number; seed?: number }>;
+    type: "RANDOM" | "SEEDED" | "CONDITIONAL";
+    groupCount: number;
+    teamsPerGroup: number;
+    restrictions?: Array<Record<string, unknown>>;
+  }) => request<{ groups: Array<{ number: number; teamIds: number[] }>; assignments: Record<string, number> }>("/domain/competition-draw", { method: "POST", body: JSON.stringify(payload) }),
+  competitionTransitions: (seasonId: number) =>
+    request<{ transitions: Array<Record<string, unknown>> }>(`/domain/competition-season/${seasonId}/transitions`),
+    createLeague: (payload: { name: string; nationId?: number; competitionTypeId?: number; shortName?: string; year: number; teamIds: number[]; startDate: string; endDate?: string; intervalDays?: number; winPoints?: number; drawPoints?: number; lossPoints?: number }) => request<{ competitionId: number; seasonId: number; stageId: number; fixtureCount: number }>("/domain/league", { method: "POST", body: JSON.stringify(payload) }),
   createCompetitionStage: (payload: unknown) => request<{ id: number; seasonId: number; name: string; stageOrder: number }>("/domain/competition-stage", { method: "POST", body: JSON.stringify(payload) }),
   updateCompetitionStage: (id: number, payload: unknown) => request<{ id: number; seasonId: number; name: string; stageOrder: number }>(`/domain/competition-stage/${id}`, { method: "PUT", body: JSON.stringify(payload) }),
   createClub: (payload: { name: string; shortName?: string; nationId?: number; cityId?: number; stadiumName?: string }) => request<unknown>("/domain/club", { method: "POST", body: JSON.stringify(payload) }),
