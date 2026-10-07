@@ -31,3 +31,6 @@ export {
 export {
   CompetitionEngine,
 } from "./engine/CompetitionEngine.js";
+
+export type { DrawTeam, DrawGroup, DrawRestriction, DrawResult } from "./domain/Draw.js";
+export { randomDraw, conditionalDraw } from "./engine/DrawEngine.js";
