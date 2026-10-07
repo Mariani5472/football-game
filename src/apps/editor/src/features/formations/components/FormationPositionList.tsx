@@ -9,6 +9,8 @@ export function FormationPositionList({
   onDutyChange,
   onSideChange,
   onRemove,
+  onSelect,
+  selectedPositionId,
 }: {
   positions: FormationPosition[];
   roles: Role[];
@@ -18,19 +20,32 @@ export function FormationPositionList({
   onDutyChange: (positionId: number, dutyId: number) => void;
   onSideChange: (positionId: number, side: FormationPosition["side"]) => void;
   onRemove: (positionId: number) => void;
+  onSelect?: (positionId: number) => void;
+  selectedPositionId?: number | null;
 }) {
   return (
     <div className="space-y-3">
-      {positions.map(position => {
-        const availableRoles = roles.filter(role => role.positionId === position.positionId);
-        const activeRole = roles.find(role => role.id === position.roleId);
-        const availableDuties = duties.filter(duty =>
+      {positions.map((position) => {
+        const availableRoles = roles.filter(
+          (role) => role.positionId === position.positionId,
+        );
+        const activeRole = roles.find((role) => role.id === position.roleId);
+        const availableDuties = duties.filter((duty) =>
           activeRole?.dutyIds.includes(duty.id),
         );
 
         return (
-          <div key={position.id} className="rounded-xl border border-white/10 bg-white/[0.02] p-4">
-            <div className="grid gap-3 md:grid-cols-[110px_1fr_150px_120px_100px_auto]">
+          <div
+            key={position.id}
+            onClick={() => onSelect?.(position.id)}
+            className={[
+              "rounded-xl border bg-white/[0.02] p-4 transition",
+              selectedPositionId === position.id
+                ? "border-emerald-300/30 ring-1 ring-emerald-300/10"
+                : "border-white/10",
+            ].join(" ")}
+          >
+            <div className="grid gap-3 md:grid-cols-[110px_1fr_170px_150px_110px_auto]">
               <div>
                 <div className="text-sm font-semibold text-white">
                   {positionNames.get(position.positionId) ?? position.label}
@@ -41,37 +56,52 @@ export function FormationPositionList({
               </div>
 
               <div className="text-xs text-slate-500">
-                Role and duty define the behavior of this slot.
+                {activeRole?.description ??
+                  "Assign a role to define the responsibilities of this slot."}
               </div>
 
               <select
                 value={position.roleId || ""}
-                onChange={event => onRoleChange(position.id, Number(event.target.value))}
+                onChange={(event) => {
+                  event.stopPropagation();
+                  onRoleChange(position.id, Number(event.target.value));
+                }}
                 className="rounded-lg border border-white/10 bg-[#121820] px-3 py-2 text-xs text-slate-300"
               >
                 <option value="">Role</option>
-                {availableRoles.map(role => (
-                  <option key={role.id} value={role.id}>{role.name}</option>
+                {availableRoles.map((role) => (
+                  <option key={role.id} value={role.id}>
+                    {role.name}
+                  </option>
                 ))}
               </select>
 
               <select
                 value={position.dutyId || ""}
-                onChange={event => onDutyChange(position.id, Number(event.target.value))}
+                onChange={(event) => {
+                  event.stopPropagation();
+                  onDutyChange(position.id, Number(event.target.value));
+                }}
                 disabled={availableDuties.length === 0}
                 className="rounded-lg border border-white/10 bg-[#121820] px-3 py-2 text-xs text-slate-300 disabled:opacity-50"
               >
                 <option value="">Duty</option>
-                {availableDuties.map(duty => (
-                  <option key={duty.id} value={duty.id}>{duty.name}</option>
+                {availableDuties.map((duty) => (
+                  <option key={duty.id} value={duty.id}>
+                    {duty.name}
+                  </option>
                 ))}
               </select>
 
               <select
                 value={position.side}
-                onChange={event =>
-                  onSideChange(position.id, event.target.value as FormationPosition["side"])
-                }
+                onChange={(event) => {
+                  event.stopPropagation();
+                  onSideChange(
+                    position.id,
+                    event.target.value as FormationPosition["side"],
+                  );
+                }}
                 className="rounded-lg border border-white/10 bg-[#121820] px-3 py-2 text-xs text-slate-300"
               >
                 <option value="left">Left</option>
@@ -81,7 +111,10 @@ export function FormationPositionList({
 
               <button
                 type="button"
-                onClick={() => onRemove(position.id)}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onRemove(position.id);
+                }}
                 className="rounded-lg border border-red-400/10 px-3 py-2 text-xs text-red-300 hover:bg-red-400/5"
               >
                 Remove
