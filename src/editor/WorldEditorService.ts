@@ -64,6 +64,7 @@ export class WorldEditorService {
   private readonly domainService: WorldDomainService;
   private readonly application: EditorApplication;
   private readonly validator: WorldValidator;
+  private readonly competitionEngine: CompetitionEngine;
   private readonly packageService: WorldPackageService;
   private readonly csvImportService: CsvImportService;
   private readonly defaultDataRepository: DefaultDataRepository;
@@ -81,6 +82,7 @@ export class WorldEditorService {
     this.domainService = new WorldDomainService(this.database);
     this.application = new EditorApplication(this.database);
     this.validator = new WorldValidator(this.database);
+    this.competitionEngine = new CompetitionEngine(this.database);
     this.packageService = new WorldPackageService(this.database);
     this.csvImportService = new CsvImportService(this.database);
     this.defaultDataRepository = new DefaultDataRepository(this.database);
@@ -293,6 +295,19 @@ export class WorldEditorService {
     this.markDirectEdit();
     return { template, seasonYear, result: "COMPLETED" as const };
   }
+
+  resolveCompetitionStageParticipants(seasonId: number, stageId: number) {
+    return this.competitionEngine.resolveStageParticipants(seasonId, stageId);
+  }
+
+  executeCompetitionDraw(input: Parameters<CompetitionEngine["executeDraw"]>[0]) {
+    return this.competitionEngine.executeDraw(input);
+  }
+
+  buildCompetitionStageTransitions(seasonId: number) {
+    return this.competitionEngine.buildStageTransitions(seasonId);
+  }
+
   createLeague(input: Parameters<WorldDomainService["createLeague"]>[0]) {
     const result = this.application.createLeague(input);
     this.markDirectEdit();
