@@ -172,7 +172,17 @@ export class CompetitionRepository {
               row.homeAwayBalanced === 1,
           };
 
-    return this.mapStage(row);
+    return {
+      id: row.id,
+      competitionSeasonId: row.competitionSeasonId,
+      name: row.name,
+      stageOrder: row.stageOrder,
+      format,
+      points,
+      schedule,
+      participantSources: this.findStageParticipantSources(row.id),
+      standingRules: this.findStandingRules(row.id),
+    };
   }
 
 
@@ -336,6 +346,14 @@ export class CompetitionRepository {
       homeAwayBalanced: row.homeAwayBalanced === 1,
     };
     return { id: row.id, competitionSeasonId: row.competitionSeasonId, name: row.name, stageOrder: row.stageOrder, format, points, schedule };
+  }
+
+
+  private findStandingRules(stageId: number): string[] {
+    const rows = this.database.connection.prepare(
+      "SELECT rule_type AS ruleType FROM standing_rule WHERE stage_id=? ORDER BY rule_order",
+    ).all(stageId) as Array<{ ruleType: string }>;
+    return rows.map(row => row.ruleType);
   }
 
   findParticipants(
