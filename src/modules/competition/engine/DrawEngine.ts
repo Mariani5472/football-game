@@ -76,7 +76,7 @@ export function conditionalDraw(
   const groups = createGroups(options.groupCount);
   const assignments = new Map<number, number>();
   const allTeams = new Map(teams.map((team) => [team.teamId, team]));
-  const ordered = orderTeamsByPots(teams, options.pots);
+  const ordered = orderTeamsByPots(teams, options.pots, random);
 
   const place = (index: number): boolean => {
     if (index >= ordered.length) return true;
@@ -116,7 +116,8 @@ export function conditionalDraw(
 
 function orderTeamsByPots(
   teams: DrawTeam[],
-  pots?: DrawPotInput[],
+  pots: DrawPotInput[] | undefined,
+  random: () => number,
 ): DrawTeam[] {
   if (!pots?.length) {
     return [...teams].sort(
@@ -128,7 +129,7 @@ function orderTeamsByPots(
   const ordered: DrawTeam[] = [];
 
   for (const pot of [...pots].sort((left, right) => left.potOrder - right.potOrder)) {
-    for (const teamId of shuffle([...pot.teamIds], Math.random)) {
+    for (const teamId of shuffle([...pot.teamIds], random)) {
       const team = teamById.get(teamId);
       if (team) ordered.push(team);
     }
