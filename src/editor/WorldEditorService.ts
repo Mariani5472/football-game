@@ -37,6 +37,7 @@ import type {
   ImportSessionRecord,
   RebuildResult,
 } from "../infrastructure/packages/WorldPackageImportService.js";
+import { CompetitionEngine } from "../modules/competition/index.js";
 
 export interface WorldDashboardSummary {
   world: {
