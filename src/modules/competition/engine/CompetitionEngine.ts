@@ -281,8 +281,12 @@ export class CompetitionEngine {
 
     return {
       fixturesPlayed,
-      standings:
-        this.standingEngine.sort(standings),
+      standings: this.standingEngine.sort(
+        standings,
+        generatedSeason.stage.standingRules.length
+          ? generatedSeason.stage.standingRules
+          : undefined,
+      ),
     };
   }
 
