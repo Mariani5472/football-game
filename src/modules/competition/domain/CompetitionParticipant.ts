@@ -1,4 +1,9 @@
-export type ParticipantSourceType = "DIRECT" | "STANDING" | "QUALIFICATION" | "PROMOTION" | "RELEGATION";
+export type ParticipantSourceType =
+  | "DIRECT"
+  | "STANDING"
+  | "QUALIFICATION"
+  | "PROMOTION"
+  | "RELEGATION";
 
 export interface ParticipantSource {
   type: ParticipantSourceType;
