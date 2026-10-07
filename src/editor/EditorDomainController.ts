@@ -100,7 +100,38 @@ export async function handleDomainRequest(request: http.IncomingMessage, respons
       sendJson(response, request.method === "PUT" ? 200 : 201, result);
       return true;
     }
-    if (request.method === "POST" && parts[2] === "league") {
+    if (request.method === "GET" && parts[2] === "competition-stage" && parts[4] === "participants" && parts[5] === undefined) {
+    const seasonId = positiveInteger(parts[3], "seasonId");
+    const stageId = positiveInteger(parts[5 - 1], "stageId");
+    sendJson(response, 200, { participants: service.resolveCompetitionStageParticipants(seasonId, stageId) });
+    return true;
+  }
+
+  if (request.method === "POST" && parts[2] === "competition-draw" && parts[3] === undefined) {
+    const body = await readJsonBody(request);
+    if (!isRecord(body) || !Array.isArray(body.teams)) throw new Error("teams is required.");
+    const teams = body.teams.map((team, index) => {
+      if (!isRecord(team) || !Number.isInteger(Number(team.teamId))) throw new Error("teams[" + index + "] is invalid.");
+      return { teamId: Number(team.teamId), nationId: team.nationId == null ? undefined : Number(team.nationId), seed: team.seed == null ? undefined : Number(team.seed) };
+    });
+    const type = body.type === "CONDITIONAL" || body.type === "SEEDED" ? body.type : "RANDOM";
+    const result = service.executeCompetitionDraw({
+      teams,
+      type,
+      groupCount: Number(body.groupCount),
+      teamsPerGroup: Number(body.teamsPerGroup),
+      restrictions: Array.isArray(body.restrictions) ? body.restrictions as never[] : [],
+    });
+    sendJson(response, 200, { groups: result.groups, assignments: Object.fromEntries(result.assignments) });
+    return true;
+  }
+
+  if (request.method === "GET" && parts[2] === "competition-season" && parts[3] !== undefined && parts[4] === "transitions" && parts[5] === undefined) {
+    sendJson(response, 200, { transitions: service.buildCompetitionStageTransitions(positiveInteger(parts[3], "seasonId")) });
+    return true;
+  }
+
+  if (request.method === "POST" && parts[2] === "league") {
       const body = await readJsonBody(request);
       if (!isRecord(body) || typeof body.name !== "string" || !Array.isArray(body.teamIds)) {
         throw new Error("name and teamIds are required.");
