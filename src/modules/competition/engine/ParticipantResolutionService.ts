@@ -1,7 +1,5 @@
 import type { ParticipantSource, CompetitionParticipant, ResolvedParticipantSource } from "../domain/CompetitionParticipant.js";
 import type { StageQualificationRule } from "../domain/CompetitionStage.js";
-import type { CompetitionSeason } from "../domain/CompetitionSeason.js";
-import type { Competition } from "../domain/Competition.js";
 
 export interface StageTransition {
   fromStageId: number;
@@ -21,8 +19,8 @@ export class ParticipantResolutionService {
       findParticipants(seasonId: number): CompetitionParticipant[];
       findStageParticipantSources(stageId: number): ParticipantSource[];
       resolveParticipantSource(source: ParticipantSource): ResolvedParticipantSource;
-      findSeasonById(id: number): CompetitionSeason | null;
-      findById(id: number): Competition | null;
+      findSeasonById?: (id: number) => unknown;
+      findById?: (id: number) => unknown;
     },
   ) {}
 
@@ -82,6 +80,14 @@ export class ParticipantResolutionService {
         : [{ type: "DIRECT" as const }];
 
       for (const source of sources) {
+        if (
+          source.type !== "DIRECT" &&
+          source.sourceStageId == null &&
+          source.sourceSeasonId == null &&
+          source.sourceCompetitionId == null
+        ) {
+          continue;
+        }
         if (source.sourceStageId != null && source.sourceStageId !== from.id) {
           continue;
         }
