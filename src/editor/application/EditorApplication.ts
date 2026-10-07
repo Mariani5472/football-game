@@ -28,6 +28,7 @@ import { SqliteCompetitionDuplicateRepository } from "../../modules/competition/
 import { DuplicateStadium } from "../../modules/stadium/application/DuplicateStadium.js";
 import { SqliteStadiumRepository } from "../../modules/stadium/infrastructure/SqliteStadiumRepository.js";
 import { WorldDatabase } from "../../database/world/WorldDatabase.js";
+import { CompetitionEngine } from "../../modules/competition/engine/CompetitionEngine.js";
 
 export class EditorApplication {
   private readonly contracts: CreateContract;
@@ -41,6 +42,7 @@ export class EditorApplication {
   private readonly competitionHistory: RecordCompetitionHistory;
   private readonly duplicateCompetitionUseCase: DuplicateCompetition;
   private readonly duplicateStadiumUseCase: DuplicateStadium;
+  private readonly competitionEngine: CompetitionEngine;
 
   constructor(private readonly database: WorldDatabase) {
     this.contracts = new CreateContract(new SqliteContractRepository(database));
@@ -64,6 +66,7 @@ export class EditorApplication {
     this.duplicateStadiumUseCase = new DuplicateStadium(
       new SqliteStadiumRepository(database),
     );
+    this.competitionEngine = new CompetitionEngine(database);
   }
 
   createClub(input: ClubCreationData) {
@@ -84,6 +87,18 @@ export class EditorApplication {
 
   updateCompetitionStage(stageId: number, input: CompetitionStageSetup) {
     return this.updateCompetitionStageUseCase.execute(stageId, input);
+  }
+
+  resolveCompetitionStageParticipants(seasonId: number, stageId: number) {
+    return this.competitionEngine.resolveStageParticipants(seasonId, stageId);
+  }
+
+  executeCompetitionDraw(input: Parameters<CompetitionEngine["executeDraw"]>[0]) {
+    return this.competitionEngine.executeDraw(input);
+  }
+
+  buildCompetitionStageTransitions(seasonId: number) {
+    return this.competitionEngine.buildStageTransitions(seasonId);
   }
 
   duplicateCompetition(competitionId: number) {
