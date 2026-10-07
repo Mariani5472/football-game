@@ -37,15 +37,8 @@ export class SqliteStageConfigurationRepository implements StageConfigurationRep
         max_participants: setup.participantRule.maximum,
       });
 
-      const source = setup.participantRule as CompetitionStageSetup["participantRule"] & {
-        sourceType?: string;
-        sourceCompetitionId?: number;
-        sourceStageId?: number;
-        positionFrom?: number;
-        positionTo?: number;
-      };
-
-      if (source.sourceType && source.sourceType !== "DIRECT") {
+      for (const source of setup.participantSources ?? []) {
+        if (source.sourceType === "DIRECT") continue;
         this.database.create("stage_participant_source", {
           stage_id: stageId,
           source_type: source.sourceType,
