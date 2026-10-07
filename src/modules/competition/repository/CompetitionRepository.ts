@@ -281,15 +281,9 @@ export class CompetitionRepository {
       }
     }
 
-    return [...standings.values()]
-      .sort((a, b) =>
-        b.points - a.points ||
-        (b.goalsFor - b.goalsAgainst) - (a.goalsFor - a.goalsAgainst) ||
-        b.goalsFor - a.goalsFor ||
-        b.wins - a.wins ||
-        a.teamId - b.teamId)
-      .slice(Math.max(0, positionFrom - 1), Math.max(0, positionTo))
-      .map(row => row.teamId);
+    const rules = this.findStandingRules(sourceStageId);
+    const sorted = new StandingEngine().sort(standings, rules);
+    return sorted.slice(Math.max(0, positionFrom - 1), Math.max(0, positionTo)).map(row => row.teamId);
   }
 
   private stageSeasonId(stageId: number): number {
