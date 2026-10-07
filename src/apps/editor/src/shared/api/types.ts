@@ -12,6 +12,68 @@ export interface ListOptions {
 }
 
 
+export interface FastStartScenario {
+  id: "EMPTY" | "SANDBOX" | "BRAZIL";
+  label: string;
+  teamCount: number;
+  teamNamePrefix: string;
+  teamShortNamePrefix: string;
+  brazil: boolean;
+}
+
+export type FastStartStep =
+  | "SCENARIO"
+  | "WORLD"
+  | "CLUBS"
+  | "PLAYERS"
+  | "PEOPLE"
+  | "STADIUMS"
+  | "COMPETITIONS"
+  | "CALENDAR"
+  | "VALIDATION"
+  | "COMPLETED";
+
+export interface FastStartGenerationSummary {
+  scenario: FastStartScenario["id"];
+  seasonYear: number;
+  counts: {
+    nations: number;
+    cities: number;
+    teams: number;
+    clubs: number;
+    people: number;
+    players: number;
+    stadiums: number;
+    competitions: number;
+    seasons: number;
+    stages: number;
+    rounds: number;
+    fixtures: number;
+  };
+  validation: {
+    issues: Array<{
+      id: string;
+      ruleKey: string;
+      severity: "ERROR" | "WARNING" | "INFO";
+      entityType: string;
+      entityId?: string | number;
+      message: string;
+      details?: string;
+    }>;
+    errors: Array<unknown>;
+    warnings: Array<unknown>;
+    infos: Array<unknown>;
+    valid: boolean;
+  };
+}
+
+export interface FastStartResult {
+  scenario: FastStartScenario["id"];
+  seasonYear: number;
+  steps: FastStartStep[];
+  summary: FastStartGenerationSummary;
+}
+
 export interface WorldBuildStatus {
   status: "VALID" | "INVALID" | "DIRTY" | "UNKNOWN";
   lastBuildAt: string | null;
