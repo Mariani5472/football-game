@@ -1,5 +1,5 @@
 import { request } from "./client";
-import type { WorldDashboard, WorldBuildStatus, WorldPackageRecord, ImportPreview, ImportSession, ImportConflict, RegisterPackagePayload, UpdatePackagePayload } from "./types";
+import type { WorldDashboard, WorldBuildStatus, WorldPackageRecord, ImportPreview, ImportSession, ImportConflict, RegisterPackagePayload, UpdatePackagePayload, FastStartResult } from "./types";
 
 export interface DefaultDataDomainSummary {
   geography: string[];
@@ -25,7 +25,8 @@ export interface DefaultDataSummary {
 
 export const worldApi = {
   defaultData: () => request<DefaultDataSummary | null>("/world/default-data"),
-  fastStart: (payload: { template: "EMPTY" | "SANDBOX" | "BRAZIL"; seasonYear: number }) => request<{ template: string; seasonYear: number; result: "COMPLETED" }>("/world/fast-start", { method: "POST", body: JSON.stringify(payload) }),
+  fastStartScenarios: () => request<FastStartScenario[]>("/world/fast-start/scenarios"),
+  fastStart: (payload: { template: "EMPTY" | "SANDBOX" | "BRAZIL"; seasonYear: number }) => request<FastStartResult>("/world/fast-start", { method: "POST", body: JSON.stringify(payload) }),
   get: () => request<WorldDashboard>("/world"),
   build: () => request<WorldBuildStatus>("/world/build"),
   settings: () => request<{ name: string; year: number }>("/world/settings"),
