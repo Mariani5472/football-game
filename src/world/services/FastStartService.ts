@@ -67,6 +67,10 @@ export class FastStartService {
     this.calendar = new CalendarGenerationService(database);
   }
 
+  scenarios() {
+    return this.scenarios.listScenarios();
+  }
+
   run(options: FastStartOptions): FastStartResult {
     this.validateOptions(options);
 
