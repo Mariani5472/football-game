@@ -1,4 +1,4 @@
-import type { WorldDatabase } from "../../../database/world/WorldDatabase.js";
+iport type { WorldDatabase } from "../../../database/world/WorldDatabase.js";
 import type { GeneratedSeason } from "../domain/GeneratedSeason.js";
 import type { SimulationResult } from "../domain/Standing.js";
 import type { DrawRestriction, DrawTeam, DrawResult } from "../domain/Draw.js";
