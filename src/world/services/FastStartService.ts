@@ -127,8 +127,6 @@ export class FastStartService {
 
       steps.push("VALIDATION", "COMPLETED");
 
-      this.markWorldReady();
-
       const summary = this.buildSummary(
         options.template,
         options.seasonYear,
