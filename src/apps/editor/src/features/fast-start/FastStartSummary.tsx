@@ -1,4 +1,4 @@
-import type { FastStartGenerationSummary } from "../../../../world/services/FastStartService";
+import type { FastStartGenerationSummary } from "../../shared/api/types";
 
 export function FastStartSummary({ summary }: { summary: FastStartGenerationSummary }) {
   const counts = [
