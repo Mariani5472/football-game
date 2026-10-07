@@ -11,7 +11,7 @@ describe("ScheduleEngine", () => {
   it("generates a four-round single-leg knockout for eight teams", () => {
     const rounds = new ScheduleEngine().generateKnockout(teams, "2026-08-01", 7, 1);
     expect(rounds).toHaveLength(3);
-    expect(rounds.map(round => round.fixtures.length)).toEqual([4, 2, 1]);
+    expect(rounds.map((round) => round.fixtures.length)).toEqual([4, 0, 0]);
   });
 
   it("generates paired home-away fixtures for each knockout matchup", () => {
@@ -19,6 +19,22 @@ describe("ScheduleEngine", () => {
     expect(rounds).toHaveLength(2);
     expect(rounds[0].fixtures).toHaveLength(8);
     expect(rounds[0].fixtures[0].homeTeamId).toBe(rounds[0].fixtures[1].awayTeamId);
+  });
+
+  it("supports an executable knockout round once a matchup is resolved", () => {
+    const rounds = new ScheduleEngine().generateKnockoutRound(
+      [
+        { homeTeamId: 1, awayTeamId: 2 },
+        { homeTeamId: 3, awayTeamId: 4 },
+      ],
+      "2026-08-01",
+      7,
+      2,
+      1,
+    );
+
+    expect(rounds).toHaveLength(1);
+    expect(rounds[0].fixtures).toHaveLength(2);
   });
 
   it("supports byes for non-power-of-two participant counts", () => {
