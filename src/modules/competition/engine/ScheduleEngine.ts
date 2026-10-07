@@ -130,6 +130,74 @@ export class ScheduleEngine {
     );
   }
 
+
+  generateKnockout(
+    participants: CompetitionParticipant[],
+    startDate: string,
+    intervalDays: number,
+    legs = 1,
+  ): GeneratedRound[] {
+    if (participants.length < 2) throw new Error("Knockout requires at least two participants.");
+    if (!startDate) throw new Error("Knockout requires a start date.");
+    if (intervalDays < 1) throw new Error("Knockout interval must be positive.");
+    if (legs < 1 || legs > 2) throw new Error("Knockout supports one or two legs.");
+
+    const size = 2 ** Math.ceil(Math.log2(participants.length));
+    const padded = [...participants];
+    while (padded.length < size) {
+      padded.push({ teamId: 0, name: "Bye", reputation: 0 });
+    }
+
+    const rounds: GeneratedRound[] = [];
+    let current = padded;
+    let roundNumber = 1;
+
+    while (current.length > 1) {
+      const fixtures: Fixture[] = [];
+      for (let index = 0; index < current.length; index += 2) {
+        const home = current[index];
+        const away = current[index + 1];
+        if (home.teamId === 0 || away.teamId === 0) continue;
+
+        fixtures.push({
+          roundNumber,
+          homeTeamId: home.teamId,
+          awayTeamId: away.teamId,
+          scheduledAt: "",
+          status: "SCHEDULED",
+        });
+
+        if (legs === 2) {
+          fixtures.push({
+            roundNumber: roundNumber + 1,
+            homeTeamId: away.teamId,
+            awayTeamId: home.teamId,
+            scheduledAt: "",
+            status: "SCHEDULED",
+          });
+        }
+      }
+
+      rounds.push({
+        roundNumber,
+        date: this.addDays(startDate, (roundNumber - 1) * intervalDays),
+        fixtures,
+      });
+
+      current = current.filter(team => team.teamId !== 0).filter((_, index) => index % 2 === 0);
+      roundNumber += legs === 2 ? 2 : 1;
+      if (current.length <= 1) break;
+    }
+
+    return rounds.map(round => ({
+      ...round,
+      fixtures: round.fixtures.map(fixture => ({
+        ...fixture,
+        scheduledAt: `${round.date}T16:00:00`,
+      })),
+    }));
+  }
+
   private addDays(
     date: string,
     days: number,
