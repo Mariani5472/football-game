@@ -1,5 +1,5 @@
 import { request } from "./client";
-import type { WorldDashboard, WorldBuildStatus, WorldPackageRecord, ImportPreview, ImportSession, ImportConflict, RegisterPackagePayload, UpdatePackagePayload, FastStartResult } from "./types";
+import type { WorldDashboard, WorldBuildStatus, WorldPackageRecord, ImportPreview, ImportSession, ImportConflict, RegisterPackagePayload, UpdatePackagePayload, FastStartResult, FastStartScenario } from "./types";
 
 export interface DefaultDataDomainSummary {
   geography: string[];
