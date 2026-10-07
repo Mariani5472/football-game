@@ -47,6 +47,55 @@ export class CompetitionEngine {
   executeDraw(input: { teams: DrawTeam[]; type: "RANDOM" | "SEEDED" | "CONDITIONAL"; groupCount: number; teamsPerGroup: number; restrictions?: DrawRestriction[]; random?: () => number }): DrawResult {
     if (input.type === "RANDOM") return randomDraw(input.teams, input.groupCount, input.teamsPerGroup, input.random);
     return conditionalDraw(input.teams, { groupCount: input.groupCount, teamsPerGroup: input.teamsPerGroup, restrictions: input.restrictions ?? [], random: input.random });
+  }mport type { WorldDatabase } from "../../../database/world/WorldDatabase.js";
+import type { GeneratedSeason } from "../domain/GeneratedSeason.js";
+import type { SimulationResult } from "../domain/Standing.js";
+import type { DrawRestriction, DrawTeam, DrawResult } from "../domain/Draw.js";
+import { conditionalDraw } from "../engine/DrawEngine.js";
+import { randomDraw } from "../engine/DrawEngine.js";
+import { CompetitionRepository } from "../repository/CompetitionRepository.js";
+import { MatchEngine } from "./MatchEngine.js";
+import { ScheduleEngine } from "./ScheduleEngine.js";
+import { StandingEngine } from "./StandingEngine.js";
+
+export interface CompetitionSeasonSetup {
+  competitionSeasonId: number;
+}
+
+export class CompetitionEngine {
+  private readonly repository: CompetitionRepository;
+  private readonly scheduleEngine = new ScheduleEngine();
+  private readonly matchEngine = new MatchEngine();
+  private readonly standingEngine = new StandingEngine();
+
+  constructor(
+    database: WorldDatabase,
+  ) {
+    this.repository =
+      new CompetitionRepository(database);
+  }
+
+
+  resolveStageParticipants(seasonId: number, stageId: number) {
+    const stage = this.repository.findStages(seasonId).find(item => item.id === stageId);
+    if (!stage) throw new Error(`Stage não encontrada: ${stageId}`);
+    const direct = this.repository.findParticipants(seasonId);
+    const sources = this.repository.findStageParticipantSources(stageId);
+    if (!sources.length) return direct;
+
+    const teamIds = new Set<number>();
+    for (const source of sources) {
+      if (source.sourceStageId == null) continue;
+      const resolved = this.repository.resolveParticipantSource(source);
+      for (const teamId of resolved.teamIds) teamIds.add(teamId);
+    }
+    const byId = new Map(direct.map(team => [team.teamId, team]));
+    return [...teamIds].map(teamId => byId.get(teamId)).filter((team): team is NonNullable<typeof team> => Boolean(team));
+  }
+
+  executeDraw(input: { teams: DrawTeam[]; type: "RANDOM" | "SEEDED" | "CONDITIONAL"; groupCount: number; teamsPerGroup: number; restrictions?: DrawRestriction[]; random?: () => number }): DrawResult {
+    if (input.type === "RANDOM") return randomDraw(input.teams, input.groupCount, input.teamsPerGroup, input.random);
+    return conditionalDraw(input.teams, { groupCount: input.groupCount, teamsPerGroup: input.teamsPerGroup, restrictions: input.restrictions ?? [], random: input.random });
   }
 
 
