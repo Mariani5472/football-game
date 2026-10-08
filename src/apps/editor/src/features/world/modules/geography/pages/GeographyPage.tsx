@@ -1,8 +1,8 @@
 import { useMemo, useState } from "react";
-import { ChevronRight, Globe2, Map, MapPinned, Pencil, Plus, Search, Trash2, X } from "lucide-react";
+import { ChevronRight, Globe2, MapPinned, Pencil, Plus, Search, Trash2, X } from "lucide-react";
 import { DeleteDialog, EntityForm, EntityPicker, Pagination } from "../../../../../shared/components";
 import { GeographyEntityTable } from "../components/GeographyEntityTable";
-import { geographyChildKind, geographyFilterItems, geographyKinds, geographySpecs, normalizeGeographyValue, getInitialGeographyValues } from "../config/geographyConfig";
+import { geographyChildKind, geographyFilterItems, geographySpecs } from "../config/geographyConfig";
 import { useGeographyEditor } from "../hooks/useGeographyEditor";
 import { findAncestors } from "../config/geographyTree";
 import type { GeographyEntityKind, GeographyTreeNode } from "../types";
@@ -53,6 +53,7 @@ export function GeographyPage() {
 
   const activeNode = detailNode ?? state.selectedNode;
   const activeSpec = activeNode ? geographySpecs[activeNode.kind] : undefined;
+  const tableSpec = filter === "all" ? geographySpecs.continent : geographySpecs[filter];
 
   function openNode(node: GeographyTreeNode) {
     setDetailNode(node);
@@ -75,9 +76,7 @@ export function GeographyPage() {
     state.cancel();
   }
 
-  const selectedAncestors = activeNode
-    ? findAncestors(state.geography.tree, activeNode.id)
-    : {};
+  const selectedAncestors = activeNode ? findAncestors(state.geography.tree, activeNode.id) : {};
 
   return (
     <div className="space-y-6">
@@ -140,7 +139,7 @@ export function GeographyPage() {
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
         <GeographyEntityTable
           nodes={pageRows}
-          spec={geographySpecs[filter === "all" ? "continent" : filter]}
+          spec={tableSpec}
           relationLabels={relationLabels}
           onSelect={openNode}
           onEdit={edit}
