@@ -329,3 +329,28 @@ function InfoRow({ label, value }: { label: string; value: string }) {
     </div>
   );
 }
+
+
+function allColumns(
+  tree: GeographyTreeNode[],
+  rowsByTable: ReturnType<typeof useGeographyEditor>["geography"]["rowsByTable"],
+) {
+  const parentLabels = new Map<string, string>();
+  const visit = (nodes: GeographyTreeNode[]) => {
+    for (const node of nodes) {
+      for (const child of node.children) {
+        parentLabels.set(child.id, node.label);
+      }
+      visit(node.children);
+    }
+  };
+  visit(tree);
+
+  return [
+    { key: "kind", header: "Type", render: (node: GeographyTreeNode) => geographySpecs[node.kind].label },
+    { key: "name", header: "Name", render: (node: GeographyTreeNode) => node.label },
+    { key: "short_name", header: "Code", render: (node: GeographyTreeNode) => String(node.row.short_name ?? "—") },
+    { key: "parent", header: "Parent", render: (node: GeographyTreeNode) => parentLabels.get(node.id) ?? "World" },
+    { key: "children", header: "Children", render: (node: GeographyTreeNode) => String(node.children.length) },
+  ];
+}
