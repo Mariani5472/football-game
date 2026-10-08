@@ -17,37 +17,27 @@ export interface GeographyTreeNode {
   row: EntityRow;
 }
 
-export interface GeographySelection {
-  continent?: EntityRow;
-  continentRegion?: EntityRow;
-  country?: EntityRow;
-  nationRegion?: EntityRow;
+export interface GeographyAncestors {
+  continent?: GeographyTreeNode;
+  continentRegion?: GeographyTreeNode;
+  country?: GeographyTreeNode;
+  nationRegion?: GeographyTreeNode;
+}
+
+export interface GeographySelection extends GeographyAncestors {
   city?: EntityRow;
 }
 
-export interface GeographyContinentCard {
-  id: number;
-  name: string;
-  shortName: string;
-  countryCount: number;
-  regionCount: number;
-  cityCount: number;
-  row: EntityRow;
+export interface GeographyStats {
+  continents: number;
+  geographicRegions: number;
+  countries: number;
+  administrativeRegions: number;
+  cities: number;
 }
 
-export interface GeographyCountrySummary {
-  id: number;
-  name: string;
-  shortName: string;
-  regionCount: number;
-  cityCount: number;
-  languageCount?: number;
-  federation?: string | null;
-  confederation?: string | null;
-  row: EntityRow;
+export interface GeographyViewState {
+  selectedId?: string;
+  filter: GeographyEntityKind | "all";
+  query: string;
 }
-
-export type GeographyView =
-  | { level: "continents" }
-  | { level: "countries"; continentId: number }
-  | { level: "country"; countryId: number };
