@@ -406,16 +406,16 @@ export class WorldPackageImportService {
       if (!pkg.sourceFile) {
         throw new Error(
           "Enabled package has no source file: " +
-            pkg.manifest.packageKey,
+          pkg.manifest.packageKey,
         );
       }
 
       if (!fs.existsSync(pkg.sourceFile)) {
         throw new Error(
           "Package source file not found: " +
-            pkg.manifest.packageKey +
-            " -> " +
-            pkg.sourceFile,
+          pkg.manifest.packageKey +
+          " -> " +
+          pkg.sourceFile,
         );
       }
 
@@ -551,11 +551,11 @@ export class WorldPackageImportService {
       const byId = resolutions[String(conflict.id)];
       const byKey =
         resolutions[
-          conflict.tableName +
-            ":" +
-            conflict.incomingKey +
-            ":" +
-            (conflict.columnName ?? "*")
+        conflict.tableName +
+        ":" +
+        conflict.incomingKey +
+        ":" +
+        (conflict.columnName ?? "*")
         ];
 
       if (byId) result.set(String(conflict.id), byId);
@@ -599,16 +599,16 @@ export class WorldPackageImportService {
       const identityPolicyValue =
         (sessionConflict
           ? explicitResolution.get(
-              String(sessionConflict.id),
-            )
+            String(sessionConflict.id),
+          )
           : undefined) ?? "MANUAL";
 
       if (identityPolicyValue === "MANUAL") {
         throw new Error(
           "Manual identity resolution required for " +
-            table.name +
-            " " +
-            incomingKey,
+          table.name +
+          " " +
+          incomingKey,
         );
       }
 
@@ -763,8 +763,8 @@ export class WorldPackageImportService {
       const policy =
         (sessionConflict
           ? explicitResolution.get(
-              String(sessionConflict.id),
-            )
+            String(sessionConflict.id),
+          )
           : undefined) ??
         this.defaultConflictPolicy(
           table,
@@ -777,11 +777,11 @@ export class WorldPackageImportService {
       if (policy === "MANUAL") {
         throw new Error(
           "Manual conflict resolution required for " +
-            table.name +
-            " " +
-            incomingKey +
-            " column " +
-            change.column,
+          table.name +
+          " " +
+          incomingKey +
+          " column " +
+          change.column,
         );
       }
 
@@ -886,7 +886,7 @@ export class WorldPackageImportService {
     if (policy) {
       const uuidValue =
         policy.uuidColumn &&
-        row[policy.uuidColumn] != null
+          row[policy.uuidColumn] != null
           ? String(row[policy.uuidColumn])
           : null;
 
@@ -936,7 +936,7 @@ export class WorldPackageImportService {
         uuidWorldKey &&
         naturalWorldKey &&
         serializeKey(table, uuidWorldKey) !==
-          serializeKey(table, naturalWorldKey)
+        serializeKey(table, naturalWorldKey)
       ) {
         return {
           worldKey: uuidWorldKey,
@@ -950,7 +950,7 @@ export class WorldPackageImportService {
             existingValue:
               String(
                 naturalWorldKey[
-                  table.primaryKey[0]
+                table.primaryKey[0]
                 ] ?? "",
               ),
             incomingValue: uuidValue,
@@ -1001,7 +1001,7 @@ export class WorldPackageImportService {
     };
   }
 
-private defaultConflictPolicy(
+  private defaultConflictPolicy(
     table: PackageTableInfo,
     worldKey: KeyObject,
     column: string,
@@ -1161,7 +1161,7 @@ private defaultConflictPolicy(
         for (const fk of group) {
           incomingTargetKey[
             fk.to ||
-              targetInfo.primaryKey[fk.sequence]
+            targetInfo.primaryKey[fk.sequence]
           ] = row[fk.from];
         }
 
@@ -1191,10 +1191,10 @@ private defaultConflictPolicy(
         for (const fk of group) {
           translated[fk.from] =
             mapped[
-              fk.to ||
-                targetInfo.primaryKey[
-                  fk.sequence
-                ]
+            fk.to ||
+            targetInfo.primaryKey[
+            fk.sequence
+            ]
             ];
         }
       }
@@ -1253,7 +1253,7 @@ private defaultConflictPolicy(
     if (columns.length === 0) {
       throw new Error(
         "Cannot insert an empty row into " +
-          table.name,
+        table.name,
       );
     }
 
@@ -1297,15 +1297,15 @@ private defaultConflictPolicy(
       const row = this.world.connection
         .prepare(
           "SELECT * FROM " +
-            quoteIdentifier(table.name) +
-            " WHERE rowid=last_insert_rowid() LIMIT 1",
+          quoteIdentifier(table.name) +
+          " WHERE rowid=last_insert_rowid() LIMIT 1",
         )
         .get() as Row | undefined;
 
       if (!row) {
         throw new Error(
           "Inserted row could not be resolved: " +
-            table.name,
+          table.name,
         );
       }
 
@@ -1344,11 +1344,11 @@ private defaultConflictPolicy(
     this.world.connection
       .prepare(
         "UPDATE " +
-          quoteIdentifier(table.name) +
-          " SET " +
-          setSql +
-          " WHERE " +
-          whereSql,
+        quoteIdentifier(table.name) +
+        " SET " +
+        setSql +
+        " WHERE " +
+        whereSql,
       )
       .run(
         ...writable.map(
@@ -1367,7 +1367,7 @@ private defaultConflictPolicy(
     const candidates = [
       ...table.uniqueColumns,
       ...(table.primaryKey.length > 0 &&
-      !table.rowIdPrimaryKey
+        !table.rowIdPrimaryKey
         ? [table.primaryKey]
         : []),
     ];
@@ -1394,10 +1394,10 @@ private defaultConflictPolicy(
       const row = this.world.connection
         .prepare(
           "SELECT * FROM " +
-            quoteIdentifier(table.name) +
-            " WHERE " +
-            where +
-            " LIMIT 1",
+          quoteIdentifier(table.name) +
+          " WHERE " +
+          where +
+          " LIMIT 1",
         )
         .get(
           ...columns.map(
@@ -1431,10 +1431,10 @@ private defaultConflictPolicy(
     return this.world.connection
       .prepare(
         "SELECT * FROM " +
-          quoteIdentifier(table.name) +
-          " WHERE " +
-          where +
-          " LIMIT 1",
+        quoteIdentifier(table.name) +
+        " WHERE " +
+        where +
+        " LIMIT 1",
       )
       .get(
         ...table.primaryKey.map(
@@ -1526,16 +1526,16 @@ private defaultConflictPolicy(
       uuid =
         incomingRow[policy.uuidColumn] !=
           null &&
-        String(
-          incomingRow[policy.uuidColumn],
-        ).trim() !== ""
+          String(
+            incomingRow[policy.uuidColumn],
+          ).trim() !== ""
           ? String(
-              incomingRow[
-                policy.uuidColumn
-              ],
-            )
+            incomingRow[
+            policy.uuidColumn
+            ],
+          )
           : row?.[policy.uuidColumn] !=
-                  null
+            null
             ? String(row[policy.uuidColumn])
             : generateUuid();
 
@@ -1574,7 +1574,7 @@ private defaultConflictPolicy(
         table.name,
         Number(
           worldKey[
-            table.primaryKey[0]
+          table.primaryKey[0]
           ],
         ),
         uuid,
@@ -1645,7 +1645,7 @@ private defaultConflictPolicy(
       const rows = this.world.connection
         .prepare(
           "SELECT * FROM " +
-            quoteIdentifier(table.name),
+          quoteIdentifier(table.name),
         )
         .all() as Row[];
 
@@ -1660,31 +1660,31 @@ private defaultConflictPolicy(
           uuid =
             row[policy.uuidColumn] !=
               null &&
-            String(
-              row[policy.uuidColumn],
-            ).trim() !== ""
+              String(
+                row[policy.uuidColumn],
+              ).trim() !== ""
               ? String(
-                  row[policy.uuidColumn],
-                )
+                row[policy.uuidColumn],
+              )
               : generateUuid();
 
           this.world.connection
             .prepare(
               "UPDATE " +
-                quoteIdentifier(table.name) +
-                " SET " +
-                quoteIdentifier(
-                  policy.uuidColumn,
-                ) +
-                "=? WHERE " +
-                table.primaryKey
-                  .map(
-                    column =>
-                      quoteIdentifier(
-                        column,
-                      ) + "=?",
-                  )
-                  .join(" AND "),
+              quoteIdentifier(table.name) +
+              " SET " +
+              quoteIdentifier(
+                policy.uuidColumn,
+              ) +
+              "=? WHERE " +
+              table.primaryKey
+                .map(
+                  column =>
+                    quoteIdentifier(
+                      column,
+                    ) + "=?",
+                )
+                .join(" AND "),
             )
             .run(
               uuid,
@@ -1711,7 +1711,7 @@ private defaultConflictPolicy(
             table.name,
             Number(
               worldKey[
-                table.primaryKey[0]
+              table.primaryKey[0]
               ],
             ),
             uuid,
@@ -1721,7 +1721,7 @@ private defaultConflictPolicy(
     }
   }
 
-private recordProvenance(runtime: ImportRuntime, table: PackageTableInfo, worldKey: KeyObject, incoming: Row, resolution: string, winningColumns: Set<string>): void {
+  private recordProvenance(runtime: ImportRuntime, table: PackageTableInfo, worldKey: KeyObject, incoming: Row, resolution: string, winningColumns: Set<string>): void {
     this.provenance.recordEntity({ table, rowKey: serializeKey(table, worldKey), packageId: runtime.packageId, incoming, resolution, winningColumns });
   }
 
@@ -1753,7 +1753,7 @@ private recordProvenance(runtime: ImportRuntime, table: PackageTableInfo, worldK
   private resolveSessionConflict(id: number | null, resolution: ConflictPolicy): void {
     if (id != null) this.provenance.resolveConflict(id, resolution);
   }
-private findSessionConflict(sessionId: number, table: PackageTableInfo, incomingKey: string, column: string | null): ImportConflictRecord | null {
+  private findSessionConflict(sessionId: number, table: PackageTableInfo, incomingKey: string, column: string | null): ImportConflictRecord | null {
     return this.listConflicts(sessionId).find(conflict => conflict.tableName === table.name && conflict.incomingKey === incomingKey && conflict.columnName === column && !conflict.resolved) ?? null;
   }
   private previousImportMapping(
@@ -1828,13 +1828,15 @@ private findSessionConflict(sessionId: number, table: PackageTableInfo, incoming
       this.world.metadata("schema_version") ?? 0,
     );
 
+    console.log(manifest)
+
     if (Number(manifest.schemaVersion) !== worldSchema) {
       throw new Error(
         "Package schema v" +
-          manifest.schemaVersion +
-          " is incompatible with World schema v" +
-          worldSchema +
-          ".",
+        manifest.schemaVersion +
+        " is incompatible with World schema v" +
+        worldSchema +
+        ".",
       );
     }
 
@@ -1887,16 +1889,16 @@ private findSessionConflict(sessionId: number, table: PackageTableInfo, incoming
       this.world.connection
         .prepare(
           "SELECT name " +
-            "FROM " +
-            quoteIdentifier(alias) +
-            ".sqlite_master " +
-            "WHERE type='table' " +
-            "AND name NOT LIKE 'sqlite_%' " +
-            "ORDER BY name",
+          "FROM " +
+          quoteIdentifier(alias) +
+          ".sqlite_master " +
+          "WHERE type='table' " +
+          "AND name NOT LIKE 'sqlite_%' " +
+          "ORDER BY name",
         )
         .all() as Array<{
-        name: string;
-      }>
+          name: string;
+        }>
     ).filter(
       table =>
         !INTERNAL_TABLES.has(
@@ -1912,35 +1914,35 @@ private findSessionConflict(sessionId: number, table: PackageTableInfo, incoming
     const columns = this.world.connection
       .prepare(
         "PRAGMA " +
-          quoteIdentifier(alias) +
-          ".table_info(" +
-          quoteIdentifier(tableName) +
-          ")",
+        quoteIdentifier(alias) +
+        ".table_info(" +
+        quoteIdentifier(tableName) +
+        ")",
       )
       .all() as Array<{
-      name: string;
-      type: string;
-      notnull: number;
-      dflt_value: unknown;
-      pk: number;
-    }>;
+        name: string;
+        type: string;
+        notnull: number;
+        dflt_value: unknown;
+        pk: number;
+      }>;
 
     const foreignKeys =
       this.world.connection
         .prepare(
           "PRAGMA " +
-            quoteIdentifier(alias) +
-            ".foreign_key_list(" +
-            quoteIdentifier(tableName) +
-            ")",
+          quoteIdentifier(alias) +
+          ".foreign_key_list(" +
+          quoteIdentifier(tableName) +
+          ")",
         )
         .all() as Array<{
-        id: number;
-        seq: number;
-        table: string;
-        from: string;
-        to: string;
-      }>;
+          id: number;
+          seq: number;
+          table: string;
+          from: string;
+          to: string;
+        }>;
 
     const worldSchema =
       this.world.tableSchema(
@@ -1985,13 +1987,13 @@ private findSessionConflict(sessionId: number, table: PackageTableInfo, incoming
         worldSchema.uniqueColumns,
       rowIdPrimaryKey:
         worldSchema.primaryKey.length ===
-          1 &&
+        1 &&
         worldSchema.columns.find(
           column =>
             column.name ===
             worldSchema.primaryKey[0],
         )?.type.toUpperCase() ===
-          "INTEGER",
+        "INTEGER",
     };
   }
 
@@ -2017,8 +2019,8 @@ private findSessionConflict(sessionId: number, table: PackageTableInfo, incoming
           this.world.connection
             .prepare(
               "SELECT 1 FROM " +
-                quoteIdentifier(alias) +
-                ".sqlite_master WHERE type='table' AND name=? LIMIT 1",
+              quoteIdentifier(alias) +
+              ".sqlite_master WHERE type='table' AND name=? LIMIT 1",
             )
             .get(tableName);
 
@@ -2080,7 +2082,7 @@ private findSessionConflict(sessionId: number, table: PackageTableInfo, incoming
           "uuid:" +
           String(
             row[
-              policy.uuidColumn
+            policy.uuidColumn
             ],
           );
       } else if (policy) {
@@ -2137,12 +2139,12 @@ private findSessionConflict(sessionId: number, table: PackageTableInfo, incoming
     return this.world.connection
       .prepare(
         "SELECT * FROM " +
-          quoteIdentifier(alias) +
-          "." +
-          quoteIdentifier(table.name) +
-          " WHERE " +
-          where +
-          " LIMIT 1",
+        quoteIdentifier(alias) +
+        "." +
+        quoteIdentifier(table.name) +
+        " WHERE " +
+        where +
+        " LIMIT 1",
       )
       .get(
         ...table.primaryKey.map(
@@ -2201,7 +2203,7 @@ private findSessionConflict(sessionId: number, table: PackageTableInfo, incoming
       this.world.connection
         .prepare(
           "DELETE FROM " +
-            quoteIdentifier(table),
+          quoteIdentifier(table),
         )
         .run();
     }
@@ -2257,9 +2259,9 @@ function virtualKey(
       column => [
         column,
         "__NEW__:" +
-          table.name +
-          ":" +
-          incomingKey,
+        table.name +
+        ":" +
+        incomingKey,
       ],
     ),
   );
@@ -2344,8 +2346,8 @@ function infoToTableInfo(schema: {
         primaryKeyOrder:
           column.primaryKey
             ? schema.primaryKey.indexOf(
-                column.name,
-              ) + 1
+              column.name,
+            ) + 1
             : 0,
       }),
     ),
@@ -2365,13 +2367,13 @@ function infoToTableInfo(schema: {
       schema.uniqueColumns,
     rowIdPrimaryKey:
       schema.primaryKey.length ===
-        1 &&
+      1 &&
       schema.columns.find(
         column =>
           column.name ===
           schema.primaryKey[0],
       )?.type.toUpperCase() ===
-        "INTEGER",
+      "INTEGER",
   };
 }
 
@@ -2438,7 +2440,7 @@ export function quoteIdentifier(
   ) {
     throw new Error(
       "Invalid SQL identifier: " +
-        value,
+      value,
     );
   }
 

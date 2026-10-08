@@ -1,4 +1,3 @@
-import { TacticalProfileEditor } from "./TacticalProfileEditor";
 import { ClubScopedRelationEditor } from "./ClubScopedRelationEditor";
 import { ClubIdentityEditor } from "./ClubIdentityEditor";
 import { ClubLocationEditor } from "./ClubLocationEditor";

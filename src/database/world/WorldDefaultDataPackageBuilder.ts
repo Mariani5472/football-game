@@ -20,6 +20,7 @@ import {
   DEFAULT_PLAYER_ROLES,
   DEFAULT_REFERENCE_LISTS,
 } from "./WorldBasePackageDefinition.js";
+import { WORLD_SCHEMA_VERSION } from "./WorldMigrationService.js";
 
 export class WorldDefaultDataPackageBuilder {
   static createPackageDatabase(file: string): void {
@@ -87,14 +88,14 @@ export class WorldDefaultDataPackageBuilder {
       const metadata = db.prepare(
         "INSERT OR REPLACE INTO database_metadata(key,value) VALUES(?,?)",
       );
-      metadata.run("schema_version", "4");
+      metadata.run("schema_version", String(WORLD_SCHEMA_VERSION));
       metadata.run("database_type", "world");
       metadata.run("package_key", BASE_PACKAGE_KEY);
       metadata.run("package_name", "Base World");
       metadata.run("package_version", BASE_PACKAGE_VERSION);
       metadata.run("package_type", "BASE");
       metadata.run("package_priority", String(BASE_PACKAGE_PRIORITY));
-      metadata.run("schema_version", "4");
+      metadata.run("schema_version", String(WORLD_SCHEMA_VERSION));
       metadata.run("package_provides", JSON.stringify(BASE_PACKAGE_PROVIDES));
       metadata.run("package_dependencies", "[]");
       metadata.run("package_conflicts", "[]");
@@ -536,22 +537,22 @@ export class WorldDefaultDataPackageBuilder {
       if (!this.tableExists(db, table)) {
         throw new Error(
           "Default reference dataset is missing required table: " +
-            table,
+          table,
         );
       }
 
       const row = db
         .prepare(
           'SELECT COUNT(*) AS count FROM "' +
-            table +
-            '"',
+          table +
+          '"',
         )
         .get() as { count: number };
 
       if (Number(row.count) === 0) {
         throw new Error(
           "Default reference dataset is empty: " +
-            table,
+          table,
         );
       }
     }

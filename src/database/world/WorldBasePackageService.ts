@@ -72,7 +72,7 @@ export class WorldBasePackageService {
           sourceHash,
           JSON.stringify(["reference", "geography", "languages", "currencies", "climate", "people", "competition", "stadiums", "finance", "contracts", "transfers", "tactics", "equipment", "awards", "press", "records"]),
           "Immutable foundational reference data for every World.",
-          4,
+          5,
           now,
           now,
           now,
