@@ -3,6 +3,7 @@ import { useMemo, useState } from "react";
 import { ChevronRight, Globe2, MapPinned, Pencil, Plus, Search, Trash2, X } from "lucide-react";
 import { DeleteDialog, EntityForm, EntityPicker, Pagination } from "../../../../../shared/components";
 import { GeographyEntityTable } from "../components/GeographyEntityTable";
+import { GeographyRelationsPanel } from "../components/GeographyRelationsPanel";
 import { geographyChildKind, geographyFilterItems, geographySpecs } from "../config/geographyConfig";
 import { useGeographyEditor } from "../hooks/useGeographyEditor";
 import { findAncestors } from "../config/geographyTree";
@@ -203,11 +204,39 @@ export function GeographyPage() {
                   <InfoRow label="Type" value={activeSpec?.label ?? "—"} />
                   <InfoRow label="Name" value={String(activeNode.row.name ?? "—")} />
                   <InfoRow label="Short name" value={String(activeNode.row.short_name ?? "—")} />
-                  {activeSpec?.fields.filter(field => !field.relation && !["name","short_name"].includes(field.name)).map(field => (
-                    <InfoRow key={field.name} label={field.label} value={String(activeNode.row[field.name] ?? "—")} />
-                  ))}
+                  {activeSpec?.fields
+                    .filter(field => !field.relation && !["name", "short_name"].includes(field.name))
+                    .map(field => (
+                      <InfoRow
+                        key={field.name}
+                        label={field.label}
+                        value={String(activeNode.row[field.name] ?? "—")}
+                      />
+                    ))}
                 </div>
               )}
+
+              <GeographyRelationsPanel
+                selectedNode={activeNode}
+                relation={state.relation}
+                relationRows={state.relationRows}
+                languages={state.languages}
+                altNames={state.altNames}
+                nativeTreatments={state.nativeTreatments}
+                regionalClimates={state.regionalClimates}
+                climateRows={state.climateRows}
+                allRows={state.geography.allRows}
+                loading={state.relationLoading}
+                error={state.relationError}
+                onSaveLanguages={state.saveLanguages}
+                onAddAlternativeName={state.addAlternativeName}
+                onRemoveAlternativeName={state.removeAlternativeName}
+                onAddNativeTreatment={state.addNativeTreatment}
+                onRemoveNativeTreatment={state.removeNativeTreatment}
+                onAddRegionalClimate={state.addRegionalClimate}
+                onRemoveRegionalClimate={state.removeRegionalClimate}
+                onCityClimateChange={state.updateCityClimate}
+              />
             </div>
           )}
         </aside>
