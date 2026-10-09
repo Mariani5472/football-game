@@ -6,7 +6,7 @@ import DatabaseConnection from "better-sqlite3";
 import { describe, expect, it } from "vitest";
 
 import { WorldDatabase } from "../../src/database/world/WorldDatabase.js";
-import { WorldPackageImportService } from "../../src/editor/WorldPackageImportService.js";
+import { WorldPackageImportService } from "../../src/infrastructure/packages/WorldPackageImportService.js";
 
 function tempDir() {
   return fs.mkdtempSync(path.join(os.tmpdir(), "football-p6-"));
@@ -63,7 +63,7 @@ describe("P6 package identity and conflict system", () => {
     expect(update.status).toBe("READY");
     service.import(update.sessionId);
     const current = world.connection.prepare("SELECT version FROM world_package WHERE lower(package_key)=?").get("country.brazil") as { version: string };
-    const history = world.connection.prepare("SELECT version,replacement_reason FROM world_package_version_history WHERE lower(package_key)=? ORDER BY id").all("country.brazil") as Array<{version:string;replacement_reason:string;}>;
+    const history = world.connection.prepare("SELECT version,replacement_reason FROM world_package_version_history WHERE lower(package_key)=? ORDER BY id").all("country.brazil") as Array<{ version: string; replacement_reason: string; }>;
     expect(current.version).toBe("1.1.0");
     expect(history).toHaveLength(1);
     expect(history[0]).toEqual({ version: "1.0.0", replacement_reason: "PACKAGE_UPDATE" });

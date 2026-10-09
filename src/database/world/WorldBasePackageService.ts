@@ -98,4 +98,3 @@ function sha256File(file: string): string {
   hash.update(fs.readFileSync(file));
   return hash.digest("hex");
 }
-

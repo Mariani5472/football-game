@@ -20,11 +20,11 @@ describe("P7 Base World", () => {
         "SELECT package_key AS packageKey,package_type AS packageType,enabled,source_file AS sourceFile FROM world_package WHERE package_key=?",
       )
       .get("world.base") as {
-      packageKey: string;
-      packageType: string;
-      enabled: number;
-      sourceFile: string;
-    };
+        packageKey: string;
+        packageType: string;
+        enabled: number;
+        sourceFile: string;
+      };
 
     expect(base.packageKey).toBe("world.base");
     expect(base.packageType).toBe("BASE");
@@ -74,10 +74,10 @@ describe("P7 Base World", () => {
          WHERE n.name=?`,
       )
       .get("Brazil") as {
-      continent: string;
-      region: string;
-      nation: string;
-    };
+        continent: string;
+        region: string;
+        nation: string;
+      };
 
     expect(brazil).toEqual({
       continent: "South America",
@@ -94,9 +94,9 @@ describe("P7 Base World", () => {
          WHERE c.short_name=? AND n.name=?`,
       )
       .get("CONMEBOL", "Brazil") as {
-      confederation: string;
-      nation: string;
-    };
+        confederation: string;
+        nation: string;
+      };
 
     expect(conmebol).toEqual({
       confederation: "CONMEBOL",
