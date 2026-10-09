@@ -32,6 +32,9 @@ export interface DrawRestriction {
   targetPotId?: number;
   maxMeetings?: number;
   sameGroupAllowed: boolean;
+  nationIds?: number[];
+  continentIds?: number[];
+  competitionIds?: number[];
 }
 
 export interface DrawTeam {

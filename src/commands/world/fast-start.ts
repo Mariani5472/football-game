@@ -7,7 +7,6 @@ import {
   type FastStartTemplate,
 } from "../../world/services/FastStartService.js";
 import { WorldStatisticsService } from "../../world/services/WorldStatisticsService.js";
-import { WorldValidator } from "../../world/validation/WorldValidator.js";
 
 const argument = process.argv[2];
 
@@ -43,12 +42,12 @@ const database = WorldDatabase.create(
 try {
   const service = new FastStartService(database);
 
-  service.run({
+  const result = service.run({
     template: selectedTemplate,
     seasonYear,
   });
 
-  const validation = new WorldValidator(database).validate();
+  const validation = result.summary.validation;
 
   if (!validation.valid) {
     console.log("");
@@ -65,6 +64,8 @@ try {
 
   console.log("");
   console.log("World generated successfully.");
+  console.log(`Calendar: ${result.summary.counts.rounds} rounds / ${result.summary.counts.fixtures} fixtures`);
+  console.log(`Build status: ${database.metadata("world_build_status") ?? "UNKNOWN"}`);
 
   console.log("");
   console.log(

@@ -1,107 +1,98 @@
+import { useEffect, useState } from "react";
 import { UserRound } from "lucide-react";
-
-import { cities, countries, languages } from "../../world/data/world.data";
-import { EntityForm, EntityPicker } from "../../../shared/components";
+import { Tabs } from "../../../shared/components";
+import { editorApi, type EntityRow } from "../../../shared/api/editorApi";
 import { usePersonEditor } from "../hooks/usePersonEditor";
+import { usePersonPersistence } from "../hooks/usePersonPersistence";
+import { usePersonReferences } from "../hooks/usePersonReferences";
+import { PersonIdentityTab } from "./PersonIdentityTab";
+import { PersonNationalityTab } from "./PersonNationalityTab";
+import { PersonLanguagesTab } from "./PersonLanguagesTab";
+import { PersonContractTab } from "./PersonContractTab";
+import { PersonRelationshipsTab } from "./PersonRelationshipsTab";
+import { PersonInternationalTab } from "./PersonInternationalTab";
+import { PersonAttributesTab } from "./PersonAttributesTab";
+import { PersonTrendsTab } from "./PersonTrendsTab";
+import { PersonHistoryTab } from "./PersonHistoryTab";
 import type { Person } from "../types";
 
-interface PersonEditorProps {
-  person?: Person;
+export function PersonEditor({
+  personId,
+  onBack,
+  onSaved,
+}: {
+  personId?: number;
   onBack: () => void;
-}
-
-export function PersonEditor({ person, onBack }: PersonEditorProps) {
+  onSaved: (id: number) => void;
+}) {
+  const references = usePersonReferences();
+  const persistence = usePersonPersistence();
+  const [person, setPerson] = useState<Person | null>(null);
+  const [tab, setTab] = useState("identity");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const editor = usePersonEditor(person);
 
-  const fields = [
-    { name: "fullName", label: "Full Name", required: true },
-    { name: "commonName", label: "Common Name" },
-    {
-      name: "birthDate",
-      label: "Birth Date",
-      placeholder: "YYYY-MM-DD",
-    },
-  ];
+  useEffect(() => {
+    if (!personId) {
+      setPerson(null);
+      return;
+    }
+    let active = true;
+    void editorApi.entity.get<Person>("person", personId)
+      .then(row => active && setPerson(row))
+      .catch(cause => active && setError(cause instanceof Error ? cause.message : String(cause)));
+    return () => { active = false; };
+  }, [personId]);
+
+  async function saveIdentity() {
+    setSaving(true);
+    setError(null);
+    try {
+      const result = await persistence.savePerson(personId, editor.draft);
+      const id = Number(result.id);
+      setPerson(result as Person);
+      onSaved(id);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : String(cause));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const title = person?.full_name ?? (personId ? `Person #${personId}` : "New Person");
+  const locked = !personId;
 
   return (
     <div className="space-y-6">
-      <div className="flex items-start justify-between gap-6">
+      <header className="flex items-start justify-between gap-6">
         <div>
-          <div className="mb-2 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-600">
-            <UserRound size={14} />
-            PEOPLE / PERSON
-          </div>
-          <h1 className="text-2xl font-semibold tracking-tight text-white">
-            {person?.fullName ?? "New Person"}
-          </h1>
-          <p className="mt-2 text-sm text-slate-500">
-            Identity, birth data, nationality and languages belong to Person.
-          </p>
+          <div className="mb-2 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-600"><UserRound size={14} /> PEOPLE / PERSON</div>
+          <h1 className="text-2xl font-semibold tracking-tight text-white">{title}</h1>
+          <p className="mt-2 max-w-3xl text-sm text-slate-500">Complete Person editor: identity, nationality, languages, contracts, relationships, international data, attributes, trends and history.</p>
         </div>
+        <button type="button" onClick={onBack} className="rounded-lg border border-white/10 px-3 py-2 text-xs text-slate-400">Back</button>
+      </header>
 
-        <button
-          type="button"
-          onClick={onBack}
-          className="rounded-lg border border-white/10 px-3 py-2 text-xs text-slate-400 hover:bg-white/[0.04]"
-        >
-          Back
-        </button>
-      </div>
+      {(error || references.error) && <div className="rounded-xl border border-red-400/20 bg-red-400/5 px-4 py-3 text-sm text-red-200">{error ?? references.error}</div>}
 
-      <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-6">
-        <EntityForm
-          fields={fields}
-          values={{
-            fullName: editor.draft.fullName,
-            commonName: editor.draft.commonName,
-            birthDate: editor.draft.birthDate,
-          }}
-          onChange={(name, value) => {
-            if (name === "fullName" || name === "commonName" || name === "birthDate") {
-              editor.setValue(name, String(value));
-            }
-          }}
-          onSubmit={() => undefined}
-          submitLabel={person ? "Save Person" : "Create Person"}
-        >
-          <div className="grid gap-5 md:grid-cols-2">
-            <EntityPicker
-              label="Birth City"
-              value={editor.draft.birthCityId}
-              options={cities.map((city) => ({ id: city.id, label: city.name }))}
-              onChange={(value) => editor.setValue("birthCityId", String(value))}
-            />
-            <EntityPicker
-              label="Nationality"
-              value={editor.draft.nationalityId}
-              options={countries.map((country) => ({ id: country.id, label: country.name }))}
-              onChange={(value) => editor.setValue("nationalityId", String(value))}
-            />
-          </div>
+      <Tabs
+        activeTab={tab}
+        onChange={setTab}
+        items={[
+          { id: "identity", label: "Identity", content: <PersonIdentityTab draft={editor.draft} references={references} onChange={editor.setValue} saving={saving} onSave={() => void saveIdentity()} /> },
+          { id: "nationality", label: "Nationality", content: <PersonNationalityTab personId={personId} references={references} /> },
+          { id: "languages", label: "Languages", content: <PersonLanguagesTab personId={personId} references={references} /> },
+          { id: "contracts", label: "Contracts", content: <PersonContractTab personId={personId} references={references} /> },
+          { id: "relationships", label: "Relationships", content: <PersonRelationshipsTab personId={personId} references={references} /> },
+          { id: "international", label: "International", content: <PersonInternationalTab personId={personId} /> },
+          { id: "attributes", label: "Attributes", content: <PersonAttributesTab personId={personId} /> },
+          { id: "trends", label: "Trends", content: <PersonTrendsTab personId={personId} /> },
+          { id: "history", label: "History & Clubs", content: <PersonHistoryTab personId={personId} teams={references.teams} /> },
+        ]}
+      />
 
-          <div className="mt-5">
-            <div className="mb-3 text-xs font-medium text-slate-400">Languages</div>
-            <div className="grid gap-2 md:grid-cols-2">
-              {languages.map((language) => {
-                const selected = editor.draft.languageIds.includes(language.id);
-                return (
-                  <label
-                    key={language.id}
-                    className="flex cursor-pointer items-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5 text-sm text-slate-300"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={selected}
-                      onChange={() => editor.toggleLanguage(language.id)}
-                    />
-                    {language.name}
-                  </label>
-                );
-              })}
-            </div>
-          </div>
-        </EntityForm>
-      </div>
+      {locked && <p className="text-right text-xs text-slate-600">Save the Person from the Identity tab to unlock relationship data.</p>}
     </div>
   );
 }

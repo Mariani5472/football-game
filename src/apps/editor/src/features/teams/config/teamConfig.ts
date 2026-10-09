@@ -610,6 +610,28 @@ export const coefficientConfig = config(
   ],
 );
 
+export const tacticalProfileConfig = config(
+  "team_tactical_profile",
+  "Tactical Profiles",
+  "Preferred, offensive and defensive formations for each team.",
+  [
+    field("team_id", "Team", { relation: rel("team") }),
+    field("preferred_formation_id", "Preferred Formation", { relation: rel("formation") }),
+    field("secondary_preferred_formation_id", "Secondary Formation", { relation: rel("formation") }),
+    field("preferred_offensive_formation_id", "Offensive Formation", { relation: rel("formation") }),
+    field("preferred_defensive_formation_id", "Defensive Formation", { relation: rel("formation") }),
+  ],
+  [
+    ["team_id", "Team", rel("team")],
+    ["preferred_formation_id", "Preferred", rel("formation")],
+    ["secondary_preferred_formation_id", "Secondary", rel("formation")],
+    ["preferred_offensive_formation_id", "Offensive", rel("formation")],
+    ["preferred_defensive_formation_id", "Defensive", rel("formation")],
+  ],
+  undefined,
+  row => Number(row.team_id),
+);
+
 export const teamDomainConfigs = {
   team: teamConfig,
   club: clubConfig,
@@ -636,4 +658,6 @@ export const teamDomainConfigs = {
   regionalCompetition: regionalCompetitionConfig,
   expectation: expectationConfig,
   coefficient: coefficientConfig,
+  tacticalProfile: tacticalProfileConfig,
+  preferredFormation: tacticalProfileConfig,
 } as const;

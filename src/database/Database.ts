@@ -1,7 +1,7 @@
 import DatabaseConnection from "better-sqlite3";
 
 export type TransactionCallback<T> = () => T;
-export type SqlValue = string | number | bigint | null | Buffer | Uint8Array;
+export type SqlValue = string | number | bigint | null | Buffer | Uint8Array | boolean;
 export type SqlKey = SqlValue | Record<string, SqlValue>;
 export type SqlRow = Record<string, unknown>;
 
@@ -60,6 +60,24 @@ export abstract class Database {
     return this.db;
   }
 
+  metadata(key: string): string | undefined {
+    if (!this.tableExists("database_metadata")) return undefined;
+    const row = this.db
+      .prepare("SELECT value FROM database_metadata WHERE key = ? LIMIT 1")
+      .get(key) as { value: string } | undefined;
+    return row?.value;
+  }
+
+  setMetadata(key: string, value: string): void {
+    this.db
+      .prepare(`
+        INSERT INTO database_metadata (key, value)
+        VALUES (?, ?)
+        ON CONFLICT(key) DO UPDATE SET value = excluded.value
+      `)
+      .run(key, value);
+  }
+
   execute(sql: string): DatabaseConnection.RunResult {
     return this.db.prepare(sql).run();
   }
@@ -100,24 +118,24 @@ export abstract class Database {
     const columns = this.db
       .prepare(`PRAGMA table_info("${table}")`)
       .all() as Array<{
-      name: string;
-      type: string;
-      notnull: number;
-      dflt_value: unknown;
-      pk: number;
-    }>;
+        name: string;
+        type: string;
+        notnull: number;
+        dflt_value: unknown;
+        pk: number;
+      }>;
 
     const foreignKeys = this.db
       .prepare(`PRAGMA foreign_key_list("${table}")`)
       .all() as Array<{
-      id: number;
-      seq: number;
-      table: string;
-      from: string;
-      to: string;
-      on_update: string;
-      on_delete: string;
-    }>;
+        id: number;
+        seq: number;
+        table: string;
+        from: string;
+        to: string;
+        on_update: string;
+        on_delete: string;
+      }>;
 
     const ddl = (
       this.db
@@ -130,10 +148,10 @@ export abstract class Database {
     const indexes = this.db
       .prepare(`PRAGMA index_list("${table}")`)
       .all() as Array<{
-      name: string;
-      unique: number;
-      origin: string;
-    }>;
+        name: string;
+        unique: number;
+        origin: string;
+      }>;
 
     const uniqueColumns = indexes
       .filter((index) => index.unique === 1 && index.origin !== "pk")
@@ -141,9 +159,12 @@ export abstract class Database {
         (
           this.db.prepare(
             `PRAGMA index_info("${index.name}")`,
-          ).all() as Array<{ name: string }>
-        ).map((column) => column.name),
-      );
+          ).all() as Array<{ name: string | null }>
+        )
+          .map((column) => column.name)
+          .filter((name): name is string => name !== null),
+      )
+      .filter((columns) => columns.length > 0);
 
     const checks = [...ddl.matchAll(/CHECK\s*\(([^()]*)\)/gi)]
       .map((match) => match[1].trim());
@@ -187,8 +208,8 @@ export abstract class Database {
       options.searchColumns?.length
         ? options.searchColumns
         : schema.columns
-            .filter((column) => /CHAR|TEXT|CLOB/i.test(column.type))
-            .map((column) => column.name)
+          .filter((column) => /CHAR|TEXT|CLOB/i.test(column.type))
+          .map((column) => column.name)
     ).filter((column) =>
       schema.columns.some((candidate) => candidate.name === column),
     );
@@ -221,7 +242,7 @@ export abstract class Database {
 
     const orderBy =
       options.orderBy &&
-      schema.columns.some((column) => column.name === options.orderBy)
+        schema.columns.some((column) => column.name === options.orderBy)
         ? options.orderBy
         : schema.primaryKey[0] ?? schema.columns[0]?.name;
 
@@ -233,10 +254,10 @@ export abstract class Database {
     const rows = this.db
       .prepare(
         `SELECT * FROM "${this.quoteIdentifier(table)}"${where}` +
-          (orderBy
-            ? ` ORDER BY "${this.quoteIdentifier(orderBy)}" ${direction}`
-            : "") +
-          " LIMIT ? OFFSET ?",
+        (orderBy
+          ? ` ORDER BY "${this.quoteIdentifier(orderBy)}" ${direction}`
+          : "") +
+        " LIMIT ? OFFSET ?",
       )
       .all(...params, pageSize, offset) as T[];
 
@@ -408,8 +429,13 @@ export abstract class Database {
         throw new Error(`Coluna inválida em ${table}: ${column}`);
       }
 
-      normalized[column] =
-        value === undefined ? null : value;
+      if (value === undefined) {
+        normalized[column] = null;
+      } else if (typeof value === "boolean") {
+        normalized[column] = value ? 1 : 0;
+      } else {
+        normalized[column] = value;
+      }
     }
 
     return normalized;

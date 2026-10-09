@@ -1,31 +1,67 @@
-import { CrudEntityPage } from "../../../shared/components";
+import { useState } from "react";
+import { DataTable, Pagination, SearchInput } from "../../../shared/components";
+import type { DataTableColumn } from "../../../shared/components";
+import { useEntityQuery } from "../../../shared/hooks/useEntityApi";
+import { editorApi, type EntityRow } from "../../../shared/api/editorApi";
+import { PersonEditor } from "../components/PersonEditor";
 
 export function PeoplePage() {
+  const [selectedId, setSelectedId] = useState<number | undefined>();
+  const [creating, setCreating] = useState(false);
+  const [page, setPage] = useState(1);
+  const [search, setSearch] = useState("");
+
+  const list = useEntityQuery("person", {
+    page, pageSize: 15, search,
+    searchColumns: ["full_name", "common_name"],
+    orderBy: "full_name", orderDirection: "ASC",
+  });
+
+  if (creating || selectedId !== undefined) {
+    return (
+      <PersonEditor
+        personId={selectedId}
+        onBack={() => { setCreating(false); setSelectedId(undefined); }}
+        onSaved={id => { setCreating(false); setSelectedId(id); void list.reload(); }}
+      />
+    );
+  }
+
+  const columns: DataTableColumn<EntityRow>[] = [
+    { key: "full_name", header: "Name", render: row => String(row.full_name ?? "") },
+    { key: "common_name", header: "Common Name", render: row => String(row.common_name ?? "—") },
+    { key: "birth_date", header: "Birth Date", render: row => String(row.birth_date ?? "—") },
+    { key: "person_type_id", header: "Person Type", render: row => String(row.person_type_id ?? "—") },
+    { key: "birth_city_id", header: "Birth City", render: row => String(row.birth_city_id ?? "—") },
+    { key: "sex", header: "Sex", render: row => String(row.sex ?? "—") },
+  ];
+
+  async function remove(row: EntityRow) {
+    if (!window.confirm("Delete this person? Related records may prevent deletion.")) return;
+    try {
+      await editorApi.entity.remove("person", Number(row.id));
+      await list.reload();
+    } catch (cause) {
+      window.alert(cause instanceof Error ? cause.message : String(cause));
+    }
+  }
+
   return (
-    <CrudEntityPage
-      config={{
-        table: "person",
-        title: "People",
-        description: "Manage person identity data shared by players, staff and other world actors.",
-        searchColumns: ["full_name", "common_name"],
-        columns: [
-          { key: "full_name", header: "Name" },
-          { key: "common_name", header: "Common Name" },
-          { key: "birth_date", header: "Birth Date" },
-          { key: "nationality_id", header: "Nationality", relation: { table: "nation" } },
-          { key: "birth_city_id", header: "Birth City", relation: { table: "city" } },
-        ],
-        fields: [
-          { name: "full_name", label: "Full Name", required: true },
-          { name: "common_name", label: "Common Name" },
-          { name: "birth_date", label: "Birth Date", type: "date" },
-          { name: "birth_city_id", label: "Birth City", relation: { table: "city" } },
-          { name: "nationality_id", label: "Nationality", relation: { table: "nation" } },
-          { name: "second_nationality_id", label: "Second Nationality", relation: { table: "nation" } },
-          { name: "person_type_id", label: "Person Type", relation: { table: "person_type" } },
-          { name: "gender_id", label: "Gender", relation: { table: "gender" } },
-        ],
-      }}
-    />
+    <div className="space-y-6">
+      <header className="flex items-end justify-between gap-6">
+        <div>
+          <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-600">PEOPLE</div>
+          <h1 className="text-2xl font-semibold tracking-tight text-white">People</h1>
+          <p className="mt-2 max-w-3xl text-sm text-slate-500">
+            Shared identity layer for players, staff and other world actors. Open a person to edit the complete profile graph.
+          </p>
+        </div>
+        <button type="button" onClick={() => setCreating(true)} className="rounded-lg bg-emerald-400/10 px-3.5 py-2.5 text-sm font-medium text-emerald-200">+ New Person</button>
+      </header>
+
+      <SearchInput value={search} onChange={value => { setSearch(value); setPage(1); }} placeholder="Search by full or common name..." />
+      <DataTable rows={list.rows} columns={columns} loading={list.loading} error={list.error} onEdit={row => setSelectedId(Number(row.id))} onDelete={row => void remove(row)} emptyMessage="No people found." />
+      {!list.loading && !list.error && <Pagination page={list.page} pageCount={list.pageCount} onPageChange={setPage} />}
+    </div>
   );
 }

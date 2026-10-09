@@ -10,6 +10,9 @@ export interface WorldStatistics {
   players: number;
   competitions: number;
   seasons: number;
+  continents: number;
+  languages: number;
+  climates: number;
 }
 
 export class WorldStatisticsService {
@@ -28,6 +31,9 @@ export class WorldStatisticsService {
       players: this.count("player"),
       competitions: this.count("competition"),
       seasons: this.count("competition_season"),
+      continents: this.count("continent"),
+      languages: this.count("language"),
+      climates: this.count("climate"),
     };
   }
 

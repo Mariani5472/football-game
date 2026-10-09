@@ -13,6 +13,9 @@ import {
   UserRound,
   UsersRound,
   Wrench,
+  Plus,
+  Copy,
+  ArrowRightLeft,
 } from "lucide-react";
 
 import type { EditorRoute } from "../../app/routes";
@@ -26,10 +29,7 @@ interface NavItem {
 const worldItems: NavItem[] = [
   { id: "dashboard", label: "Dashboard", icon: CircleDot },
   { id: "geography", label: "Geography", icon: Globe2 },
-  { id: "continents", label: "Continents", icon: Globe2 },
-  { id: "countries", label: "Countries", icon: Globe2 },
-  { id: "regions", label: "Regions", icon: Map },
-  { id: "cities", label: "Cities", icon: Map },
+  { id: "confederations", label: "Confederations", icon: Trophy },
   { id: "languages", label: "Languages", icon: Languages },
   { id: "climates", label: "Climates", icon: CloudSun },
   { id: "reference-data", label: "Reference Data", icon: Database },
@@ -51,9 +51,12 @@ const competitionItems: NavItem[] = [
 
 const tacticsItems: NavItem[] = [
   { id: "formations", label: "Formations", icon: Swords },
+  { id: "fast-create", label: "Quick Create", icon: Plus },
 ];
 
 const toolItems: NavItem[] = [
+  { id: "world-systems", label: "World Systems", icon: ArrowRightLeft },
+  { id: "templates", label: "Templates", icon: Copy },
   { id: "fast-start", label: "Fast Start", icon: CircleDot },
   { id: "validation", label: "Validation", icon: CheckCircle2 },
   { id: "export", label: "Export", icon: Database },
@@ -95,7 +98,7 @@ export function EditorSidebar({
           <div className="h-8 w-8 rounded-full bg-gradient-to-br from-emerald-400/60 to-cyan-400/20" />
           <div className="min-w-0">
             <div className="truncate text-xs font-medium text-slate-200">World Studio</div>
-            <div className="truncate text-[11px] text-slate-500">SQLite · schema v2</div>
+            <div className="truncate text-[11px] text-slate-500">SQLite · schema v4</div>
           </div>
         </div>
       </div>

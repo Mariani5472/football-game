@@ -27,7 +27,7 @@ export function useGeographyRelations(
 
   async function list(table: string, orderBy = "id") {
     return (
-      await editorApi.list(table, {
+      await editorApi.entity.list(table, {
         page: 1,
         pageSize: 1000,
         orderBy,
@@ -95,15 +95,15 @@ export function useGeographyRelations(
     for (const row of relationRows) {
       const item = keep.get(String(row.language_id));
       if (!item) {
-        await editorApi.remove(relation.table, row.id as number);
+        await editorApi.entity.remove(relation.table, row.id as number);
       } else {
-        await editorApi.update(relation.table, row.id as number, item.values);
+        await editorApi.entity.update(relation.table, row.id as number, item.values);
       }
     }
 
     for (const item of items) {
       if (!relationRows.some(row => String(row.language_id) === String(item.targetId))) {
-        await editorApi.create(relation.table, {
+        await editorApi.entity.create(relation.table, {
           [relation.ownerColumn]: selectedNode.entityId,
           language_id: item.targetId,
           percentage: item.values.percentage ?? 0,
@@ -117,12 +117,12 @@ export function useGeographyRelations(
     if (selectedNode?.kind !== "continent") return;
     const name = window.prompt("Alternative continent name");
     if (!name?.trim()) return;
-    await editorApi.create("continent_alt_name", { continent_id: selectedNode.entityId, name: name.trim() });
+    await editorApi.entity.create("continent_alt_name", { continent_id: selectedNode.entityId, name: name.trim() });
     await reload();
   }
 
   async function removeAlternativeName(row: EntityRow) {
-    await editorApi.remove("continent_alt_name", row.id as number);
+    await editorApi.entity.remove("continent_alt_name", row.id as number);
     await reload();
   }
 
@@ -135,7 +135,7 @@ export function useGeographyRelations(
         !nativeTreatments.some(row => Number(row.target_nation_id) === node.entityId),
     );
     if (!target) return;
-    await editorApi.create("nation_native_treatment", {
+    await editorApi.entity.create("nation_native_treatment", {
       root_nation_id: selectedNode.entityId,
       target_nation_id: target.entityId,
     });
@@ -143,7 +143,7 @@ export function useGeographyRelations(
   }
 
   async function removeNativeTreatment(row: EntityRow) {
-    await editorApi.remove("nation_native_treatment", row.id as number);
+    await editorApi.entity.remove("nation_native_treatment", row.id as number);
     await reload();
   }
 
@@ -153,7 +153,7 @@ export function useGeographyRelations(
       row => !regionalClimates.some(current => Number(current.climate_id) === Number(row.id)),
     );
     if (!climate) return;
-    await editorApi.create("climate_nation_region", {
+    await editorApi.entity.create("climate_nation_region", {
       nation_region_id: selectedNode.entityId,
       climate_id: climate.id,
     });
@@ -161,13 +161,13 @@ export function useGeographyRelations(
   }
 
   async function removeRegionalClimate(row: EntityRow) {
-    await editorApi.remove("climate_nation_region", row.id as number);
+    await editorApi.entity.remove("climate_nation_region", row.id as number);
     await reload();
   }
 
   async function updateCityClimate(value: number | string) {
     if (selectedNode?.kind !== "city") return;
-    await editorApi.update("city", selectedNode.entityId, {
+    await editorApi.entity.update("city", selectedNode.entityId, {
       climate_id: value === "" ? null : Number(value),
     });
     await reloadGeography();

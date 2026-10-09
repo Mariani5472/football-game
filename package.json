@@ -12,7 +12,10 @@
     "career:new": "tsx src/commands/career/new.ts",
     "editor:api": "tsx src/commands/editor/api.ts",
     "editor:dev": "tsx src/commands/editor/dev.ts",
-    "editor:build": "npm --prefix src/apps/editor install && npm --prefix src/apps/editor run build"
+    "editor:build": "npm --prefix src/apps/editor install && npm --prefix src/apps/editor run build",
+    "e2e:world": "tsx tests/e2e/world-editor-e2e.ts",
+    "e2e:world:ci": "tsx tests/e2e/world-editor-e2e.ts --ci",
+    "package:world": "tsx src/commands/world/export.ts"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^9.6.0",

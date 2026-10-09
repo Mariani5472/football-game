@@ -56,3 +56,11 @@ export function useDrawEditor(
 
   return { state, update, draw };
 }
+
+export function validateDrawConfiguration(input: { teamCount: number; groupCount: number; teamsPerGroup: number }): string[] {
+  const errors: string[] = [];
+  if (!Number.isInteger(input.groupCount) || input.groupCount < 1) errors.push("Group count must be a positive integer.");
+  if (!Number.isInteger(input.teamsPerGroup) || input.teamsPerGroup < 1) errors.push("Teams per group must be a positive integer.");
+  if (input.groupCount * input.teamsPerGroup !== input.teamCount) errors.push("Group count × teams per group must equal the number of participants.");
+  return errors;
+}

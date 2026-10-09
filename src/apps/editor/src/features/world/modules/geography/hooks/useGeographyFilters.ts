@@ -23,7 +23,6 @@ export function useGeographyFilters(tree: GeographyTreeNode[]) {
   }, [allRows, filter, query]);
 
   const counts = useMemo(() => ({
-    federation: allRows.filter(node => node.kind === "federation").length,
     continent: allRows.filter(node => node.kind === "continent").length,
     "continent-region": allRows.filter(node => node.kind === "continent-region").length,
     country: allRows.filter(node => node.kind === "country").length,

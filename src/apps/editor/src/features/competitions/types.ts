@@ -1,7 +1,7 @@
 export type CompetitionStatus = "DRAFT" | "SCHEDULED" | "ACTIVE" | "COMPLETED";
 export type StageFormat = "LEAGUE" | "GROUP" | "KNOCKOUT";
 export type ParticipantType = "TEAM";
-export type SchedulingType = "ROUND_ROBIN";
+export type SchedulingType = "ROUND_ROBIN" | "KNOCKOUT";
 export type StandingRuleType = "POINTS" | "GOAL_DIFFERENCE" | "GOALS_FOR" | "WINS";
 
 export interface Competition {

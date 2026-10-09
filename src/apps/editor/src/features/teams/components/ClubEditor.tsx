@@ -1,85 +1,67 @@
-import { Building2, CircleDollarSign, Users, Trophy, Shield, History, Settings2, Star, MapPin } from "lucide-react";
+import { useState } from "react";
+import { Building2, CircleDollarSign, History, MapPin, Shield, Star, Trophy, Users, WalletCards } from "lucide-react";
 import { Tabs } from "../../../shared/components";
+import { clubEditorTabs, type ClubEditorTabId } from "../config/clubEditorConfig";
+import { ClubEditorTab } from "./ClubEditorTab";
+import { useClubEditor } from "../hooks/useClubEditor";
 
-const tabs = [
-  { id: "general", label: "General", icon: Settings2 },
-  { id: "identity", label: "Identity", icon: Shield },
-  { id: "location", label: "Location", icon: MapPin },
-  { id: "stadium", label: "Stadium", icon: Building2 },
-  { id: "finances", label: "Finances", icon: CircleDollarSign },
-  { id: "affiliations", label: "Affiliations", icon: Users },
-  { id: "competitions", label: "Competitions", icon: Trophy },
-  { id: "players", label: "Players", icon: Users },
-  { id: "staff", label: "Staff", icon: Users },
-  { id: "tactics", label: "Tactics", icon: Settings2 },
-  { id: "fans", label: "Fans", icon: Star },
-  { id: "history", label: "History", icon: History },
-] as const;
+const icons = {
+  identity: Shield,
+  location: MapPin,
+  stadium: Building2,
+  ownership: Shield,
+  finances: CircleDollarSign,
+  staff: Users,
+  players: Users,
+  affiliations: Users,
+  rivals: Shield,
+  supporters: Star,
+  competitions: Trophy,
+  tactics: WalletCards,
+  kits: Shield,
+  history: History,
+  records: Trophy,
+} satisfies Record<ClubEditorTabId, typeof Shield>;
 
-type ClubTab = (typeof tabs)[number]["id"];
-
-interface ClubEditorProps {
-  teamName: string;
+export interface ClubEditorProps {
+  clubId: number;
   onBack: () => void;
 }
 
-export function ClubEditor({
-  teamName,
-  onBack,
-}: ClubEditorProps) {
+export function ClubEditor({ clubId, onBack }: ClubEditorProps) {
+  const { team, loading, error } = useClubEditor(clubId);
+  const [tab, setTab] = useState<ClubEditorTabId>("identity");
+  const name = String(team?.name ?? `Club #${clubId}`);
+
+  if (loading) {
+    return <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-8 text-sm text-slate-500">Loading club...</div>;
+  }
+
+  if (error) {
+    return <div className="space-y-4"><div className="rounded-xl border border-red-400/20 bg-red-400/5 p-4 text-sm text-red-200">{error}</div><button type="button" onClick={onBack} className="rounded-lg border border-white/10 px-3 py-2 text-xs text-slate-400">Back</button></div>;
+  }
+
   return (
     <div className="space-y-6">
-      <div className="flex items-start justify-between gap-6">
+      <header className="flex items-start justify-between gap-6">
         <div>
-          <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-600">
-            TEAM / CLUB
-          </div>
-          <h1 className="text-2xl font-semibold tracking-tight text-white">
-            {teamName}
-          </h1>
-          <p className="mt-2 text-sm text-slate-500">
-            Club domain editor. Additional sections can be implemented independently.
-          </p>
+          <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-600">TEAM / CLUB</div>
+          <h1 className="text-2xl font-semibold tracking-tight text-white">{name}</h1>
+          <p className="mt-2 max-w-3xl text-sm text-slate-500">Complete club editor covering identity, location, stadium, ownership, finances, staff, players, affiliations, rivals, supporters, competitions, tactics, kits, history and records.</p>
         </div>
+        <button type="button" onClick={onBack} className="rounded-lg border border-white/10 px-3 py-2 text-xs text-slate-400 hover:bg-white/[0.04]">Back</button>
+      </header>
 
-        <button
-          type="button"
-          onClick={onBack}
-          className="rounded-lg border border-white/10 px-3 py-2 text-xs text-slate-400 hover:bg-white/[0.04]"
-        >
-          Back
-        </button>
-      </div>
-
-      <Tabs<ClubTab>
-        activeTab="general"
-        onChange={() => undefined}
-        items={tabs.map((tab) => {
-          const Icon = tab.icon;
-
+      <Tabs
+        activeTab={tab}
+        onChange={setTab}
+        items={clubEditorTabs.map(item => {
+          const Icon = icons[item.id];
           return {
-            id: tab.id,
-            label: tab.label,
-            content:
-              tab.id === "general" ? (
-                <div className="grid gap-5 md:grid-cols-2">
-                  <SectionCard title="General">
-                    <Field label="Status" value="Active" />
-                    <Field label="Reputation" value="80" />
-                  </SectionCard>
-
-                  <SectionCard title="Quick facts">
-                    <Field label="Players" value="—" />
-                    <Field label="Competitions" value="—" />
-                  </SectionCard>
-                </div>
-              ) : (
-                <SectionCard title={tab.label}>
-                  <p className="text-sm text-slate-500">
-                    This section is intentionally reserved for the next team-domain increment.
-                  </p>
-                </SectionCard>
-              ),
+            id: item.id,
+            label: item.label,
+            icon: Icon,
+            content: <ClubEditorTab clubId={clubId} tab={item} />,
           };
         })}
       />
@@ -87,34 +69,3 @@ export function ClubEditor({
   );
 }
 
-function SectionCard({
-  title,
-  children,
-}: {
-  title: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-5">
-      <div className="mb-4 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-600">
-        {title}
-      </div>
-      <div className="space-y-3">{children}</div>
-    </div>
-  );
-}
-
-function Field({
-  label,
-  value,
-}: {
-  label: string;
-  value: string;
-}) {
-  return (
-    <div className="flex items-center justify-between border-b border-white/5 pb-3">
-      <span className="text-sm text-slate-500">{label}</span>
-      <span className="text-sm text-slate-200">{value}</span>
-    </div>
-  );
-}

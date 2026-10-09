@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Tabs } from "../../../../shared/components";
-import { validateSimpleLeague } from "../../rules/league";
+import { validateCompetitionStage } from "../../rules/stage";
 import type { CompetitionStage } from "../../types";
 import { FormatPanel } from "./panels/FormatPanel";
 import { PointsPanel } from "./panels/PointsPanel";
@@ -47,7 +47,7 @@ export function StageCard({
   onScheduleChange,
 }: StageCardProps) {
   const [tab, setTab] = useState<StageTab>("participants");
-  const validation = validateSimpleLeague(stage);
+  const validation = validateCompetitionStage(stage);
 
   return (
     <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-5">
@@ -55,7 +55,7 @@ export function StageCard({
         <Field label="Stage Name" value={stage.name} onChange={(value) => onChange(stage.id, { name: value })} />
         <div className="space-y-2">
           <span className="block text-xs font-medium text-slate-400">Format</span>
-          <div className="flex h-[42px] items-center rounded-xl border border-emerald-400/20 bg-emerald-400/[0.05] px-3 text-sm text-emerald-200">League</div>
+          <div className="flex h-[42px] items-center rounded-xl border border-emerald-400/20 bg-emerald-400/[0.05] px-3 text-sm text-emerald-200">{stage.format}</div>
         </div>
         <NumberInput label="Order" value={stage.stageOrder} onChange={(value) => onChange(stage.id, { stageOrder: value ?? stage.stageOrder })} />
       </div>

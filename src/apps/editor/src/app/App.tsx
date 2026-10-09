@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { FormationsPage } from "../features/formations/pages";
 import { ReferenceDataPage } from "../features/reference-data/pages/ReferenceDataPage";
@@ -7,10 +7,15 @@ import { DashboardPage } from "../features/dashboard/pages/DashboardPage";
 import { PeoplePage } from "../features/people/pages";
 import { PlayersPage } from "../features/players/pages";
 import { TeamsPage } from "../features/teams/pages";
+import { TemplatesPage } from "../features/templates/pages/TemplatesPage";
+import { WorldSystemsPage } from "../features/world-systems/pages/WorldSystemsPage";
+import { ValidationPage } from "../features/validation/pages/ValidationPage";
+import { ExportPage } from "../features/export/pages/ExportPage";
 import { StadiumsPage } from "../features/stadiums/pages";
 import {
   CitiesPage,
   ClimatesPage,
+  ConfederationsPage,
   ContinentsPage,
   CountriesPage,
   GeographyPage,
@@ -19,6 +24,8 @@ import {
 } from "../features/world/pages";
 import { EditorLayout } from "../shared/layout/EditorLayout";
 import type { EditorRoute } from "./routes";
+import { QuickCreateModal } from "../features/quick-create";
+import { FastStartPage } from "../features/fast-start/FastStartPage";
 
 function ComingSoon({ title }: { title: string }) {
   return (
@@ -41,6 +48,8 @@ function renderRoute(route: EditorRoute) {
       return <ReferenceDataPage />;
     case "continents":
       return <ContinentsPage />;
+    case "confederations":
+      return <ConfederationsPage />;
     case "countries":
       return <CountriesPage />;
     case "regions":
@@ -63,21 +72,74 @@ function renderRoute(route: EditorRoute) {
       return <FormationsPage />;
     case "competitions":
       return <CompetitionsPage />;
-    case "fast-start":
-      return <ComingSoon title="Fast Start" />;
+    case "templates":
+      return <TemplatesPage />;
+    case "world-systems":
+      return <WorldSystemsPage />;
     case "validation":
-      return <ComingSoon title="Validation" />;
+      return <ValidationPage />;
+    case "fast-start":
+      return <FastStartPage />;
+    case "fast-create":
+      return null;
     case "export":
-      return <ComingSoon title="Export" />;
+      return <ExportPage />;
   }
 }
 
 export default function App() {
   const [route, setRoute] = useState<EditorRoute>("dashboard");
+  const [quickCreateOpen, setQuickCreateOpen] = useState(false);
+  useEffect(() => {
+    const handleEntityNavigation = (event: Event) => {
+      const detail = (event as CustomEvent<{ table?: string; id?: string | number }>).detail;
+      const routeByTable: Record<string, EditorRoute> = {
+        team: "clubs",
+        club: "clubs",
+        stadium: "stadiums",
+        person: "people",
+        player: "players",
+        competition: "competitions",
+        competition_season: "competitions",
+        competition_stage: "competitions",
+        formation: "formations",
+        nation: "countries",
+        city: "cities",
+      };
+      const next = detail.table ? routeByTable[detail.table] : undefined;
+      if (next) setRoute(next);
+
+      if (detail.table && detail.id != null) {
+        const key = `${detail.table}:${detail.id}`;
+        const stored = JSON.parse(localStorage.getItem("football-editor-recent") ?? "[]") as string[];
+        localStorage.setItem(
+          "football-editor-recent",
+          JSON.stringify([key, ...stored.filter(item => item !== key)].slice(0, 12)),
+        );
+      }
+    };
+
+    window.addEventListener("editor:navigate-entity", handleEntityNavigation);
+    return () => window.removeEventListener("editor:navigate-entity", handleEntityNavigation);
+  }, []);
+
 
   return (
-    <EditorLayout activeRoute={route} onNavigate={setRoute}>
+    <EditorLayout
+      activeRoute={route}
+      onNavigate={nextRoute => {
+        setRoute(nextRoute);
+        if (nextRoute === "fast-create") setQuickCreateOpen(true);
+      }}
+    >
       {renderRoute(route)}
+      <QuickCreateModal
+        open={quickCreateOpen}
+        onClose={() => {
+          setQuickCreateOpen(false);
+          if (route === "fast-create") setRoute("dashboard");
+        }}
+      />
     </EditorLayout>
   );
 }

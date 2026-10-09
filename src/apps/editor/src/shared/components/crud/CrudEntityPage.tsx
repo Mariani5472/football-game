@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { editorApi } from "../../api/editorApi";
 import type { EntityRow } from "../../api/editorApi";
+import { CsvImportPanel } from "./CsvImportPanel";
 import { useEntityQuery } from "../../hooks/useEntityApi";
 import {
   DataTable,
@@ -48,6 +49,7 @@ export interface CrudEntityConfig {
   pageSize?: number;
   duplicate?: boolean;
   duplicateValues?: (row: EntityRow) => Record<string, EntityFormValue>;
+  duplicateEntity?: (row: EntityRow) => Promise<unknown>;
 }
 
 function requireEntityId(row: EntityRow): string | number {
@@ -140,7 +142,7 @@ export function CrudEntityPage({
 
     void Promise.all(
       uniqueRelationTables.map(table =>
-        editorApi.list(table, {
+        editorApi.entity.list(table, {
           page: 1,
           pageSize: 100,
           orderBy: "name",
@@ -266,13 +268,13 @@ export function CrudEntityPage({
           );
 
       if (editing) {
-        await editorApi.update(
+        await editorApi.entity.update(
           config.table,
           config.getRowId?.(editing) ?? requireEntityId(editing),
           payload,
         );
       } else {
-        await editorApi.create(config.table, payload);
+        await editorApi.entity.create(config.table, payload);
       }
 
       setEditing(null);
@@ -294,16 +296,20 @@ export function CrudEntityPage({
     setNotice(null);
 
     try {
-      const source = config.duplicateValues?.(row) ?? Object.fromEntries(
-        Object.entries(row).filter(([key]) => key !== "id"),
-      );
-      const payload = Object.fromEntries(
-        config.fields.map(field => [
-          field.name,
-          normalizeValue(source[field.name], field),
-        ]),
-      );
-      await editorApi.create(config.table, payload);
+      if (config.duplicateEntity) {
+        await config.duplicateEntity(row);
+      } else {
+        const source = config.duplicateValues?.(row) ?? Object.fromEntries(
+          Object.entries(row).filter(([key]) => key !== "id"),
+        );
+        const payload = Object.fromEntries(
+          config.fields.map(field => [
+            field.name,
+            normalizeValue(source[field.name], field),
+          ]),
+        );
+        await editorApi.entity.create(config.table, payload);
+      }
       setNotice("Entity duplicated.");
       await list.reload();
     } catch (cause) {
@@ -320,7 +326,7 @@ export function CrudEntityPage({
     setMutationError(null);
 
     try {
-      await editorApi.remove(
+      await editorApi.entity.remove(
         config.table,
         config.getRowId?.(deleting) ?? requireEntityId(deleting),
       );
@@ -371,6 +377,8 @@ export function CrudEntityPage({
           + New
         </button>
       </div>
+
+      {!creating && !editing && <CsvImportPanel table={config.table} onImported={() => list.reload()} />}
 
       {notice && (
         <div className="rounded-xl border border-emerald-400/10 bg-emerald-400/5 px-4 py-3 text-sm text-emerald-200">

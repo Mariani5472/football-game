@@ -16,7 +16,7 @@ export interface PlayerRelationConfig {
 }
 
 const listAll = async (table: string) =>
-  (await import("../../../shared/api/editorApi")).editorApi.list(table, {
+  (await import("../../../shared/api/editorApi")).editorApi.entity.list(table, {
     page: 1,
     pageSize: 1000,
   });
@@ -149,6 +149,17 @@ export const playerRelationConfigs: PlayerRelationConfig[] = [
       { name: "placement_id", label: "Placement", relation: { table: "placement" } }, { name: "employment_id", label: "Employment", relation: { table: "employment" } },
     ],
     primaryKey: ["id"], playerField: "person_id", loadRows: async playerId => (await listAll("person_title")).rows.filter(row => Number(row.person_id) === playerId),
+  },
+  {
+    id: "suspensions", title: "Suspensions", table: "person_suspension",
+    columns: [{ key: "suspension_id", label: "Suspension" }, { key: "competition_id", label: "Competition" }, { key: "start_date", label: "Start" }, { key: "end_date", label: "End" }, { key: "number_of_matches", label: "Matches" }],
+    fields: [
+      { name: "suspension_id", label: "Suspension", required: true, relation: { table: "suspension" } },
+      { name: "competition_id", label: "Competition", relation: { table: "competition" } },
+      { name: "start_date", label: "Start Date", type: "date" }, { name: "end_date", label: "End Date", type: "date" }, { name: "number_of_matches", label: "Matches", type: "number" },
+    ],
+    primaryKey: ["id"], playerField: "person_id",
+    loadRows: async playerId => (await listAll("person_suspension")).rows.filter(row => Number(row.person_id) === playerId),
   },
   {
     id: "relationships", title: "Person Relationships", table: "person_person_relationship",

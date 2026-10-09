@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { editorApi, type EntityRow, type Scalar } from "../../../shared/api/editorApi";
 import { EntityPicker } from "../../../shared/components";
 import type { PlayerRelationConfig } from "../config/playerConfig";
@@ -31,7 +31,7 @@ export function PlayerRelationsEditor({ playerId, config }: { playerId: number; 
     try {
       const result = config.loadRows
         ? await config.loadRows(playerId)
-        : (await editorApi.list(config.table, { page: 1, pageSize: 1000 })).rows;
+        : (await editorApi.entity.list(config.table, { page: 1, pageSize: 1000 })).rows;
       setRows(result);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause));
@@ -62,11 +62,11 @@ export function PlayerRelationsEditor({ playerId, config }: { playerId: number; 
       const payload: Record<string, Scalar> = {};
       for (const field of config.fields) payload[field.name] = normalize(values[field.name], field);
       if (editing) {
-        await editorApi.update(config.table, keyOf(editing, config.primaryKey), payload);
+        await editorApi.entity.update(config.table, keyOf(editing, config.primaryKey), payload);
       } else {
         if (config.playerField) payload[config.playerField] = playerId;
         else if (config.table !== "player_contract_clause") payload.player_id = playerId;
-        await editorApi.create(config.table, payload);
+        await editorApi.entity.create(config.table, payload);
       }
       setEditing(null);
       setValues({});
@@ -81,7 +81,7 @@ export function PlayerRelationsEditor({ playerId, config }: { playerId: number; 
   async function remove(row: EntityRow) {
     if (!window.confirm("Delete this record?")) return;
     try {
-      await editorApi.remove(config.table, keyOf(row, config.primaryKey));
+      await editorApi.entity.remove(config.table, keyOf(row, config.primaryKey));
       await reload();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause));
