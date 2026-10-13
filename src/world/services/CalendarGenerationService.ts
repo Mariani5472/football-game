@@ -1,5 +1,6 @@
 import type { WorldDatabase } from "../../database/world/WorldDatabase.js";
 import { CompetitionEngine } from "../../modules/competition/engine/CompetitionEngine.js";
+import { CalendarScheduleValidator, type CalendarFixture } from "./CalendarScheduleValidator.js";
 
 export interface CalendarGenerationResult {
   seasonId: number;
@@ -10,6 +11,7 @@ export interface CalendarGenerationResult {
 
 export class CalendarGenerationService {
   private readonly competitionEngine: CompetitionEngine;
+  private readonly scheduleValidator = new CalendarScheduleValidator();
 
   constructor(private readonly database: WorldDatabase) {
     this.competitionEngine = new CompetitionEngine(database);
@@ -49,6 +51,43 @@ export class CalendarGenerationService {
     }
 
     const stages = this.competitionEngine.generateMultiStageSeason(seasonId);
+    const proposedFixtures: CalendarFixture[] = stages.flatMap((stage) =>
+      stage.rounds.flatMap((round) => round.fixtures.map((fixture) => ({
+        competitionSeasonId: seasonId,
+        stageId: stage.stageId,
+        roundNumber: round.roundNumber,
+        scheduledAt: fixture.scheduledAt || round.date,
+        homeTeamId: fixture.homeTeamId,
+        awayTeamId: fixture.awayTeamId,
+      }))),
+    );
+
+    const existingFixtures = this.database.connection.prepare(
+      `SELECT f.id AS fixtureId,
+              s.competition_season_id AS competitionSeasonId,
+              r.stage_id AS stageId,
+              r.round_number AS roundNumber,
+              f.scheduled_at AS scheduledAt,
+              f.home_team_id AS homeTeamId,
+              f.away_team_id AS awayTeamId
+         FROM fixture f
+         JOIN competition_round r ON r.id = f.round_id
+         JOIN competition_stage s ON s.id = r.stage_id
+        WHERE f.scheduled_at IS NOT NULL`,
+    ).all() as CalendarFixture[];
+
+    const validation = this.scheduleValidator.validate(proposedFixtures, existingFixtures);
+    if (!validation.valid) {
+      const details = validation.conflicts
+        .slice(0, 10)
+        .map((conflict) => conflict.message)
+        .join("\n");
+      const remaining = validation.conflicts.length > 10
+        ? `\n…and ${validation.conflicts.length - 10} more conflict(s).`
+        : "";
+      throw new Error(`Calendar generation rejected due to ${validation.conflicts.length} conflict(s):\n${details}${remaining}`);
+    }
+
     let rounds = 0;
     let fixtures = 0;
 
@@ -88,7 +127,7 @@ export class CalendarGenerationService {
             roundId,
             fixture.homeTeamId,
             fixture.awayTeamId,
-            fixture.scheduledAt,
+            fixture.scheduledAt || round.date,
           );
           fixtures++;
         }
