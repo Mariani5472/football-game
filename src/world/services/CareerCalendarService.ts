@@ -122,6 +122,9 @@ export class CareerCalendarService {
         `UPDATE save SET game_date = ?, last_saved_at = ? WHERE id = ?`,
       ).run(date, new Date().toISOString(), saveId);
       this.save.connection.prepare(
+        "UPDATE calendar_event SET completed = 1 WHERE save_id = ? AND event_date <= ?",
+      ).run(saveId, date);
+      this.save.connection.prepare(
         `INSERT INTO calendar_event (save_id, event_type, event_date, priority, title, description, completed)
           VALUES (?, 'DAY_PROCESSED', ?, 10, 'Calendar day processed', ?, 1)`,
       ).run(saveId, date, `${fixturesPlayed} fixture(s) processed.`);
@@ -144,18 +147,7 @@ export class CareerCalendarService {
   /** Advance to the next meaningful calendar date, processing all competitions together. */
   advanceToNextDate(saveId: number): CalendarAdvanceResult {
     const state = this.getCalendarState(saveId);
-    const nextFixture = this.save.connection.prepare(
-      `SELECT MIN(substr(scheduled_at, 1, 10)) AS date
-         FROM fixture_state
-        WHERE save_id = ? AND status = 'SCHEDULED' AND substr(scheduled_at, 1, 10) > ?`,
-    ).get(saveId, state.gameDate) as { date: string | null };
-    const nextEvent = this.save.connection.prepare(
-      `SELECT MIN(event_date) AS date FROM calendar_event
-        WHERE save_id = ? AND completed = 0 AND event_date > ?`,
-    ).get(saveId, state.gameDate) as { date: string | null };
-    const candidates = [nextFixture.date, nextEvent.date].filter((value): value is string => Boolean(value)).sort();
-    const nextDate = candidates[0] ?? addDays(state.gameDate, 1);
-    return this.processDate(saveId, nextDate);
+    return this.processDate(saveId, this.nextEventDate(saveId, state.gameDate));
   }
 
   /** Process a range in one call; useful for AI-only seasons and repeatable benchmarks. */
@@ -165,15 +157,10 @@ export class CareerCalendarService {
     let state = this.getCalendarState(saveId);
     if (targetDate < state.gameDate) throw new Error("Target date cannot precede the current game date.");
     while (state.gameDate < targetDate && results.length < maxDays) {
-      const next = this.advanceToNextDate(saveId);
-      results.push(next);
+      const nextDate = this.nextEventDate(saveId, state.gameDate);
+      const boundedDate = nextDate > targetDate ? targetDate : nextDate;
+      results.push(this.processDate(saveId, boundedDate));
       state = this.getCalendarState(saveId);
-      if (next.currentDate === targetDate) break;
-      if (next.currentDate > targetDate) {
-        // The next fixture/event is beyond the target; advance only to the requested date.
-        results.push(this.processDate(saveId, targetDate));
-        break;
-      }
     }
     if (results.length >= maxDays && this.getCalendarState(saveId).gameDate < targetDate) {
       throw new Error(`Simulation exceeded maxDays=${maxDays}.`);
@@ -211,6 +198,20 @@ export class CareerCalendarService {
       ).changes);
     }
     return created;
+  }
+
+  private nextEventDate(saveId: number, currentDate: string): string {
+    const nextFixture = this.save.connection.prepare(
+      `SELECT MIN(substr(scheduled_at, 1, 10)) AS date
+         FROM fixture_state
+        WHERE save_id = ? AND status = 'SCHEDULED' AND substr(scheduled_at, 1, 10) > ?`,
+    ).get(saveId, currentDate) as { date: string | null };
+    const nextEvent = this.save.connection.prepare(
+      `SELECT MIN(event_date) AS date FROM calendar_event
+        WHERE save_id = ? AND completed = 0 AND event_date > ?`,
+    ).get(saveId, currentDate) as { date: string | null };
+    const candidates = [nextFixture.date, nextEvent.date].filter((value): value is string => Boolean(value)).sort();
+    return candidates[0] ?? addDays(currentDate, 1);
   }
 
   private getCalendarState(saveId: number): { gameDate: string } {
@@ -418,13 +419,23 @@ export class CareerCalendarService {
         `INSERT INTO fixture_state (save_id, round_state_id, home_team_id, away_team_id, scheduled_at, status)
           VALUES (?, ?, ?, ?, ?, 'SCHEDULED')`,
       );
+      const secondLegDate = addDays(startDate, stage.intervalDays);
+      const secondRoundStateId = stage.legs === 2
+        ? Number(this.save.connection.prepare(
+            `INSERT INTO round_state (save_id, stage_state_id, round_number, status, scheduled_date)
+              VALUES (?, ?, ?, 'SCHEDULED', ?)`,
+          ).run(saveId, stage.stageStateId, nextRoundNumber + 1, secondLegDate).lastInsertRowid)
+        : null;
       for (let index = 0; index < ordered.length; index += 2) {
         if (ordered[index + 1] == null) continue;
         insertFixture.run(saveId, roundStateId, ordered[index], ordered[index + 1], `${startDate}T16:00:00`);
+        if (secondRoundStateId != null) {
+          insertFixture.run(saveId, secondRoundStateId, ordered[index + 1], ordered[index], `${secondLegDate}T16:00:00`);
+        }
       }
       this.save.connection.prepare(
         "UPDATE stage_state SET current_round_number = ? WHERE id = ?",
-      ).run(nextRoundNumber, stage.stageStateId);
+      ).run(stage.legs === 2 ? nextRoundNumber + 1 : nextRoundNumber, stage.stageStateId);
       if (ordered.length === 2 && nextRoundNumber > 1) {
         // The final is scheduled above; stage completion waits for its result.
       }
