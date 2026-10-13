@@ -100,6 +100,31 @@ export class CompetitionEngine {
     };
   }
 
+  generateStageForParticipants(
+    seasonId: number,
+    stageId: number,
+    participants: GeneratedSeason["participants"],
+  ): GeneratedSeason {
+    const season = this.repository.findSeasonById(seasonId);
+    if (!season) throw new Error(`Competition season not found: ${seasonId}`);
+    const stage = this.repository.findStages(seasonId).find((item) => item.id === stageId);
+    if (!stage) throw new Error(`Stage not found: ${stageId}`);
+    if (stage.format == null) throw new Error(`Stage ${stageId} has no format configured.`);
+    if (!stage.schedule?.startDate) throw new Error(`Stage ${stageId} has no schedule start date.`);
+    if (stage.schedule.intervalDays < 1) throw new Error(`Stage ${stageId} has an invalid schedule interval.`);
+    if (participants.length < 2) throw new Error(`Stage ${stageId} needs at least two participants.`);
+
+    const rounds = this.generateRounds(stage, participants);
+    return {
+      competition: this.findCompetition(season.competitionId),
+      season,
+      stage,
+      participants,
+      rounds: rounds.length,
+      fixtures: rounds.flatMap((round) => round.fixtures),
+    };
+  }
+
   executeStage(stageId: number, generatedSeason: GeneratedSeason, seed = 2026): StageExecutionResult {
     const stage = generatedSeason.stage;
     const participants = generatedSeason.participants;
