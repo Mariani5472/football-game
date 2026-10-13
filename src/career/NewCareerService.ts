@@ -555,148 +555,71 @@ export class NewCareerService {
     saveId: number,
     gameDate: string,
   ): CompetitionSnapshot[] {
-    const year =
-      Number(gameDate.slice(0, 4));
-
+    const year = Number(gameDate.slice(0, 4));
     const seasons = this.world.connection
       .prepare(
-        `
-          SELECT
-            cs.id,
-            cs.competition_id,
-            cs.year,
-            cs.status,
-            cs.start_date,
-            cs.end_date
-          FROM competition_season cs
-          WHERE cs.year = ?
-          ORDER BY cs.competition_id
-        `,
+        `SELECT id, competition_id, year, status, start_date, end_date
+           FROM competition_season
+          WHERE year = ?
+          ORDER BY competition_id`,
       )
       .all(year) as Array<{
-        id: number;
-        competition_id: number;
-        year: number;
-        status: string | null;
-        start_date: string | null;
-        end_date: string | null;
+        id: number; competition_id: number; year: number; status: string | null;
+        start_date: string | null; end_date: string | null;
       }>;
 
-    const insertSeason = save.connection
-      .prepare(
-        `
-          INSERT INTO season_state (
-            save_id,
-            competition_id,
-            competition_season_id,
-            year,
-            status,
-            start_date,
-            end_date
-          )
-          VALUES (?, ?, ?, ?, ?, ?, ?)
-        `,
-      );
-
+    const insertSeason = save.connection.prepare(
+      `INSERT INTO season_state (
+         save_id, competition_id, competition_season_id, year, status, start_date, end_date
+       ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    );
+    const insertStage = save.connection.prepare(
+      `INSERT INTO stage_state (
+         save_id, season_state_id, world_stage_id, status, current_round_number
+       ) VALUES (?, ?, ?, ?, ?)`,
+    );
     const snapshots: CompetitionSnapshot[] = [];
+    const repository = new CompetitionRepository(this.world);
+    const engine = new CompetitionEngine(this.world);
 
     for (const season of seasons) {
-      const result = insertSeason.run(
-        saveId,
-        season.competition_id,
-        season.id,
-        season.year,
-        season.status ?? "PLANNED",
-        season.start_date,
-        season.end_date,
-      );
+      const seasonStateId = Number(insertSeason.run(
+        saveId, season.competition_id, season.id, season.year,
+        season.status ?? "PLANNED", season.start_date, season.end_date,
+      ).lastInsertRowid);
 
-      const seasonStateId =
-        Number(result.lastInsertRowid);
+      const stages = repository.findStages(season.id);
+      if (!stages.length) continue;
 
-      const stage =
-        new CompetitionRepository(
-          this.world,
-        ).findStage(season.id);
-
-      if (!stage) {
-        continue;
+      let firstStageStateId: number | null = null;
+      for (const [index, stage] of stages.entries()) {
+        const stageStateId = Number(insertStage.run(
+          saveId, seasonStateId, stage.id, index === 0 ? "SCHEDULED" : "NOT_STARTED", 0,
+        ).lastInsertRowid);
+        if (index === 0) firstStageStateId = stageStateId;
       }
 
-      const stageResult = save.connection
-        .prepare(
-          `
-            INSERT INTO stage_state (
-              save_id,
-              season_state_id,
-              world_stage_id,
-              status,
-              current_round_number
-            )
-            VALUES (?, ?, ?, ?, ?)
-          `,
-        )
-        .run(
-          saveId,
-          seasonStateId,
-          stage.id,
-          "NOT_STARTED",
-          0,
-        );
-
-      const stageStateId =
-        Number(stageResult.lastInsertRowid);
-
-      const generated =
-        new CompetitionEngine(
-          this.world,
-        ).generateSeason({
-          competitionSeasonId:
-            season.id,
-        });
-
-      this.snapshotStandings(
-        save,
-        saveId,
-        stageStateId,
-        generated.participants,
-      );
+      const firstStage = stages[0];
+      const generated = engine.generateStage(season.id, firstStage.id);
+      const stageStateId = firstStageStateId!;
+      this.snapshotStandings(save, saveId, stageStateId, generated.participants);
 
       for (const participant of generated.participants) {
-        save.connection
-          .prepare(
-            `
-              INSERT INTO team_competition_state (
-                save_id,
-                team_id,
-                competition_id,
-                competition_season_id,
-                status,
-                current_position
-              )
-              VALUES (?, ?, ?, ?, ?, ?)
-            `,
-          )
-          .run(
-            saveId,
-            participant.teamId,
-            season.competition_id,
-            season.id,
-            "REGISTERED",
-            null,
-          );
+        save.connection.prepare(
+          `INSERT INTO team_competition_state (
+             save_id, team_id, competition_id, competition_season_id, status, current_position
+           ) VALUES (?, ?, ?, ?, ?, ?)`,
+        ).run(saveId, participant.teamId, season.competition_id, season.id, "REGISTERED", null);
       }
 
       snapshots.push({
         seasonStateId,
         stageStateId,
-        competitionId:
-          season.competition_id,
+        competitionId: season.competition_id,
         seasonId: season.id,
         generated,
       });
     }
-
     return snapshots;
   }
 
