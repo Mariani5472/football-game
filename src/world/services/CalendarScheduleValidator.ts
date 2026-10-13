@@ -98,12 +98,6 @@ export class CalendarScheduleValidator {
       const date = key.slice(key.indexOf(":") + 1);
       if (fixtures.length > 1) {
         const ids = fixtures.map((fixture) => fixture.fixtureId).filter((id): id is number => id != null);
-        const proposedCount = fixtures.filter((fixture) => !("existing" in fixture) || !fixture.existing).length;
-        const existingCount = fixtures.length - proposedCount;
-
-        // The same fixture appearing in both collections is not a real conflict.
-        if (uniqueFixtureKeys.size === 1 && existingCount > 0 && proposedCount > 0) continue;
-
         conflicts.push({
           code: uniqueFixtureKeys.size < fixtures.length ? "DUPLICATE_FIXTURE" : "TEAM_DOUBLE_BOOKED",
           message: uniqueFixtureKeys.size < fixtures.length
