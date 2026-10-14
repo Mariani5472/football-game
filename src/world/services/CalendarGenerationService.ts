@@ -19,6 +19,22 @@ export class CalendarGenerationService {
     this.competitionEngine = new CompetitionEngine(database);
   }
 
+  private loadExistingFixtures(): CalendarFixture[] {
+    return this.database.connection.prepare(
+      `SELECT f.id AS fixtureId,
+              s.competition_season_id AS competitionSeasonId,
+              r.stage_id AS stageId,
+              r.round_number AS roundNumber,
+              f.scheduled_at AS scheduledAt,
+              f.home_team_id AS homeTeamId,
+              f.away_team_id AS awayTeamId
+         FROM fixture f
+         JOIN competition_round r ON r.id = f.round_id
+         JOIN competition_stage s ON s.id = r.stage_id
+        WHERE f.scheduled_at IS NOT NULL`,
+    ).all() as CalendarFixture[];
+  }
+
   private coordinateRounds(
     rounds: GeneratedRound[],
     existingFixtures: CalendarFixture[],
@@ -86,6 +102,11 @@ export class CalendarGenerationService {
       .get(seasonId) as { count: number };
 
     if (Number(existing.count) > 0) {
+      const existingFixtures = this.loadExistingFixtures();
+      const validation = this.scheduleValidator.validate([], existingFixtures);
+      if (!validation.valid) {
+        throw new Error(`Existing world calendar has ${validation.conflicts.length} conflict(s): ${validation.conflicts.slice(0, 10).map((item) => item.message).join("; ")}`);
+      }
       const counts = this.database.connection
         .prepare(`SELECT
                     COUNT(DISTINCT r.id) AS rounds,
