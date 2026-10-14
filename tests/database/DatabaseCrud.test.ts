@@ -79,14 +79,14 @@ describe("World database CRUD", () => {
   it("supports SQL search, pagination and ordering", () => {
     const { database } = createWorld();
 
-    for (const name of ["Alpha", "Beta", "Alpine", "Gamma"]) {
+    for (const name of ["Alpha Custom", "Beta Custom", "Alpine Custom", "Gamma Custom"]) {
       database.create("climate", { name });
     }
 
     const firstPage = database.list("climate", {
       page: 1,
       pageSize: 2,
-      search: "alp",
+      search: "alp custom",
       orderBy: "name",
       orderDirection: "ASC",
     });
@@ -94,8 +94,8 @@ describe("World database CRUD", () => {
     expect(firstPage.total).toBe(2);
     expect(firstPage.pageCount).toBe(1);
     expect(firstPage.rows.map((row) => row.name)).toEqual([
-      "Alpha",
-      "Alpine",
+      "Alpha Custom",
+      "Alpine Custom",
     ]);
   });
 
@@ -123,6 +123,8 @@ describe("World database CRUD", () => {
   it("keeps compound writes atomic", () => {
     const { database } = createWorld();
 
+    const climateCountBefore = database.count("climate");
+
     expect(() => {
       database.transaction(() => {
         database.create("climate", { name: "Temporary" });
@@ -130,7 +132,7 @@ describe("World database CRUD", () => {
       });
     }).toThrow();
 
-    expect(database.count("climate")).toBe(0);
+    expect(database.count("climate")).toBe(climateCountBefore);
   });
 
   it("lets SQLite enforce foreign keys", () => {
