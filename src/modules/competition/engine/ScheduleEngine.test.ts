@@ -8,6 +8,13 @@ const teams = Array.from({ length: 8 }, (_, index) => ({
 }));
 
 describe("ScheduleEngine", () => {
+  it("supports an odd-sized round-robin with one bye per round", () => {
+    const rounds = new ScheduleEngine().generateRoundRobin(teams.slice(0, 5), "2026-08-01", 7, 1);
+    expect(rounds).toHaveLength(5);
+    expect(rounds.every((round) => round.fixtures.length === 2)).toBe(true);
+    expect(rounds.flatMap((round) => round.fixtures)).toHaveLength(10);
+  });
+
   it("generates a four-round single-leg knockout for eight teams", () => {
     const rounds = new ScheduleEngine().generateKnockout(teams, "2026-08-01", 7, 1);
     expect(rounds).toHaveLength(3);
