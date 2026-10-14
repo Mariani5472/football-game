@@ -160,6 +160,10 @@ export function initializeWorldCompositionSchema(db: DatabaseConnection.Database
     CREATE INDEX IF NOT EXISTS idx_world_attribute_provenance_current
       ON world_attribute_provenance(table_name, row_key, column_name, is_current);
 
+    CREATE TABLE IF NOT EXISTS stage_participant_source_extension_guard (
+      id INTEGER PRIMARY KEY CHECK (id = 1)
+    );
+
     CREATE INDEX IF NOT EXISTS idx_world_import_id_map_world
       ON world_import_id_map(world_id);
 
