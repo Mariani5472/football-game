@@ -508,7 +508,7 @@ export class CareerCalendarService {
 
   private resolveStageParticipants(
     saveId: number,
-    stage: { seasonStateId: number; stageStateId: number; worldStageId: number; competitionId: number },
+    stage: { seasonStateId: number; stageStateId: number; worldStageId: number; seasonTemplateId: number | null; competitionId: number },
     previousStageId?: number,
   ): number[] {
     const sources = this.world.connection.prepare(
