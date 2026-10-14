@@ -301,16 +301,30 @@ export class CareerCalendarService {
   private getStageRuntime(stageStateId: number): StageRuntime {
     const row = this.save.connection.prepare(
       `SELECT ss.id AS stageStateId, ss.season_state_id AS seasonStateId,
-              ss.world_stage_id AS worldStageId, ss.status,
-              COALESCE(sf.format_type, '') AS formatType, COALESCE(sf.legs, 1) AS legs,
-              COALESCE(sp.interval_days, 7) AS intervalDays
+              ss.world_stage_id AS worldStageId, ss.status
          FROM stage_state ss
-         LEFT JOIN stage_format sf ON sf.stage_id = ss.world_stage_id
-         LEFT JOIN schedule_profile sp ON sp.stage_id = ss.world_stage_id
         WHERE ss.id = ? LIMIT 1`,
-    ).get(stageStateId) as StageRuntime | undefined;
+    ).get(stageStateId) as {
+      stageStateId: number; seasonStateId: number; worldStageId: number | null; status: string;
+    } | undefined;
     if (!row) throw new Error(`Stage state not found: ${stageStateId}.`);
-    return row;
+
+    const worldStage = row.worldStageId == null ? undefined : this.world.connection.prepare(
+      `SELECT COALESCE(sf.format_type, '') AS formatType,
+              COALESCE(sf.legs, 1) AS legs,
+              COALESCE(sp.interval_days, 7) AS intervalDays
+         FROM competition_stage cs
+         LEFT JOIN stage_format sf ON sf.stage_id = cs.id
+         LEFT JOIN schedule_profile sp ON sp.stage_id = cs.id
+        WHERE cs.id = ? LIMIT 1`,
+    ).get(row.worldStageId) as { formatType: string; legs: number; intervalDays: number } | undefined;
+
+    return {
+      ...row,
+      formatType: worldStage?.formatType ?? "",
+      legs: worldStage?.legs ?? 1,
+      intervalDays: worldStage?.intervalDays ?? 7,
+    };
   }
 
   private refreshStandings(saveId: number): void {
