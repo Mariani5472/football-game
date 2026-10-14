@@ -712,6 +712,14 @@ export class CareerCalendarService {
         ...participant,
         nationId: participant.nationId ?? undefined,
       }));
+      if (participants.length !== uniqueIds.length) {
+        this.save.connection.prepare("UPDATE season_state SET status = 'BLOCKED' WHERE id = ?").run(seasonStateId);
+        this.save.connection.prepare("UPDATE stage_state SET status = 'BLOCKED' WHERE id = ?").run(firstStageStateId);
+        this.save.connection.prepare(
+          "INSERT INTO calendar_event (save_id, event_type, event_date, priority, title, description) VALUES (?, 'SEASON_BLOCKED', ?, 90, ?, ?)",
+        ).run(saveId, currentDate, `Season ${nextYear} blocked`, "One or more participants no longer exist in the World.");
+        continue;
+      }
       this.insertStageSchedule(saveId, firstStageStateId, templateId, stages[0].id, participants, nextYear, currentDate);
       this.save.connection.prepare(
         "INSERT INTO calendar_event (save_id, event_type, event_date, priority, title, description) VALUES (?, 'SEASON_CREATED', ?, 60, ?, ?)",
@@ -816,6 +824,9 @@ export class CareerCalendarService {
     const insertFixture = this.save.connection.prepare(
       "INSERT INTO fixture_state (save_id, round_state_id, home_team_id, away_team_id, scheduled_at, status) VALUES (?, ?, ?, ?, ?, 'SCHEDULED')",
     );
+    const insertCalendarEvent = this.save.connection.prepare(
+      "INSERT INTO calendar_event (save_id, event_type, event_date, priority, title, description) VALUES (?, 'FIXTURE', ?, 50, ?, ?)",
+    );
     for (const [roundNumber, fixtures] of rounds) {
       const scheduledDate = addDays(baseDate, Math.max(0, roundNumber - 1) * intervalDays);
       const roundStateId = Number(insertRound.run(saveId, stageStateId, roundNumber, scheduledDate).lastInsertRowid);
@@ -824,6 +835,12 @@ export class CareerCalendarService {
           throw new Error(`Invalid generated fixture for stage ${generated.stage.id}.`);
         }
         insertFixture.run(saveId, roundStateId, fixture.homeTeamId, fixture.awayTeamId, `${scheduledDate}T16:00:00`);
+        insertCalendarEvent.run(
+          saveId,
+          scheduledDate,
+          `${generated.competition.name} · Matchday`,
+          `${fixture.homeTeamId} vs ${fixture.awayTeamId}`,
+        );
       }
     }
     this.save.connection.prepare(
