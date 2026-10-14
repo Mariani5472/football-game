@@ -50,7 +50,7 @@ describe("WorldDatabase", () => {
       expect.arrayContaining([
         {
           key: "schema_version",
-          value: "2",
+          value: "5",
         },
         {
           key: "database_type",
