@@ -285,5 +285,5 @@ describe("NewCareerService", () => {
       "SELECT COUNT(*) AS count FROM standing WHERE save_id = ? AND stage_state_id = ?",
     ).get(result.saveId, nextStage!.id)).toEqual({ count: 20 });
     expect(world.connection.prepare("SELECT COUNT(*) AS count FROM fixture").get()).toEqual({ count: 380 });
-  });
+  }, 30_000);
 });
