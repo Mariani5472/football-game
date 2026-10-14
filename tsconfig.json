@@ -16,6 +16,7 @@
     "**/*.ts"
   ],
   "exclude": [
-    "dist"
+    "dist",
+    "src/apps/editor"
   ]
 }
