@@ -524,8 +524,14 @@ export class CareerCalendarService {
     for (const source of sources) {
       if (source.sourceStageId != null) {
         const sourceState = this.save.connection.prepare(
-          "SELECT id FROM stage_state WHERE save_id = ? AND season_state_id = ? AND world_stage_id = ? LIMIT 1",
-        ).get(saveId, stage.seasonStateId, source.sourceStageId) as { id: number } | undefined;
+          `SELECT sourceStage.id
+             FROM stage_state sourceStage
+             JOIN season_state sourceSeason ON sourceSeason.id = sourceStage.season_state_id
+             JOIN season_state targetSeason ON targetSeason.id = ?
+            WHERE sourceStage.save_id = ? AND sourceStage.world_stage_id = ?
+              AND sourceSeason.year = targetSeason.year
+            ORDER BY sourceStage.id DESC LIMIT 1`,
+        ).get(stage.seasonStateId, saveId, source.sourceStageId) as { id: number } | undefined;
         if (!sourceState) continue;
         const from = Math.max(1, source.positionFrom ?? 1);
         const to = Math.max(from, source.positionTo ?? from);
