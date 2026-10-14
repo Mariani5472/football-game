@@ -3,20 +3,24 @@
     "target": "ES2022",
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
-
     "strict": true,
     "declaration": true,
-
     "rootDir": ".",
     "outDir": "dist",
-
-    "skipLibCheck": true,
+    "skipLibCheck": true
   },
   "include": [
-    "**/*.ts"
+    "src/career/**/*.ts",
+    "src/commands/**/*.ts",
+    "src/database/**/*.ts",
+    "src/editor/**/*.ts",
+    "src/infrastructure/**/*.ts",
+    "src/modules/**/*.ts",
+    "src/world/**/*.ts",
+    "tests/**/*.ts"
   ],
   "exclude": [
     "dist",
-    "src/apps/editor"
+    "src/apps/editor/**"
   ]
 }
