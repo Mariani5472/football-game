@@ -112,6 +112,40 @@ describe("SaveDatabase legacy migration", () => {
   });
 });
 
+describe("World participant-source migration", () => {
+  it("adds participant-source columns to an older World without rebuilding it", () => {
+    const worldPath = path.join(os.tmpdir(), `football-world-source-legacy-${Date.now()}.db`);
+    files.push(worldPath);
+    const created = WorldDatabase.create(worldPath);
+    created.close();
+
+    const raw = new DatabaseConnection(worldPath);
+    raw.pragma("foreign_keys = OFF");
+    raw.exec(`
+      DROP TABLE stage_participant_source;
+      CREATE TABLE stage_participant_source (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        stage_id INTEGER NOT NULL,
+        source_type TEXT NOT NULL,
+        source_competition_id INTEGER,
+        source_stage_id INTEGER,
+        position_from INTEGER,
+        position_to INTEGER,
+        FOREIGN KEY (stage_id) REFERENCES competition_stage(id) ON DELETE CASCADE,
+        FOREIGN KEY (source_competition_id) REFERENCES competition(id),
+        FOREIGN KEY (source_stage_id) REFERENCES competition_stage(id)
+      );
+    `);
+    raw.close();
+
+    const migrated = WorldDatabase.open(worldPath);
+    databases.push(migrated);
+    const columns = migrated.connection.pragma("table_info('stage_participant_source')") as Array<{ name: string }>;
+    expect(columns.map((column) => column.name)).toContain("source_season_id");
+    expect(columns.map((column) => column.name)).toContain("qualification_type");
+  });
+});
+
 describe("NewCareerService", () => {
   it("creates a save snapshot without copying the world schema", () => {
     const worldPath = path.join(
