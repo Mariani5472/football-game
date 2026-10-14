@@ -8,17 +8,25 @@ const teams = Array.from({ length: 8 }, (_, index) => ({
 }));
 
 describe("ScheduleEngine", () => {
+  it("supports an odd-sized round-robin with one bye per round", () => {
+    const rounds = new ScheduleEngine().generateRoundRobin(teams.slice(0, 5), "2026-08-01", 7, 1);
+    expect(rounds).toHaveLength(5);
+    expect(rounds.every((round) => round.fixtures.length === 2)).toBe(true);
+    expect(rounds.flatMap((round) => round.fixtures)).toHaveLength(10);
+  });
+
   it("generates a four-round single-leg knockout for eight teams", () => {
     const rounds = new ScheduleEngine().generateKnockout(teams, "2026-08-01", 7, 1);
     expect(rounds).toHaveLength(3);
     expect(rounds.map((round) => round.fixtures.length)).toEqual([4, 0, 0]);
   });
 
-  it("generates paired home-away fixtures for each knockout matchup", () => {
+  it("generates two dated legs for each knockout matchup", () => {
     const rounds = new ScheduleEngine().generateKnockout(teams, "2026-08-01", 7, 2);
-    expect(rounds).toHaveLength(2);
-    expect(rounds[0].fixtures).toHaveLength(8);
-    expect(rounds[0].fixtures[0].homeTeamId).toBe(rounds[0].fixtures[1].awayTeamId);
+    expect(rounds).toHaveLength(6);
+    expect(rounds.map((round) => round.fixtures.length)).toEqual([4, 4, 0, 0, 0, 0]);
+    expect(rounds[0].fixtures[0].homeTeamId).toBe(rounds[1].fixtures[0].awayTeamId);
+    expect(rounds[0].date).not.toBe(rounds[1].date);
   });
 
   it("supports an executable knockout round once a matchup is resolved", () => {

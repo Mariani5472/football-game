@@ -30,12 +30,12 @@ describe("World editor P4/P5 lifecycle", () => {
       database.metadata(
         "schema_version",
       ),
-    ).toBe("3");
+    ).toBe("5");
     expect(
       database.metadata(
         "package_version",
       ),
-    ).toBe("0.3.0");
+    ).toBe("0.4.0");
 
     const nation = database.create(
       "nation",
@@ -70,10 +70,10 @@ describe("World editor P4/P5 lifecycle", () => {
     ).toBe(true);
     expect(
       result.metadata.schemaVersion,
-    ).toBe(3);
+    ).toBe(5);
     expect(
       result.metadata.packageVersion,
-    ).toBe("0.3.0");
+    ).toBe("0.4.0");
     expect(
       result.metadata.sha256,
     ).toHaveLength(64);
@@ -92,12 +92,12 @@ describe("World editor P4/P5 lifecycle", () => {
       reopened.metadata(
         "schema_version",
       ),
-    ).toBe("3");
+    ).toBe("5");
     expect(
       reopened.metadata(
         "package_version",
       ),
-    ).toBe("0.3.0");
+    ).toBe("0.4.0");
 
     expect(
       reopened.list(
@@ -223,7 +223,7 @@ describe("World editor P4/P5 lifecycle", () => {
       WorldMigrationService.getVersion(
         database,
       ),
-    ).toBe(3);
+    ).toBe(5);
 
     database.close();
   });

@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import DatabaseConnection from "better-sqlite3";
 
 import {
   afterEach,
@@ -12,6 +13,7 @@ import {
 import { SaveDatabase } from "../../src/database/save/SaveDatabase.js";
 import { WorldDatabase } from "../../src/database/world/WorldDatabase.js";
 import { NewCareerService } from "../../src/career/NewCareerService.js";
+import { CareerCalendarService } from "../../src/world/services/CareerCalendarService.js";
 import { ScenarioGenerator } from "../../src/world/generators/ScenarioGenerator.js";
 
 const databases: Array<
@@ -35,6 +37,113 @@ afterEach(() => {
   }
 
   files.length = 0;
+});
+
+describe("SaveDatabase season compatibility", () => {
+  it("allows the same World stage definition in consecutive Save seasons", () => {
+    const save = SaveDatabase.create(":memory:");
+    databases.push(save);
+    const db = save.connection;
+    const saveId = Number(db.prepare(
+      "INSERT INTO save (name, created_at, last_saved_at, game_date, status, version) VALUES (?, ?, ?, ?, ?, ?)",
+    ).run("Multi-season", "2026-01-01", "2026-01-01", "2026-01-01", "ACTIVE", 1).lastInsertRowid);
+    const firstSeason = Number(db.prepare(
+      "INSERT INTO season_state (save_id, competition_id, competition_season_id, year, status) VALUES (?, ?, ?, ?, ?)",
+    ).run(saveId, 1, 1, 2026, "COMPLETED").lastInsertRowid);
+    const secondSeason = Number(db.prepare(
+      "INSERT INTO season_state (save_id, competition_id, competition_season_id, year, status) VALUES (?, ?, ?, ?, ?)",
+    ).run(saveId, 1, 1, 2027, "SCHEDULED").lastInsertRowid);
+
+    db.prepare(
+      "INSERT INTO stage_state (save_id, season_state_id, world_stage_id, status, current_round_number) VALUES (?, ?, ?, ?, ?)",
+    ).run(saveId, firstSeason, 99, "COMPLETED", 38);
+    db.prepare(
+      "INSERT INTO stage_state (save_id, season_state_id, world_stage_id, status, current_round_number) VALUES (?, ?, ?, ?, ?)",
+    ).run(saveId, secondSeason, 99, "SCHEDULED", 0);
+
+    expect(db.prepare(
+      "SELECT COUNT(*) AS count FROM stage_state WHERE save_id = ? AND world_stage_id = ?",
+    ).get(saveId, 99)).toEqual({ count: 2 });
+  });
+});
+
+describe("SaveDatabase legacy migration", () => {
+  it("migrates the legacy one-stage-per-save uniqueness without losing round references", () => {
+    const savePath = path.join(os.tmpdir(), `football-save-legacy-${Date.now()}.db`);
+    files.push(savePath);
+    const legacy = new DatabaseConnection(savePath);
+    legacy.pragma("foreign_keys = ON");
+    legacy.exec(`
+      CREATE TABLE save (id INTEGER PRIMARY KEY, name TEXT NOT NULL, created_at TEXT NOT NULL, last_saved_at TEXT NOT NULL, game_date TEXT NOT NULL, status TEXT NOT NULL, version INTEGER NOT NULL);
+      CREATE TABLE season_state (id INTEGER PRIMARY KEY AUTOINCREMENT, save_id INTEGER NOT NULL, competition_id INTEGER NOT NULL, competition_season_id INTEGER, year INTEGER NOT NULL, status TEXT NOT NULL, current_stage_id INTEGER, current_round_id INTEGER, start_date TEXT, end_date TEXT, FOREIGN KEY (save_id) REFERENCES save(id) ON DELETE CASCADE, UNIQUE (save_id, competition_id, year));
+      CREATE TABLE stage_state (id INTEGER PRIMARY KEY AUTOINCREMENT, save_id INTEGER NOT NULL, season_state_id INTEGER NOT NULL, world_stage_id INTEGER, status TEXT NOT NULL, current_round_number INTEGER, FOREIGN KEY (save_id) REFERENCES save(id) ON DELETE CASCADE, FOREIGN KEY (season_state_id) REFERENCES season_state(id) ON DELETE CASCADE, UNIQUE (save_id, world_stage_id));
+      CREATE TABLE round_state (id INTEGER PRIMARY KEY AUTOINCREMENT, save_id INTEGER NOT NULL, stage_state_id INTEGER NOT NULL, world_round_id INTEGER, round_number INTEGER NOT NULL, status TEXT NOT NULL, scheduled_date TEXT, played_date TEXT, FOREIGN KEY (save_id) REFERENCES save(id) ON DELETE CASCADE, FOREIGN KEY (stage_state_id) REFERENCES stage_state(id) ON DELETE CASCADE);
+    `);
+    legacy.prepare(
+      "INSERT INTO save (id, name, created_at, last_saved_at, game_date, status, version) VALUES (1, 'Legacy', '2026-01-01', '2026-01-01', '2026-01-01', 'ACTIVE', 1)",
+    ).run();
+    const firstSeason = Number(legacy.prepare(
+      "INSERT INTO season_state (save_id, competition_id, year, status) VALUES (1, 10, 2026, 'COMPLETED')",
+    ).run().lastInsertRowid);
+    legacy.prepare(
+      "INSERT INTO stage_state (save_id, season_state_id, world_stage_id, status) VALUES (1, ?, 99, 'COMPLETED')",
+    ).run(firstSeason);
+    legacy.prepare(
+      "INSERT INTO round_state (save_id, stage_state_id, round_number, status) VALUES (1, 1, 1, 'COMPLETED')",
+    ).run();
+    legacy.close();
+
+    const migrated = SaveDatabase.open(savePath);
+    databases.push(migrated);
+    const secondSeason = Number(migrated.connection.prepare(
+      "INSERT INTO season_state (save_id, competition_id, year, status) VALUES (1, 10, 2027, 'SCHEDULED')",
+    ).run().lastInsertRowid);
+    migrated.connection.prepare(
+      "INSERT INTO stage_state (save_id, season_state_id, world_stage_id, status) VALUES (1, ?, 99, 'SCHEDULED')",
+    ).run(secondSeason);
+
+    expect(migrated.connection.prepare(
+      "SELECT COUNT(*) AS count FROM stage_state WHERE save_id = 1 AND world_stage_id = 99",
+    ).get()).toEqual({ count: 2 });
+    expect(migrated.connection.prepare(
+      "SELECT COUNT(*) AS count FROM round_state WHERE stage_state_id = 1",
+    ).get()).toEqual({ count: 1 });
+    expect(migrated.connection.pragma("foreign_key_check")).toEqual([]);
+  });
+});
+
+describe("World participant-source migration", () => {
+  it("adds participant-source columns to an older World without rebuilding it", () => {
+    const worldPath = path.join(os.tmpdir(), `football-world-source-legacy-${Date.now()}.db`);
+    files.push(worldPath);
+    const created = WorldDatabase.create(worldPath);
+    created.close();
+
+    const raw = new DatabaseConnection(worldPath);
+    raw.pragma("foreign_keys = OFF");
+    raw.exec(`
+      DROP TABLE stage_participant_source;
+      CREATE TABLE stage_participant_source (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        stage_id INTEGER NOT NULL,
+        source_type TEXT NOT NULL,
+        source_competition_id INTEGER,
+        source_stage_id INTEGER,
+        position_from INTEGER,
+        position_to INTEGER,
+        FOREIGN KEY (stage_id) REFERENCES competition_stage(id) ON DELETE CASCADE,
+        FOREIGN KEY (source_competition_id) REFERENCES competition(id),
+        FOREIGN KEY (source_stage_id) REFERENCES competition_stage(id)
+      );
+    `);
+    raw.close();
+
+    const migrated = WorldDatabase.open(worldPath);
+    databases.push(migrated);
+    const columns = migrated.connection.pragma("table_info('stage_participant_source')") as Array<{ name: string }>;
+    expect(columns.map((column) => column.name)).toContain("source_season_id");
+    expect(columns.map((column) => column.name)).toContain("qualification_type");
+  });
 });
 
 describe("NewCareerService", () => {
@@ -189,5 +298,26 @@ describe("NewCareerService", () => {
       .toBe(managerPersonId);
     expect(manager.club_id)
       .toBe(managerClubId);
-  });
+
+    const calendar = new CareerCalendarService(save, world);
+    calendar.simulateUntil(result.saveId, "2027-01-01");
+    const competitionId = (world.connection.prepare(
+      "SELECT id FROM competition WHERE name = 'Brasileirão' LIMIT 1",
+    ).get() as { id: number }).id;
+    const nextSeason = save.connection.prepare(
+      "SELECT id FROM season_state WHERE save_id = ? AND competition_id = ? AND year = 2027",
+    ).get(result.saveId, competitionId) as { id: number } | undefined;
+    expect(nextSeason).toBeDefined();
+    const nextStage = save.connection.prepare(
+      "SELECT id FROM stage_state WHERE save_id = ? AND season_state_id = ? AND world_stage_id IS NOT NULL",
+    ).get(result.saveId, nextSeason!.id) as { id: number } | undefined;
+    expect(nextStage).toBeDefined();
+    expect(save.connection.prepare(
+      "SELECT COUNT(*) AS count FROM fixture_state WHERE save_id = ? AND round_state_id IN (SELECT id FROM round_state WHERE stage_state_id = ?)",
+    ).get(result.saveId, nextStage!.id)).toEqual({ count: 380 });
+    expect(save.connection.prepare(
+      "SELECT COUNT(*) AS count FROM standing WHERE save_id = ? AND stage_state_id = ?",
+    ).get(result.saveId, nextStage!.id)).toEqual({ count: 20 });
+    expect(world.connection.prepare("SELECT COUNT(*) AS count FROM fixture").get()).toEqual({ count: 0 });
+  }, 30_000);
 });

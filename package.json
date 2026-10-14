@@ -10,6 +10,8 @@
     "world:fast-start": "tsx src/commands/world/fast-start.ts",
     "competition:brazil-sandbox": "tsx src/commands/competition/brazil-sandbox.ts",
     "career:new": "tsx src/commands/career/new.ts",
+    "career:advance": "tsx src/commands/career/advance.ts",
+    "competition:benchmark": "tsx src/commands/competition/benchmark-simulation.ts",
     "editor:api": "tsx src/commands/editor/api.ts",
     "editor:dev": "tsx src/commands/editor/dev.ts",
     "editor:build": "npm --prefix src/apps/editor install && npm --prefix src/apps/editor run build",

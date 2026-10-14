@@ -29,6 +29,9 @@ export class ScheduleEngine {
     }
 
     const teams = [...participants];
+    if (teams.length % 2 !== 0) {
+      teams.push({ teamId: 0, name: "BYE", reputation: 0 });
+    }
     const firstLegRounds = teams.length - 1;
     const matchesPerRound = teams.length / 2;
     const firstLeg: GeneratedRound[] = [];
@@ -39,6 +42,7 @@ export class ScheduleEngine {
       for (let matchIndex = 0; matchIndex < matchesPerRound; matchIndex += 1) {
         const first = teams[matchIndex];
         const second = teams[teams.length - 1 - matchIndex];
+        if (!first || !second || first.teamId === 0 || second.teamId === 0) continue;
         const swap = roundIndex % 2 === 1;
 
         fixtures.push({
@@ -121,54 +125,52 @@ export class ScheduleEngine {
     if (intervalDays < 1) throw new Error("Knockout interval must be positive.");
     if (!Number.isInteger(legs) || legs < 1 || legs > 2) throw new Error("Knockout supports one or two legs.");
 
-    const seeded = [...participants];
-    const size = 2 ** Math.ceil(Math.log2(seeded.length));
-    while (seeded.length < size) {
-      seeded.push({ teamId: 0, name: "BYE", reputation: 0 });
+    const size = 2 ** Math.ceil(Math.log2(participants.length));
+    const byeCount = size - participants.length;
+    const current: CompetitionParticipant[] = [];
+    for (let index = 0; index < byeCount; index++) {
+      current.push(participants[index], { teamId: 0, name: "BYE", reputation: 0 });
     }
+    current.push(...participants.slice(byeCount));
+    while (current.length < size) current.push({ teamId: 0, name: "BYE", reputation: 0 });
 
     const rounds: GeneratedRound[] = [];
-    let current = seeded;
+    let entrants = current;
     let roundNumber = 1;
-
-    while (current.length > 1) {
-      const fixtures: Fixture[] = [];
-
-      for (let index = 0; index < current.length; index += 2) {
-        const home = current[index];
-        const away = current[index + 1];
-
-        if (home.teamId === 0 || away.teamId === 0) continue;
-
-        fixtures.push({
+    while (entrants.length > 1) {
+      const firstLegFixtures: Fixture[] = [];
+      for (let index = 0; index < entrants.length; index += 2) {
+        const home = entrants[index];
+        const away = entrants[index + 1];
+        if (!home || !away || home.teamId === 0 || away.teamId === 0) continue;
+        firstLegFixtures.push({
           roundNumber,
           homeTeamId: home.teamId,
           awayTeamId: away.teamId,
           scheduledAt: "",
           status: "SCHEDULED",
         });
-
-        if (legs === 2) {
-          fixtures.push({
-            roundNumber: roundNumber + 1,
-            homeTeamId: away.teamId,
-            awayTeamId: home.teamId,
-            scheduledAt: "",
-            status: "SCHEDULED",
-          });
-        }
       }
-
       rounds.push({
         roundNumber,
         date: this.addDays(startDate, (roundNumber - 1) * intervalDays),
-        fixtures,
+        fixtures: firstLegFixtures,
       });
-
-      current = this.nextKnockoutParticipants(current);
-      roundNumber += legs === 2 ? 2 : 1;
+      if (legs === 2) {
+        rounds.push({
+          roundNumber: roundNumber + 1,
+          date: this.addDays(startDate, roundNumber * intervalDays),
+          fixtures: firstLegFixtures.map((fixture) => ({
+            ...fixture,
+            roundNumber: roundNumber + 1,
+            homeTeamId: fixture.awayTeamId,
+            awayTeamId: fixture.homeTeamId,
+          })),
+        });
+      }
+      entrants = this.nextKnockoutParticipants(entrants);
+      roundNumber += legs;
     }
-
     return this.scheduleRounds(rounds);
   }
 
@@ -223,6 +225,18 @@ export class ScheduleEngine {
     return this.scheduleRounds(rounds);
   }
 
+  private nextKnockoutParticipants(
+    participants: CompetitionParticipant[],
+  ): CompetitionParticipant[] {
+    // Future winners are intentionally unresolved at generation time. The Save
+    // calendar creates the next round after the previous round is actually played.
+    return Array.from({ length: Math.floor(participants.length / 2) }, () => ({
+      teamId: 0,
+      name: "TBD",
+      reputation: 0,
+    }));
+  }
+
   private scheduleRounds(rounds: GeneratedRound[]): GeneratedRound[] {
     return rounds.map((round) => ({
       ...round,
@@ -240,10 +254,6 @@ export class ScheduleEngine {
   ): void {
     if (participants.length < 2) {
       throw new Error("A competition needs at least two participants.");
-    }
-
-    if (participants.length % 2 !== 0) {
-      throw new Error("Round-robin requires an even number of participants.");
     }
 
     if (!startDate) {

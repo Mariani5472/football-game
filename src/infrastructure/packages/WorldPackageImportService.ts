@@ -1828,8 +1828,6 @@ export class WorldPackageImportService {
       this.world.metadata("schema_version") ?? 0,
     );
 
-    console.log(manifest)
-
     if (Number(manifest.schemaVersion) !== worldSchema) {
       throw new Error(
         "Package schema v" +

@@ -1,0 +1,27 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main, codex/p1-global-calendar-validation]
+
+jobs:
+  typecheck-and-regression:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - name: Run calendar and competition regression tests
+        run: >-
+          npx vitest run
+          src/modules/competition/engine/ScheduleEngine.test.ts
+          src/modules/competition/engine/DrawEngine.test.ts
+          src/world/services/FastStartService.test.ts
+          tests/career/NewCareerService.test.ts
+          tests/world/CareerCalendarService.test.ts
+          tests/unit/world/CalendarScheduleValidator.test.ts

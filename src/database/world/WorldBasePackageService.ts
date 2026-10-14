@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
+import os from "node:os";
 
 import { WorldPackageImportService } from "../../infrastructure/packages/WorldPackageImportService.js";
 import { initializeWorldCompositionSchema } from "./WorldCompositionSchema.js";
@@ -15,11 +16,15 @@ import type { WorldDatabase } from "./WorldDatabase.js";
 export class WorldBasePackageService {
   static ensureInstalled(world: WorldDatabase, worldPath: string): void {
     const database = world.connection;
-    const packageFile = path.resolve(
-      path.dirname(worldPath),
-      ".packages",
-      `world.base.${BASE_PACKAGE_VERSION}.db`,
-    );
+    // In-memory Worlds are common in tests and tooling. Giving them a shared
+    // on-disk package path creates races between concurrent SQLite imports.
+    const packageFile = worldPath === ":memory:"
+      ? path.join(os.tmpdir(), `football-world-base-${BASE_PACKAGE_VERSION}-${crypto.randomUUID()}.db`)
+      : path.resolve(
+          path.dirname(worldPath),
+          ".packages",
+          `world.base.${BASE_PACKAGE_VERSION}.${crypto.createHash("sha256").update(path.resolve(worldPath)).digest("hex").slice(0, 12)}.db`,
+        );
 
     initializeWorldCompositionSchema(database);
     const existing = database.prepare(

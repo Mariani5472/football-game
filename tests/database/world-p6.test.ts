@@ -25,7 +25,7 @@ function createPackage(file: string, options: {
   metadata.run("package_version", options.version ?? "1.0.0");
   metadata.run("package_type", options.packageType ?? "CONTENT");
   metadata.run("package_priority", "100");
-  metadata.run("schema_version", "4");
+  metadata.run("schema_version", "5");
   metadata.run("package_provides", JSON.stringify(options.provides ?? []));
   metadata.run("package_dependencies", JSON.stringify(options.dependencies ?? []));
   metadata.run("package_conflicts", JSON.stringify(options.conflicts ?? []));

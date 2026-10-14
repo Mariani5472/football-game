@@ -7,7 +7,7 @@ import DatabaseConnection from "better-sqlite3";
 import { describe, expect, it } from "vitest";
 
 import { WorldDatabase } from "../../src/database/world/WorldDatabase.js";
-import { WorldPackageImportService } from "../../src/editor/WorldPackageImportService.js";
+import { WorldPackageImportService } from "../../src/infrastructure/packages/WorldPackageImportService.js";
 import { WorldEditorService } from "../../src/editor/WorldEditorService.js";
 import { WorldPackageService } from "../../src/editor/WorldPackageService.js";
 
@@ -100,7 +100,7 @@ function createPackage(
   metadata.run("package_key", options.packageKey);
   metadata.run("package_name", options.name);
   metadata.run("package_version", "1.0.0");
-  metadata.run("schema_version", "3");
+  metadata.run("schema_version", "5");
   metadata.run("package_type", "CONTENT");
   metadata.run("package_priority", "200");
 

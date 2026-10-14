@@ -4,7 +4,7 @@ import type { DrawTeam } from "../domain/Draw.js";
 
 const teams: DrawTeam[] = Array.from({ length: 8 }, (_, index) => ({
   teamId: index + 1,
-  nationId: index % 2,
+  nationId: index % 4,
   seed: index + 1,
 }));
 

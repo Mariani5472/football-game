@@ -16,7 +16,7 @@ export class ClimateGenerator {
 
     const insert = this.database.connection
       .prepare(`
-        INSERT INTO climate (
+        INSERT OR IGNORE INTO climate (
           name,
           short_name
         )
@@ -29,8 +29,11 @@ export class ClimateGenerator {
         name.substring(0, 3).toUpperCase(),
       );
 
+      const existing = this.database.connection.prepare(
+        "SELECT id FROM climate WHERE name = ? LIMIT 1",
+      ).get(name) as { id: number } | undefined;
       context.climateIds.push(
-        Number(result.lastInsertRowid),
+        Number(existing?.id ?? result.lastInsertRowid),
       );
     }
   }

@@ -98,7 +98,7 @@ CREATE TABLE IF NOT EXISTS stage_state (
     current_round_number INTEGER,
     FOREIGN KEY (save_id) REFERENCES save(id) ON DELETE CASCADE,
     FOREIGN KEY (season_state_id) REFERENCES season_state(id) ON DELETE CASCADE,
-    UNIQUE (save_id, world_stage_id)
+    UNIQUE (save_id, season_state_id, world_stage_id)
 );
 
 CREATE TABLE IF NOT EXISTS round_state (
