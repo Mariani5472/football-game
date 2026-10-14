@@ -121,60 +121,52 @@ export class ScheduleEngine {
     if (intervalDays < 1) throw new Error("Knockout interval must be positive.");
     if (!Number.isInteger(legs) || legs < 1 || legs > 2) throw new Error("Knockout supports one or two legs.");
 
-    const seeded = [...participants];
-    const size = 2 ** Math.ceil(Math.log2(seeded.length));
-    const byeCount = size - seeded.length;
-    const arranged: CompetitionParticipant[] = [];
+    const size = 2 ** Math.ceil(Math.log2(participants.length));
+    const byeCount = size - participants.length;
+    const current: CompetitionParticipant[] = [];
     for (let index = 0; index < byeCount; index++) {
-      arranged.push(seeded[index], { teamId: 0, name: "BYE", reputation: 0 });
+      current.push(participants[index], { teamId: 0, name: "BYE", reputation: 0 });
     }
-    arranged.push(...seeded.slice(byeCount));
-    while (arranged.length < size) {
-      arranged.push({ teamId: 0, name: "BYE", reputation: 0 });
-    }
+    current.push(...participants.slice(byeCount));
+    while (current.length < size) current.push({ teamId: 0, name: "BYE", reputation: 0 });
 
     const rounds: GeneratedRound[] = [];
-    let current = arranged;
+    let entrants = current;
     let roundNumber = 1;
-
-    while (current.length > 1) {
-      const fixtures: Fixture[] = [];
-
-      for (let index = 0; index < current.length; index += 2) {
-        const home = current[index];
-        const away = current[index + 1];
-
-        if (home.teamId === 0 || away.teamId === 0) continue;
-
-        fixtures.push({
+    while (entrants.length > 1) {
+      const firstLegFixtures: Fixture[] = [];
+      for (let index = 0; index < entrants.length; index += 2) {
+        const home = entrants[index];
+        const away = entrants[index + 1];
+        if (!home || !away || home.teamId === 0 || away.teamId === 0) continue;
+        firstLegFixtures.push({
           roundNumber,
           homeTeamId: home.teamId,
           awayTeamId: away.teamId,
           scheduledAt: "",
           status: "SCHEDULED",
         });
-
-        if (legs === 2) {
-          fixtures.push({
-            roundNumber: roundNumber + 1,
-            homeTeamId: away.teamId,
-            awayTeamId: home.teamId,
-            scheduledAt: "",
-            status: "SCHEDULED",
-          });
-        }
       }
-
       rounds.push({
         roundNumber,
         date: this.addDays(startDate, (roundNumber - 1) * intervalDays),
-        fixtures,
+        fixtures: firstLegFixtures,
       });
-
-      current = this.nextKnockoutParticipants(current);
-      roundNumber += legs === 2 ? 2 : 1;
+      if (legs === 2) {
+        rounds.push({
+          roundNumber: roundNumber + 1,
+          date: this.addDays(startDate, roundNumber * intervalDays),
+          fixtures: firstLegFixtures.map((fixture) => ({
+            ...fixture,
+            roundNumber: roundNumber + 1,
+            homeTeamId: fixture.awayTeamId,
+            awayTeamId: fixture.homeTeamId,
+          })),
+        });
+      }
+      entrants = this.nextKnockoutParticipants(entrants);
+      roundNumber += legs;
     }
-
     return this.scheduleRounds(rounds);
   }
 
