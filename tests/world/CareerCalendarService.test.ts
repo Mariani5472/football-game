@@ -61,6 +61,39 @@ describe("CareerCalendarService", () => {
     expect(save!.connection.prepare("SELECT game_date AS gameDate FROM calendar_state WHERE save_id = ?").get(saveId)).toEqual({ gameDate: "2026-08-01" });
   });
 
+  it("advances the global clock one day at a time", () => {
+    const { saveId } = setup([]);
+    const result = new CareerCalendarService(save!, world!).advanceToNextDate(saveId);
+    expect(result.currentDate).toBe("2026-08-02");
+  });
+
+  it("puts transfer windows and international call-ups on the shared calendar", () => {
+    const { saveId } = setup([]);
+    const competitionId = Number(world!.connection.prepare(
+      "INSERT INTO competition (name) VALUES (?)",
+    ).run("Calendar test competition").lastInsertRowid);
+    world!.connection.prepare(
+      "INSERT INTO transfer_window (competition_id, name, start_date, end_date) VALUES (?, ?, ?, ?)",
+    ).run(competitionId, "Summer window", "2026-08-02", "2026-08-05");
+    save!.connection.prepare(
+      "INSERT INTO team_squad_state (save_id, team_id, player_id, squad_status) VALUES (?, ?, ?, ?)",
+    ).run(saveId, 1, 99, "FIRST_TEAM");
+    save!.connection.prepare(
+      "INSERT INTO national_team_selection (save_id, national_team_id, player_id, call_up_date, release_date, status) VALUES (?, ?, ?, ?, ?, ?)",
+    ).run(saveId, 100, 99, "2026-08-02", "2026-08-03", "CALLED");
+
+    new CareerCalendarService(save!, world!).processDate(saveId, "2026-08-02");
+    const events = save!.connection.prepare(
+      "SELECT event_type AS eventType, event_date AS eventDate, completed FROM calendar_event WHERE save_id = ? AND event_type IN ('TRANSFER_WINDOW_OPEN', 'TRANSFER_WINDOW_CLOSE', 'INTERNATIONAL_CALLUP', 'INTERNATIONAL_RELEASE') ORDER BY event_date, event_type",
+    ).all(saveId) as Array<{ eventType: string; eventDate: string; completed: number }>;
+    expect(events).toEqual([
+      { eventType: "INTERNATIONAL_CALLUP", eventDate: "2026-08-02", completed: 1 },
+      { eventType: "TRANSFER_WINDOW_OPEN", eventDate: "2026-08-02", completed: 1 },
+      { eventType: "INTERNATIONAL_RELEASE", eventDate: "2026-08-03", completed: 0 },
+      { eventType: "TRANSFER_WINDOW_CLOSE", eventDate: "2026-08-05", completed: 0 },
+    ]);
+  });
+
   it("does not allow moving the global clock backwards", () => {
     const { saveId } = setup([]);
     expect(() => new CareerCalendarService(save!, world!).processDate(saveId, "2026-07-31")).toThrow(/Cannot move calendar backwards/);
