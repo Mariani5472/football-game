@@ -568,7 +568,12 @@ export class CareerCalendarService {
       const teamIds = this.resolveStageParticipants(saveId, stage, previous?.id);
       const uniqueTeamIds = [...new Set(teamIds)].filter((id) => Number.isInteger(id) && id > 0);
       if (uniqueTeamIds.length < 2) {
-        throw new Error(`Cannot activate stage ${stage.worldStageId}: resolved ${uniqueTeamIds.length} participant(s).`);
+        this.blockStage(
+          saveId, stage.stageStateId, currentDate,
+          `Stage ${stage.worldStageId} blocked`,
+          `Could not resolve at least two valid participants; resolved ${uniqueTeamIds.length}.`,
+        );
+        continue;
       }
       const participantRows = this.world.connection.prepare(
         `SELECT id AS teamId, name, COALESCE(reputation, 50) AS reputation, nation_id AS nationId
@@ -579,12 +584,25 @@ export class CareerCalendarService {
         nationId: participant.nationId ?? undefined,
       }));
       if (participants.length !== uniqueTeamIds.length) {
-        throw new Error(`Stage ${stage.worldStageId} references a team missing from the World.`);
+        this.blockStage(
+          saveId, stage.stageStateId, currentDate,
+          `Stage ${stage.worldStageId} blocked`,
+          "One or more resolved participants no longer exist in the World.",
+        );
+        continue;
       }
       const seasonTemplateId = stage.seasonTemplateId ?? Number(this.world.connection.prepare(
         "SELECT competition_season_id FROM competition_stage WHERE id = ?",
       ).pluck().get(stage.worldStageId));
-      this.activateStageWithParticipants(saveId, stage.stageStateId, seasonTemplateId, stage.worldStageId, participants, currentDate);
+      try {
+        this.activateStageWithParticipants(saveId, stage.stageStateId, seasonTemplateId, stage.worldStageId, participants, currentDate);
+      } catch (error) {
+        this.blockStage(
+          saveId, stage.stageStateId, currentDate,
+          `Stage ${stage.worldStageId} blocked`,
+          error instanceof Error ? error.message : String(error),
+        );
+      }
     }
   }
 
@@ -675,6 +693,21 @@ export class CareerCalendarService {
     );
     const interval = generated.stage.schedule?.intervalDays ?? 7;
     this.persistGeneratedStage(saveId, stageStateId, generated, addDays(currentDate, interval), interval);
+  }
+
+  private blockStage(
+    saveId: number,
+    stageStateId: number,
+    date: string,
+    title: string,
+    description: string,
+  ): void {
+    this.save.connection.prepare(
+      "UPDATE stage_state SET status = 'BLOCKED' WHERE id = ?",
+    ).run(stageStateId);
+    this.save.connection.prepare(
+      "INSERT INTO calendar_event (save_id, event_type, event_date, priority, title, description) VALUES (?, 'STAGE_BLOCKED', ?, 95, ?, ?)",
+    ).run(saveId, date, title, description);
   }
 
   private createNextSeasonSnapshots(saveId: number, currentDate: string): void {
