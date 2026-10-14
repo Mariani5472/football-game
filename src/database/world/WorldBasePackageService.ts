@@ -23,7 +23,7 @@ export class WorldBasePackageService {
       : path.resolve(
           path.dirname(worldPath),
           ".packages",
-          `world.base.${BASE_PACKAGE_VERSION}.db`,
+          `world.base.${BASE_PACKAGE_VERSION}.${crypto.createHash("sha256").update(path.resolve(worldPath)).digest("hex").slice(0, 12)}.db`,
         );
 
     initializeWorldCompositionSchema(database);
