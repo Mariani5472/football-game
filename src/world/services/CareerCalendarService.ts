@@ -374,18 +374,27 @@ export class CareerCalendarService {
   }
 
   private refreshRoundAndSeasonStatuses(saveId: number): void {
-    this.save.connection.prepare(
-      `UPDATE stage_state
-          SET status = 'COMPLETED'
-        WHERE save_id = ? AND status <> 'COMPLETED'
-          AND world_stage_id IS NOT NULL
-          AND COALESCE((SELECT format_type FROM stage_format WHERE stage_id = stage_state.world_stage_id), '') <> 'KNOCKOUT'
+    const knockoutStages = new Set(
+      (this.world.connection.prepare(
+        "SELECT stage_id AS stageId FROM stage_format WHERE format_type = 'KNOCKOUT'",
+      ).all() as Array<{ stageId: number }>).map((row) => row.stageId),
+    );
+    const stages = this.save.connection.prepare(
+      "SELECT id, world_stage_id AS worldStageId FROM stage_state WHERE save_id = ? AND status <> 'COMPLETED'",
+    ).all(saveId) as Array<{ id: number; worldStageId: number | null }>;
+    const completeStage = this.save.connection.prepare(
+      `UPDATE stage_state SET status = 'COMPLETED'
+        WHERE id = ?
           AND EXISTS (SELECT 1 FROM round_state r WHERE r.stage_state_id = stage_state.id)
           AND NOT EXISTS (
             SELECT 1 FROM fixture_state f JOIN round_state r ON r.id = f.round_state_id
              WHERE r.stage_state_id = stage_state.id AND f.status = 'SCHEDULED'
           )`,
-    ).run(saveId);
+    );
+    for (const stage of stages) {
+      if (stage.worldStageId == null || knockoutStages.has(stage.worldStageId)) continue;
+      completeStage.run(stage.id);
+    }
     this.save.connection.prepare(
       `UPDATE round_state SET status = CASE
           WHEN NOT EXISTS (SELECT 1 FROM fixture_state f WHERE f.round_state_id = round_state.id AND f.status = 'SCHEDULED')
