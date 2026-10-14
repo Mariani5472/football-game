@@ -37,6 +37,34 @@ afterEach(() => {
   files.length = 0;
 });
 
+describe("SaveDatabase season compatibility", () => {
+  it("allows the same World stage definition in consecutive Save seasons", () => {
+    const save = SaveDatabase.create(":memory:");
+    databases.push(save);
+    const db = save.connection;
+    const saveId = Number(db.prepare(
+      "INSERT INTO save (name, created_at, last_saved_at, game_date, status, version) VALUES (?, ?, ?, ?, ?, ?)",
+    ).run("Multi-season", "2026-01-01", "2026-01-01", "2026-01-01", "ACTIVE", 1).lastInsertRowid);
+    const firstSeason = Number(db.prepare(
+      "INSERT INTO season_state (save_id, competition_id, competition_season_id, year, status) VALUES (?, ?, ?, ?, ?)",
+    ).run(saveId, 1, 1, 2026, "COMPLETED").lastInsertRowid);
+    const secondSeason = Number(db.prepare(
+      "INSERT INTO season_state (save_id, competition_id, competition_season_id, year, status) VALUES (?, ?, ?, ?, ?)",
+    ).run(saveId, 1, 1, 2027, "SCHEDULED").lastInsertRowid);
+
+    db.prepare(
+      "INSERT INTO stage_state (save_id, season_state_id, world_stage_id, status, current_round_number) VALUES (?, ?, ?, ?, ?)",
+    ).run(saveId, firstSeason, 99, "COMPLETED", 38);
+    db.prepare(
+      "INSERT INTO stage_state (save_id, season_state_id, world_stage_id, status, current_round_number) VALUES (?, ?, ?, ?, ?)",
+    ).run(saveId, secondSeason, 99, "SCHEDULED", 0);
+
+    expect(db.prepare(
+      "SELECT COUNT(*) AS count FROM stage_state WHERE save_id = ? AND world_stage_id = ?",
+    ).get(saveId, 99)).toEqual({ count: 2 });
+  });
+});
+
 describe("NewCareerService", () => {
   it("creates a save snapshot without copying the world schema", () => {
     const worldPath = path.join(
