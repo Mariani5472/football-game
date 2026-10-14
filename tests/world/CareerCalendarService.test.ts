@@ -119,6 +119,40 @@ describe("CareerCalendarService", () => {
     ]);
   });
 
+  it("generates the next knockout round only after every tie in the current round is played", () => {
+    const { saveId, stageStateId } = setup([{ home: 1, away: 2 }, { home: 3, away: 4 }]);
+    world!.connection.exec(`
+      INSERT INTO competition_season (id, competition_id, year) VALUES (10, 1, 2026);
+      INSERT INTO competition_stage (id, competition_season_id, stage_order) VALUES (99, 10, 1);
+      INSERT INTO stage_format (stage_id, format_type, legs) VALUES (99, 'KNOCKOUT', 1);
+      INSERT INTO schedule_profile (stage_id, interval_days) VALUES (99, 7);
+      INSERT INTO stage_points_rule (stage_id, win_points, draw_points, loss_points) VALUES (99, 3, 1, 0);
+    `);
+    save!.connection.prepare(
+      "UPDATE stage_state SET world_stage_id = 99 WHERE id = ?",
+    ).run(stageStateId);
+    save!.connection.prepare(
+      "UPDATE season_state SET competition_season_id = 10 WHERE id = (SELECT season_state_id FROM stage_state WHERE id = ?)",
+    ).run(stageStateId);
+
+    const calendar = new CareerCalendarService(save!, world!);
+    calendar.processDate(saveId, "2026-08-01");
+    expect(save!.connection.prepare(
+      "SELECT MAX(round_number) AS roundNumber FROM round_state WHERE save_id = ? AND stage_state_id = ?",
+    ).get(saveId, stageStateId)).toEqual({ roundNumber: 2 });
+    expect(save!.connection.prepare(
+      "SELECT COUNT(*) AS count FROM fixture_state f JOIN round_state r ON r.id = f.round_state_id WHERE f.save_id = ? AND r.stage_state_id = ? AND r.round_number = 2 AND f.status = 'SCHEDULED'",
+    ).get(saveId, stageStateId)).toEqual({ count: 1 });
+
+    calendar.processDate(saveId, "2026-08-08");
+    expect(save!.connection.prepare(
+      "SELECT status FROM stage_state WHERE id = ?",
+    ).get(stageStateId)).toEqual({ status: "COMPLETED" });
+    expect(save!.connection.prepare(
+      "SELECT COUNT(*) AS count FROM fixture_state f JOIN round_state r ON r.id = f.round_state_id WHERE f.save_id = ? AND r.stage_state_id = ? AND f.status = 'SCHEDULED'",
+    ).get(saveId, stageStateId)).toEqual({ count: 0 });
+  });
+
   it("does not allow moving the global clock backwards", () => {
     const { saveId } = setup([]);
     expect(() => new CareerCalendarService(save!, world!).processDate(saveId, "2026-07-31")).toThrow(/Cannot move calendar backwards/);
