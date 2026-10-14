@@ -7,7 +7,7 @@ import DatabaseConnection from "better-sqlite3";
 import { describe, expect, it } from "vitest";
 
 import { WorldDatabase } from "../../src/database/world/WorldDatabase.js";
-import { WorldPackageImportService } from "../../src/editor/WorldPackageImportService.js";
+import { WorldPackageImportService } from "../../src/infrastructure/packages/WorldPackageImportService.js";
 import { WorldEditorService } from "../../src/editor/WorldEditorService.js";
 import { WorldPackageService } from "../../src/editor/WorldPackageService.js";
 
