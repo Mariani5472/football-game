@@ -43,7 +43,7 @@ export class CalendarScheduleValidator {
       return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value.slice(0, 10);
     };
 
-    for (const fixture of proposedFixtures) {
+    for (const fixture of allFixtures) {
       const ids = fixture.fixtureId == null ? [] : [fixture.fixtureId];
       if (!validDate(fixture.scheduledAt)) {
         conflicts.push({
