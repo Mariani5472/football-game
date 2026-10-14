@@ -114,6 +114,9 @@ export class CareerCalendarService {
       this.refreshRoundAndSeasonStatuses(saveId);
       competitionsCompleted = this.progressKnockoutStages(saveId, date);
       this.refreshRoundAndSeasonStatuses(saveId);
+      this.activatePendingStages(saveId, date);
+      this.refreshRoundAndSeasonStatuses(saveId);
+      this.createNextSeasonSnapshots(saveId, date);
 
       this.save.connection.prepare(
         `UPDATE calendar_state SET game_date = ?, season_year = ?, day_phase = 'END_OF_DAY' WHERE save_id = ?`,
@@ -302,6 +305,18 @@ export class CareerCalendarService {
 
   private refreshRoundAndSeasonStatuses(saveId: number): void {
     this.save.connection.prepare(
+      `UPDATE stage_state
+          SET status = 'COMPLETED'
+        WHERE save_id = ? AND status <> 'COMPLETED'
+          AND world_stage_id IS NOT NULL
+          AND COALESCE((SELECT format_type FROM stage_format WHERE stage_id = stage_state.world_stage_id), '') <> 'KNOCKOUT'
+          AND EXISTS (SELECT 1 FROM round_state r WHERE r.stage_state_id = stage_state.id)
+          AND NOT EXISTS (
+            SELECT 1 FROM fixture_state f JOIN round_state r ON r.id = f.round_state_id
+             WHERE r.stage_state_id = stage_state.id AND f.status = 'SCHEDULED'
+          )`,
+    ).run(saveId);
+    this.save.connection.prepare(
       `UPDATE round_state SET status = CASE
           WHEN NOT EXISTS (SELECT 1 FROM fixture_state f WHERE f.round_state_id = round_state.id AND f.status = 'SCHEDULED')
            AND EXISTS (SELECT 1 FROM fixture_state f WHERE f.round_state_id = round_state.id)
@@ -441,6 +456,229 @@ export class CareerCalendarService {
       }
     }
     return completed;
+  }
+
+  private activatePendingStages(saveId: number, currentDate: string): void {
+    const pending = this.save.connection.prepare(
+      `SELECT ss.id AS stageStateId, ss.season_state_id AS seasonStateId,
+              ss.world_stage_id AS worldStageId, se.competition_season_id AS seasonTemplateId,
+              se.competition_id AS competitionId
+         FROM stage_state ss
+         JOIN season_state se ON se.id = ss.season_state_id
+        WHERE ss.save_id = ? AND ss.status = 'NOT_STARTED' AND ss.world_stage_id IS NOT NULL
+        ORDER BY ss.season_state_id, ss.world_stage_id`,
+    ).all(saveId) as Array<{
+      stageStateId: number; seasonStateId: number; worldStageId: number;
+      seasonTemplateId: number | null; competitionId: number;
+    }>;
+    for (const stage of pending) {
+      const previous = this.world.connection.prepare(
+        `SELECT id FROM competition_stage
+          WHERE competition_season_id = ? AND stage_order < (
+            SELECT stage_order FROM competition_stage WHERE id = ?
+          )
+          ORDER BY stage_order DESC LIMIT 1`,
+      ).get(stage.seasonTemplateId, stage.worldStageId) as { id: number } | undefined;
+      if (previous) {
+        const previousState = this.save.connection.prepare(
+          "SELECT status FROM stage_state WHERE save_id = ? AND season_state_id = ? AND world_stage_id = ? LIMIT 1",
+        ).get(saveId, stage.seasonStateId, previous.id) as { status: string } | undefined;
+        if (previousState?.status !== "COMPLETED") continue;
+      }
+
+      const teamIds = this.resolveStageParticipants(saveId, stage, previous?.id);
+      const uniqueTeamIds = [...new Set(teamIds)].filter((id) => Number.isInteger(id) && id > 0);
+      if (uniqueTeamIds.length < 2) {
+        throw new Error(`Cannot activate stage ${stage.worldStageId}: resolved ${uniqueTeamIds.length} participant(s).`);
+      }
+      const participants = this.world.connection.prepare(
+        `SELECT id AS teamId, name, COALESCE(reputation, 50) AS reputation, nation_id AS nationId
+           FROM team WHERE id IN (${uniqueTeamIds.map(() => "?").join(",")}) ORDER BY id`,
+      ).all(...uniqueTeamIds) as Array<{ teamId: number; name: string; reputation: number; nationId: number | null }>;
+      if (participants.length !== uniqueTeamIds.length) {
+        throw new Error(`Stage ${stage.worldStageId} references a team missing from the World.`);
+      }
+      const seasonTemplateId = stage.seasonTemplateId ?? Number(this.world.connection.prepare(
+        "SELECT competition_season_id FROM competition_stage WHERE id = ?",
+      ).pluck().get(stage.worldStageId));
+      const { CompetitionEngine } = awaitImportPlaceholder();
+      void CompetitionEngine;
+      this.activateStageWithParticipants(saveId, stage.stageStateId, seasonTemplateId, stage.worldStageId, participants, currentDate);
+    }
+  }
+
+  private resolveStageParticipants(
+    saveId: number,
+    stage: { seasonStateId: number; stageStateId: number; worldStageId: number; competitionId: number },
+    previousStageId?: number,
+  ): number[] {
+    const sources = this.world.connection.prepare(
+      `SELECT source_type AS sourceType, source_competition_id AS sourceCompetitionId,
+              source_season_id AS sourceSeasonId, source_stage_id AS sourceStageId,
+              position_from AS positionFrom, position_to AS positionTo
+         FROM stage_participant_source WHERE stage_id = ? ORDER BY id`,
+    ).all(stage.worldStageId) as Array<{
+      sourceType: string; sourceCompetitionId: number | null; sourceSeasonId: number | null;
+      sourceStageId: number | null; positionFrom: number | null; positionTo: number | null;
+    }>;
+    const resolved: number[] = [];
+    for (const source of sources) {
+      if (source.sourceStageId != null) {
+        const sourceState = this.save.connection.prepare(
+          "SELECT id FROM stage_state WHERE save_id = ? AND season_state_id = ? AND world_stage_id = ? LIMIT 1",
+        ).get(saveId, stage.seasonStateId, source.sourceStageId) as { id: number } | undefined;
+        if (!sourceState) continue;
+        const from = Math.max(1, source.positionFrom ?? 1);
+        const to = Math.max(from, source.positionTo ?? from);
+        const rows = this.save.connection.prepare(
+          `SELECT team_id AS teamId FROM standing
+            WHERE save_id = ? AND stage_state_id = ? AND position BETWEEN ? AND ?
+            ORDER BY position, team_id`,
+        ).all(saveId, sourceState.id, from, to) as Array<{ teamId: number }>;
+        resolved.push(...rows.map((row) => row.teamId));
+      } else if (source.sourceSeasonId != null) {
+        const rows = this.world.connection.prepare(
+          "SELECT team_id AS teamId FROM competition_team WHERE competition_season_id = ? ORDER BY team_id",
+        ).all(source.sourceSeasonId) as Array<{ teamId: number }>;
+        resolved.push(...rows.map((row) => row.teamId));
+      }
+    }
+    if (resolved.length) return resolved;
+    if (previousStageId != null) {
+      const previousState = this.save.connection.prepare(
+        "SELECT id FROM stage_state WHERE save_id = ? AND season_state_id = ? AND world_stage_id = ? LIMIT 1",
+      ).get(saveId, stage.seasonStateId, previousStageId) as { id: number } | undefined;
+      if (previousState) {
+        const rules = this.world.connection.prepare(
+          `SELECT position_from AS positionFrom, position_to AS positionTo
+             FROM qualification_rule
+            WHERE stage_id = ? AND (destination_stage_id = ? OR destination_competition_id = ? OR destination_stage_id IS NULL)
+            ORDER BY position_from, position_to`,
+        ).all(previousStageId, stage.worldStageId, stage.competitionId) as Array<{ positionFrom: number; positionTo: number }>;
+        const selected = new Set<number>();
+        for (const rule of rules) {
+          const rows = this.save.connection.prepare(
+            `SELECT team_id AS teamId FROM standing
+              WHERE save_id = ? AND stage_state_id = ? AND position BETWEEN ? AND ?
+              ORDER BY position, team_id`,
+          ).all(saveId, previousState.id, Math.max(1, rule.positionFrom), Math.max(rule.positionFrom, rule.positionTo)) as Array<{ teamId: number }>;
+          rows.forEach((row) => selected.add(row.teamId));
+        }
+        if (selected.size) return [...selected];
+        return (this.save.connection.prepare(
+          "SELECT team_id AS teamId FROM standing WHERE save_id = ? AND stage_state_id = ? ORDER BY position, team_id",
+        ).all(saveId, previousState.id) as Array<{ teamId: number }>).map((row) => row.teamId);
+      }
+    }
+    return (this.world.connection.prepare(
+      "SELECT team_id AS teamId FROM competition_team WHERE competition_season_id = ? ORDER BY team_id",
+    ).all(stage.seasonTemplateId) as Array<{ teamId: number }>).map((row) => row.teamId);
+  }
+
+  private activateStageWithParticipants(
+    saveId: number,
+    stageStateId: number,
+    seasonTemplateId: number,
+    worldStageId: number,
+    participants: Array<{ teamId: number; name: string; reputation: number; nationId: number | null }>,
+    currentDate: string,
+  ): void {
+    const { CompetitionEngine } = awaitImportPlaceholder();
+    void CompetitionEngine;
+  }
+
+  private createNextSeasonSnapshots(saveId: number, currentDate: string): void {
+    const completed = this.save.connection.prepare(
+      `SELECT se.id AS seasonStateId, se.competition_id AS competitionId,
+              se.competition_season_id AS seasonTemplateId, se.year
+         FROM season_state se
+        WHERE se.save_id = ? AND se.status = 'COMPLETED'
+          AND NOT EXISTS (
+            SELECT 1 FROM season_state next
+             WHERE next.save_id = se.save_id AND next.competition_id = se.competition_id
+               AND next.year = se.year + 1
+          )
+        ORDER BY se.year, se.competition_id`,
+    ).all(saveId) as Array<{ seasonStateId: number; competitionId: number; seasonTemplateId: number | null; year: number }>;
+    for (const previous of completed) {
+      if (previous.seasonTemplateId == null) continue;
+      const nextYear = previous.year + 1;
+      const nextTemplate = this.world.connection.prepare(
+        "SELECT id, start_date AS startDate, end_date AS endDate FROM competition_season WHERE competition_id = ? AND year = ? LIMIT 1",
+      ).get(previous.competitionId, nextYear) as { id: number; startDate: string | null; endDate: string | null } | undefined;
+      const templateId = nextTemplate?.id ?? previous.seasonTemplateId;
+      const template = this.world.connection.prepare(
+        "SELECT start_date AS startDate, end_date AS endDate FROM competition_season WHERE id = ?",
+      ).get(templateId) as { startDate: string | null; endDate: string | null } | undefined;
+      const startDate = nextTemplate?.startDate ?? this.shiftYear(template?.startDate, nextYear);
+      const endDate = nextTemplate?.endDate ?? this.shiftYear(template?.endDate, nextYear);
+      const seasonStateId = Number(this.save.connection.prepare(
+        `INSERT INTO season_state (save_id, competition_id, competition_season_id, year, status, start_date, end_date)
+          VALUES (?, ?, ?, ?, 'SCHEDULED', ?, ?)`,
+      ).run(saveId, previous.competitionId, templateId, nextYear, startDate, endDate).lastInsertRowid);
+      const stages = this.world.connection.prepare(
+        "SELECT id, stage_order AS stageOrder FROM competition_stage WHERE competition_season_id = ? ORDER BY stage_order",
+      ).all(templateId) as Array<{ id: number; stageOrder: number }>;
+      const insertStage = this.save.connection.prepare(
+        "INSERT INTO stage_state (save_id, season_state_id, world_stage_id, status, current_round_number) VALUES (?, ?, ?, ?, 0)",
+      );
+      let firstStageStateId: number | null = null;
+      for (const [index, stage] of stages.entries()) {
+        const stageState = Number(insertStage.run(saveId, seasonStateId, stage.id, index === 0 ? "SCHEDULED" : "NOT_STARTED").lastInsertRowid);
+        if (index === 0) firstStageStateId = stageState;
+      }
+      if (firstStageStateId == null || !stages.length) continue;
+      let participantIds: number[];
+      if (nextTemplate) {
+        participantIds = (this.world.connection.prepare(
+          "SELECT team_id AS teamId FROM competition_team WHERE competition_season_id = ? ORDER BY team_id",
+        ).all(templateId) as Array<{ teamId: number }>).map((row) => row.teamId);
+      } else {
+        const priorStage = this.save.connection.prepare(
+          "SELECT id FROM stage_state WHERE save_id = ? AND season_state_id = ? ORDER BY id LIMIT 1",
+        ).get(saveId, previous.seasonStateId) as { id: number } | undefined;
+        participantIds = priorStage ? (this.save.connection.prepare(
+          "SELECT team_id AS teamId FROM standing WHERE save_id = ? AND stage_state_id = ? ORDER BY position, team_id",
+        ).all(saveId, priorStage.id) as Array<{ teamId: number }>).map((row) => row.teamId) : [];
+      }
+      const uniqueIds = [...new Set(participantIds)].filter((id) => id > 0);
+      if (uniqueIds.length < 2) {
+        this.save.connection.prepare("UPDATE season_state SET status = 'BLOCKED' WHERE id = ?").run(seasonStateId);
+        this.save.connection.prepare("UPDATE stage_state SET status = 'BLOCKED' WHERE id = ?").run(firstStageStateId);
+        this.save.connection.prepare(
+          "INSERT INTO calendar_event (save_id, event_type, event_date, priority, title, description) VALUES (?, 'SEASON_BLOCKED', ?, 90, ?, ?)",
+        ).run(saveId, currentDate, `Season ${nextYear} not scheduled`, `Competition ${previous.competitionId} has fewer than two valid participants.`);
+        continue;
+      }
+      const participants = this.world.connection.prepare(
+        `SELECT id AS teamId, name, COALESCE(reputation, 50) AS reputation, nation_id AS nationId
+           FROM team WHERE id IN (${uniqueIds.map(() => "?").join(",")}) ORDER BY id`,
+      ).all(...uniqueIds) as Array<{ teamId: number; name: string; reputation: number; nationId: number | null }>;
+      this.insertStageSchedule(saveId, firstStageStateId, templateId, stages[0].id, participants, nextYear, currentDate);
+      this.save.connection.prepare(
+        "INSERT INTO calendar_event (save_id, event_type, event_date, priority, title, description) VALUES (?, 'SEASON_CREATED', ?, 60, ?, ?)",
+      ).run(saveId, currentDate, `Season ${nextYear} created`, `Competition ${previous.competitionId} was rolled forward in the Save.`);
+    }
+  }
+
+  private insertStageSchedule(
+    saveId: number,
+    stageStateId: number,
+    seasonTemplateId: number,
+    worldStageId: number,
+    participants: Array<{ teamId: number; name: string; reputation: number; nationId: number | null }>,
+    targetYear: number,
+    currentDate: string,
+  ): void {
+    const { CompetitionEngine } = awaitImportPlaceholder();
+    void CompetitionEngine;
+  }
+
+  private shiftYear(date: string | null | undefined, targetYear: number): string | null {
+    if (!date) return null;
+    const value = new Date(`${date.slice(0, 10)}T00:00:00.000Z`);
+    value.setUTCFullYear(targetYear);
+    return value.toISOString().slice(0, 10);
   }
 
   private validateDate(date: string): void {
