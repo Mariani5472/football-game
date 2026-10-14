@@ -78,6 +78,7 @@ export class CareerCalendarService {
     let competitionsCompleted = 0;
     this.save.transaction(() => {
       this.syncTransferWindowEvents(saveId, date);
+      this.syncInternationalEvents(saveId);
       const due = this.findFixtures(saveId, date);
       const validation = this.scheduleValidator.validate(due.map((fixture) => ({
         fixtureId: fixture.fixtureStateId,
@@ -233,6 +234,40 @@ export class CareerCalendarService {
     ).get(saveId, currentDate) as { date: string | null };
     const candidates = [nextFixture.date, nextEvent.date].filter((value): value is string => Boolean(value)).sort();
     return candidates[0] ?? addDays(currentDate, 1);
+  }
+
+  /** Call-up and release boundaries participate in the same global date queue. */
+  private syncInternationalEvents(saveId: number): number {
+    const callups = this.save.connection.prepare(
+      `SELECT player_id AS playerId, call_up_date AS callUpDate, release_date AS releaseDate
+         FROM national_team_selection WHERE save_id = ? ORDER BY call_up_date, player_id`,
+    ).all(saveId) as Array<{ playerId: number; callUpDate: string; releaseDate: string | null }>;
+    const insert = this.save.connection.prepare(
+      `INSERT INTO calendar_event (save_id, event_type, event_date, priority, title, description)
+        SELECT ?, ?, ?, 85, ?, ?
+         WHERE NOT EXISTS (
+           SELECT 1 FROM calendar_event
+            WHERE save_id = ? AND event_type = ? AND event_date = ? AND title = ?
+         )`,
+    );
+    let created = 0;
+    for (const callup of callups) {
+      const title = `International call-up: player ${callup.playerId}`;
+      created += Number(insert.run(
+        saveId, "INTERNATIONAL_CALLUP", callup.callUpDate, title,
+        `Player ${callup.playerId} becomes unavailable for club matches.`,
+        saveId, "INTERNATIONAL_CALLUP", callup.callUpDate, title,
+      ).changes);
+      if (callup.releaseDate) {
+        const releaseTitle = `International release: player ${callup.playerId}`;
+        created += Number(insert.run(
+          saveId, "INTERNATIONAL_RELEASE", callup.releaseDate, releaseTitle,
+          `Player ${callup.playerId} returns from international duty.`,
+          saveId, "INTERNATIONAL_RELEASE", callup.releaseDate, releaseTitle,
+        ).changes);
+      }
+    }
+    return created;
   }
 
   private getCalendarState(saveId: number): { gameDate: string } {
