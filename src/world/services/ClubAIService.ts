@@ -17,6 +17,7 @@ export class ClubAIService {
     teamId: number,
     opponentReputation: number,
     isManagedClub: boolean,
+    matchDate: string,
   ): ClubMatchPlan {
     const state = this.save.connection.prepare(
       "SELECT COALESCE(reputation, 50) AS reputation, COALESCE(morale, 50) AS morale FROM team_state WHERE save_id = ? AND team_id = ? LIMIT 1",
@@ -49,10 +50,21 @@ export class ClubAIService {
     const tempoModifier = /high|fast|quick/i.test(tactic?.tempo ?? "") ? 2 : 0;
     const pressingModifier = /high|intense|aggressive/i.test(tactic?.pressing ?? "") ? 2 : 0;
     const moraleModifier = Math.trunc((morale - 50) / 10);
+    const unavailable = this.save.connection.prepare(
+      `SELECT COUNT(*) AS count
+         FROM team_squad_state squad
+         JOIN national_team_selection callup
+           ON callup.save_id = squad.save_id AND callup.player_id = squad.player_id
+        WHERE squad.save_id = ? AND squad.team_id = ?
+          AND callup.call_up_date <= ?
+          AND (callup.release_date IS NULL OR callup.release_date >= ?)
+          AND callup.status IN ('CALLED', 'ACTIVE')`,
+    ).get(saveId, teamId, matchDate, matchDate) as { count: number };
+    const internationalAbsencePenalty = Math.min(12, Number(unavailable.count) * 2);
     return {
       teamId,
       mentality,
-      effectiveReputation: Math.max(1, Math.min(100, reputation + mentalityModifier[mentality] + tempoModifier + pressingModifier + moraleModifier)),
+      effectiveReputation: Math.max(1, Math.min(100, reputation + mentalityModifier[mentality] + tempoModifier + pressingModifier + moraleModifier - internationalAbsencePenalty)),
     };
   }
 
