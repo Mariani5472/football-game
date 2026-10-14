@@ -1,3 +1,5 @@
+import type { ParticipantSource } from "./CompetitionParticipant.js";
+
 export type StageFormatType = "LEAGUE" | "GROUP" | "KNOCKOUT";
 export type SchedulingType = "ROUND_ROBIN" | "GROUP" | "KNOCKOUT";
 
