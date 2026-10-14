@@ -12,6 +12,7 @@ import {
 import { SaveDatabase } from "../../src/database/save/SaveDatabase.js";
 import { WorldDatabase } from "../../src/database/world/WorldDatabase.js";
 import { NewCareerService } from "../../src/career/NewCareerService.js";
+import { CareerCalendarService } from "../../src/world/services/CareerCalendarService.js";
 import { ScenarioGenerator } from "../../src/world/generators/ScenarioGenerator.js";
 
 const databases: Array<
@@ -262,5 +263,23 @@ describe("NewCareerService", () => {
       .toBe(managerPersonId);
     expect(manager.club_id)
       .toBe(managerClubId);
+
+    const calendar = new CareerCalendarService(save, world);
+    calendar.simulateUntil(result.saveId, "2027-01-01");
+    const nextSeason = save.connection.prepare(
+      "SELECT id FROM season_state WHERE save_id = ? AND competition_id = ? AND year = 2027",
+    ).get(result.saveId, 1) as { id: number } | undefined;
+    expect(nextSeason).toBeDefined();
+    const nextStage = save.connection.prepare(
+      "SELECT id FROM stage_state WHERE save_id = ? AND season_state_id = ? AND world_stage_id IS NOT NULL",
+    ).get(result.saveId, nextSeason!.id) as { id: number } | undefined;
+    expect(nextStage).toBeDefined();
+    expect(save.connection.prepare(
+      "SELECT COUNT(*) AS count FROM fixture_state WHERE save_id = ? AND round_state_id IN (SELECT id FROM round_state WHERE stage_state_id = ?)",
+    ).get(result.saveId, nextStage!.id)).toEqual({ count: 380 });
+    expect(save.connection.prepare(
+      "SELECT COUNT(*) AS count FROM standing WHERE save_id = ? AND stage_state_id = ?",
+    ).get(result.saveId, nextStage!.id)).toEqual({ count: 20 });
+    expect(world.connection.prepare("SELECT COUNT(*) AS count FROM fixture").get()).toEqual({ count: 380 });
   });
 });
