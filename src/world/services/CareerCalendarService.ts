@@ -99,10 +99,12 @@ export class CareerCalendarService {
         const homePlan = this.clubAI.prepareMatch(
           saveId, fixture.homeTeamId, fixture.reputationAway,
           managedClub?.clubId === fixture.homeTeamId,
+          date,
         );
         const awayPlan = this.clubAI.prepareMatch(
           saveId, fixture.awayTeamId, fixture.reputationHome,
           managedClub?.clubId === fixture.awayTeamId,
+          date,
         );
         const result = this.matchEngine.simulate(
           { teamId: fixture.homeTeamId, reputation: homePlan.effectiveReputation },
