@@ -14,11 +14,12 @@ describe("ScheduleEngine", () => {
     expect(rounds.map((round) => round.fixtures.length)).toEqual([4, 0, 0]);
   });
 
-  it("generates paired home-away fixtures for each knockout matchup", () => {
+  it("generates two dated legs for each knockout matchup", () => {
     const rounds = new ScheduleEngine().generateKnockout(teams, "2026-08-01", 7, 2);
-    expect(rounds).toHaveLength(2);
-    expect(rounds[0].fixtures).toHaveLength(8);
-    expect(rounds[0].fixtures[0].homeTeamId).toBe(rounds[0].fixtures[1].awayTeamId);
+    expect(rounds).toHaveLength(6);
+    expect(rounds.map((round) => round.fixtures.length)).toEqual([4, 4, 0, 0, 0, 0]);
+    expect(rounds[0].fixtures[0].homeTeamId).toBe(rounds[1].fixtures[0].awayTeamId);
+    expect(rounds[0].date).not.toBe(rounds[1].date);
   });
 
   it("supports an executable knockout round once a matchup is resolved", () => {
