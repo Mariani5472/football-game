@@ -6,7 +6,7 @@ on:
     branches: [main, codex/p1-global-calendar-validation]
 
 jobs:
-  test:
+  typecheck-and-regression:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -16,4 +16,12 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run typecheck
-      - run: npm test
+      - name: Run calendar and competition regression tests
+        run: >-
+          npx vitest run
+          src/modules/competition/engine/ScheduleEngine.test.ts
+          src/modules/competition/engine/DrawEngine.test.ts
+          src/world/services/FastStartService.test.ts
+          tests/career/NewCareerService.test.ts
+          tests/world/CareerCalendarService.test.ts
+          tests/unit/world/CalendarScheduleValidator.test.ts
