@@ -2017,6 +2017,7 @@ CREATE TABLE IF NOT EXISTS stage_participant_source (
     source_stage_id INTEGER,
     position_from INTEGER,
     position_to INTEGER,
+    qualification_type TEXT,
     FOREIGN KEY (stage_id) REFERENCES competition_stage(id) ON DELETE CASCADE,
     FOREIGN KEY (source_competition_id) REFERENCES competition(id),
     FOREIGN KEY (source_season_id) REFERENCES competition_season(id),
