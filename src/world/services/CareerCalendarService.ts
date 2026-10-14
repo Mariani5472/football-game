@@ -2,6 +2,7 @@ import type { SaveDatabase } from "../../database/save/SaveDatabase.js";
 import type { WorldDatabase } from "../../database/world/WorldDatabase.js";
 import { MatchEngine } from "../../modules/competition/engine/MatchEngine.js";
 import { CompetitionEngine } from "../../modules/competition/engine/CompetitionEngine.js";
+import type { CompetitionParticipant } from "../../modules/competition/domain/CompetitionParticipant.js";
 import { ClubAIService } from "./ClubAIService.js";
 import { StandingEngine } from "../../modules/competition/engine/StandingEngine.js";
 import { CalendarScheduleValidator, type CalendarFixture } from "./CalendarScheduleValidator.js";
@@ -643,7 +644,7 @@ export class CareerCalendarService {
     stageStateId: number,
     seasonTemplateId: number,
     worldStageId: number,
-    participants: Array<{ teamId: number; name: string; reputation: number; nationId: number | null }>,
+    participants: CompetitionParticipant[],
     currentDate: string,
   ): void {
     const generated = new CompetitionEngine(this.world).generateStageForParticipants(
@@ -792,7 +793,7 @@ export class CareerCalendarService {
     stageStateId: number,
     seasonTemplateId: number,
     worldStageId: number,
-    participants: Array<{ teamId: number; name: string; reputation: number; nationId: number | null }>,
+    participants: CompetitionParticipant[],
     targetYear: number,
     currentDate: string,
   ): void {
