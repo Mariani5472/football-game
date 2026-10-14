@@ -2,6 +2,7 @@ import type { SaveDatabase } from "../../database/save/SaveDatabase.js";
 import type { WorldDatabase } from "../../database/world/WorldDatabase.js";
 import { MatchEngine } from "../../modules/competition/engine/MatchEngine.js";
 import { CompetitionEngine } from "../../modules/competition/engine/CompetitionEngine.js";
+import { ClubAIService } from "./ClubAIService.js";
 import { StandingEngine } from "../../modules/competition/engine/StandingEngine.js";
 import { CalendarScheduleValidator, type CalendarFixture } from "./CalendarScheduleValidator.js";
 
@@ -56,11 +57,14 @@ export class CareerCalendarService {
   private readonly matchEngine = new MatchEngine();
   private readonly standingEngine = new StandingEngine();
   private readonly scheduleValidator = new CalendarScheduleValidator();
+  private readonly clubAI: ClubAIService;
 
   constructor(
     private readonly save: SaveDatabase,
     private readonly world: WorldDatabase,
-  ) {}
+  ) {
+    this.clubAI = new ClubAIService(save);
+  }
 
   processDate(saveId: number, date: string): CalendarAdvanceResult {
     this.validateDate(date);
@@ -89,9 +93,20 @@ export class CareerCalendarService {
 
       for (const fixture of due) {
         const seed = deterministicSeed(date, fixture.fixtureStateId);
+        const managedClub = this.save.connection.prepare(
+          "SELECT club_id AS clubId FROM save_manager WHERE save_id = ? LIMIT 1",
+        ).get(saveId) as { clubId: number | null } | undefined;
+        const homePlan = this.clubAI.prepareMatch(
+          saveId, fixture.homeTeamId, fixture.reputationAway,
+          managedClub?.clubId === fixture.homeTeamId,
+        );
+        const awayPlan = this.clubAI.prepareMatch(
+          saveId, fixture.awayTeamId, fixture.reputationHome,
+          managedClub?.clubId === fixture.awayTeamId,
+        );
         const result = this.matchEngine.simulate(
-          { teamId: fixture.homeTeamId, reputation: fixture.reputationHome },
-          { teamId: fixture.awayTeamId, reputation: fixture.reputationAway },
+          { teamId: fixture.homeTeamId, reputation: homePlan.effectiveReputation },
+          { teamId: fixture.awayTeamId, reputation: awayPlan.effectiveReputation },
           seed,
         );
         const stage = this.getStageRuntime(fixture.stageStateId);
