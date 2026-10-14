@@ -596,6 +596,10 @@ export class CareerCalendarService {
          FROM season_state se
         WHERE se.save_id = ? AND se.status = 'COMPLETED'
           AND NOT EXISTS (
+            SELECT 1 FROM season_state active
+             WHERE active.save_id = se.save_id AND active.year = se.year AND active.status <> 'COMPLETED'
+          )
+          AND NOT EXISTS (
             SELECT 1 FROM season_state next
              WHERE next.save_id = se.save_id AND next.competition_id = se.competition_id
                AND next.year = se.year + 1
@@ -642,6 +646,7 @@ export class CareerCalendarService {
         participantIds = priorStage ? (this.save.connection.prepare(
           "SELECT team_id AS teamId FROM standing WHERE save_id = ? AND stage_state_id = ? ORDER BY position, team_id",
         ).all(saveId, priorStage.id) as Array<{ teamId: number }>).map((row) => row.teamId) : [];
+        participantIds = this.applyPromotionRelegation(saveId, previous, participantIds);
       }
       const uniqueIds = [...new Set(participantIds)].filter((id) => id > 0);
       if (uniqueIds.length < 2) {
@@ -661,6 +666,57 @@ export class CareerCalendarService {
         "INSERT INTO calendar_event (save_id, event_type, event_date, priority, title, description) VALUES (?, 'SEASON_CREATED', ?, 60, ?, ?)",
       ).run(saveId, currentDate, `Season ${nextYear} created`, `Competition ${previous.competitionId} was rolled forward in the Save.`);
     }
+  }
+
+  private applyPromotionRelegation(
+    saveId: number,
+    previous: { seasonStateId: number; competitionId: number; seasonTemplateId: number | null; year: number },
+    currentParticipants: number[],
+  ): number[] {
+    const outgoing = new Set<number>();
+    const incoming = new Set<number>();
+    const rules = this.world.connection.prepare(
+      `SELECT q.stage_id AS stageId, q.position_from AS positionFrom,
+              q.position_to AS positionTo, q.qualification_type AS type,
+              COALESCE(q.destination_competition_id, destinationSeason.competition_id) AS destinationCompetitionId
+         FROM qualification_rule q
+         LEFT JOIN competition_stage destinationStage ON destinationStage.id = q.destination_stage_id
+         LEFT JOIN competition_season destinationSeason ON destinationSeason.id = destinationStage.competition_season_id
+        WHERE q.destination_competition_id IS NOT NULL OR q.destination_stage_id IS NOT NULL
+        ORDER BY q.stage_id, q.position_from`,
+    ).all() as Array<{
+      stageId: number; positionFrom: number; positionTo: number; type: string;
+      destinationCompetitionId: number | null;
+    }>;
+    const stageRows = this.save.connection.prepare(
+      `SELECT ss.id AS stageStateId, ss.world_stage_id AS worldStageId,
+              se.competition_id AS competitionId, se.year
+         FROM stage_state ss JOIN season_state se ON se.id = ss.season_state_id
+        WHERE ss.save_id = ? AND se.year = ? AND se.status = 'COMPLETED'`,
+    ).all(saveId, previous.year) as Array<{
+      stageStateId: number; worldStageId: number | null; competitionId: number; year: number;
+    }>;
+    for (const stage of stageRows) {
+      if (stage.worldStageId == null) continue;
+      for (const rule of rules.filter((item) => item.stageId === stage.worldStageId)) {
+        if (rule.destinationCompetitionId == null) continue;
+        const selected = this.save.connection.prepare(
+          `SELECT team_id AS teamId FROM standing
+            WHERE save_id = ? AND stage_state_id = ? AND position BETWEEN ? AND ?
+            ORDER BY position, team_id`,
+        ).all(saveId, stage.stageStateId, Math.max(1, rule.positionFrom), Math.max(rule.positionFrom, rule.positionTo)) as Array<{ teamId: number }>;
+        if (stage.competitionId === previous.competitionId && rule.destinationCompetitionId !== previous.competitionId) {
+          selected.forEach((row) => outgoing.add(row.teamId));
+        }
+        if (rule.destinationCompetitionId === previous.competitionId && stage.competitionId !== previous.competitionId) {
+          selected.forEach((row) => incoming.add(row.teamId));
+        }
+      }
+    }
+    return [...new Set([
+      ...currentParticipants.filter((teamId) => !outgoing.has(teamId)),
+      ...incoming,
+    ])];
   }
 
   private insertStageSchedule(
