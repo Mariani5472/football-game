@@ -131,10 +131,6 @@ describe("CareerCalendarService", () => {
     save!.connection.prepare(
       "UPDATE stage_state SET world_stage_id = 99 WHERE id = ?",
     ).run(stageStateId);
-    save!.connection.prepare(
-      "UPDATE season_state SET competition_season_id = 10 WHERE id = (SELECT season_state_id FROM stage_state WHERE id = ?)",
-    ).run(stageStateId);
-
     const calendar = new CareerCalendarService(save!, world!);
     calendar.processDate(saveId, "2026-08-01");
     expect(save!.connection.prepare(
