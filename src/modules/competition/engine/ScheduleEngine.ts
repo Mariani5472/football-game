@@ -29,6 +29,9 @@ export class ScheduleEngine {
     }
 
     const teams = [...participants];
+    if (teams.length % 2 !== 0) {
+      teams.push({ teamId: 0, name: "BYE", reputation: 0 });
+    }
     const firstLegRounds = teams.length - 1;
     const matchesPerRound = teams.length / 2;
     const firstLeg: GeneratedRound[] = [];
@@ -39,6 +42,7 @@ export class ScheduleEngine {
       for (let matchIndex = 0; matchIndex < matchesPerRound; matchIndex += 1) {
         const first = teams[matchIndex];
         const second = teams[teams.length - 1 - matchIndex];
+        if (!first || !second || first.teamId === 0 || second.teamId === 0) continue;
         const swap = roundIndex % 2 === 1;
 
         fixtures.push({
@@ -250,10 +254,6 @@ export class ScheduleEngine {
   ): void {
     if (participants.length < 2) {
       throw new Error("A competition needs at least two participants.");
-    }
-
-    if (participants.length % 2 !== 0) {
-      throw new Error("Round-robin requires an even number of participants.");
     }
 
     if (!startDate) {
