@@ -160,16 +160,17 @@ export function initializeWorldCompositionSchema(db: DatabaseConnection.Database
     CREATE INDEX IF NOT EXISTS idx_world_attribute_provenance_current
       ON world_attribute_provenance(table_name, row_key, column_name, is_current);
 
-    CREATE TABLE IF NOT EXISTS stage_participant_source_extension_guard (
-      id INTEGER PRIMARY KEY CHECK (id = 1)
-    );
-
     CREATE INDEX IF NOT EXISTS idx_world_import_id_map_world
       ON world_import_id_map(world_id);
 
     CREATE INDEX IF NOT EXISTS idx_world_import_conflict_session
       ON world_import_conflict(import_session_id, resolved);
   `);
+
+  const participantSourceColumns = db.pragma("table_info('stage_participant_source')") as Array<{ name: string }>;
+  if (!participantSourceColumns.some((column) => column.name === "source_season_id")) {
+    db.exec("ALTER TABLE stage_participant_source ADD COLUMN source_season_id INTEGER REFERENCES competition_season(id)");
+  }
 }
 
 export const WORLD_PACKAGE_STATUS = [
