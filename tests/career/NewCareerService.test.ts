@@ -266,9 +266,12 @@ describe("NewCareerService", () => {
 
     const calendar = new CareerCalendarService(save, world);
     calendar.simulateUntil(result.saveId, "2027-01-01");
+    const competitionId = (world.connection.prepare(
+      "SELECT id FROM competition WHERE name = 'Brasileirão' LIMIT 1",
+    ).get() as { id: number }).id;
     const nextSeason = save.connection.prepare(
       "SELECT id FROM season_state WHERE save_id = ? AND competition_id = ? AND year = 2027",
-    ).get(result.saveId, 1) as { id: number } | undefined;
+    ).get(result.saveId, competitionId) as { id: number } | undefined;
     expect(nextSeason).toBeDefined();
     const nextStage = save.connection.prepare(
       "SELECT id FROM stage_state WHERE save_id = ? AND season_state_id = ? AND world_stage_id IS NOT NULL",
