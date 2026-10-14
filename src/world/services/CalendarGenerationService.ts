@@ -1,6 +1,7 @@
 import type { WorldDatabase } from "../../database/world/WorldDatabase.js";
 import { CompetitionEngine } from "../../modules/competition/engine/CompetitionEngine.js";
 import { CompetitionRepository } from "../../modules/competition/repository/CompetitionRepository.js";
+import type { GeneratedRound } from "../../modules/competition/engine/ScheduleEngine.js";
 import { CalendarScheduleValidator, type CalendarFixture } from "./CalendarScheduleValidator.js";
 
 export interface CalendarGenerationResult {
@@ -16,6 +17,64 @@ export class CalendarGenerationService {
 
   constructor(private readonly database: WorldDatabase) {
     this.competitionEngine = new CompetitionEngine(database);
+  }
+
+  private coordinateRounds(
+    rounds: GeneratedRound[],
+    existingFixtures: CalendarFixture[],
+    intervalDays: number,
+  ): GeneratedRound[] {
+    const occupied: CalendarFixture[] = [...existingFixtures];
+    const coordinated: GeneratedRound[] = [];
+    let previousDate: string | null = null;
+
+    for (const round of [...rounds].sort((left, right) => left.roundNumber - right.roundNumber)) {
+      let candidateDate = round.date;
+      if (previousDate && candidateDate < this.addDays(previousDate, intervalDays)) {
+        candidateDate = this.addDays(previousDate, intervalDays);
+      }
+      let accepted: GeneratedRound | null = null;
+      for (let offset = 0; offset <= 365; offset++) {
+        const shiftedFixtures = round.fixtures.map((fixture) => {
+          const time = fixture.scheduledAt.includes("T")
+            ? fixture.scheduledAt.slice(fixture.scheduledAt.indexOf("T"))
+            : "T16:00:00";
+          return { ...fixture, scheduledAt: `${candidateDate}${time}` };
+        });
+        const proposed = shiftedFixtures.map((fixture) => ({
+          stageId: undefined,
+          roundNumber: fixture.roundNumber,
+          scheduledAt: fixture.scheduledAt,
+          homeTeamId: fixture.homeTeamId,
+          awayTeamId: fixture.awayTeamId,
+        }));
+        const validation = this.scheduleValidator.validate(proposed, occupied);
+        if (validation.valid) {
+          accepted = { ...round, date: candidateDate, fixtures: shiftedFixtures };
+          break;
+        }
+        candidateDate = this.addDays(candidateDate, 1);
+      }
+      if (!accepted) {
+        throw new Error(`Could not find a conflict-free date for round ${round.roundNumber} within 365 days.`);
+      }
+      coordinated.push(accepted);
+      previousDate = accepted.date;
+      occupied.push(...accepted.fixtures.map((fixture) => ({
+        stageId: undefined,
+        roundNumber: fixture.roundNumber,
+        scheduledAt: fixture.scheduledAt,
+        homeTeamId: fixture.homeTeamId,
+        awayTeamId: fixture.awayTeamId,
+      })));
+    }
+    return coordinated;
+  }
+
+  private addDays(date: string, days: number): string {
+    const value = new Date(`${date.slice(0, 10)}T00:00:00.000Z`);
+    value.setUTCDate(value.getUTCDate() + days);
+    return value.toISOString().slice(0, 10);
   }
 
   generateSeason(seasonId: number): CalendarGenerationResult {
@@ -74,17 +133,6 @@ export class CalendarGenerationService {
         fixtures,
       })),
     }];
-    const proposedFixtures: CalendarFixture[] = stages.flatMap((stage) =>
-      stage.rounds.flatMap((round) => round.fixtures.map((fixture) => ({
-        competitionSeasonId: seasonId,
-        stageId: stage.stageId,
-        roundNumber: round.roundNumber,
-        scheduledAt: fixture.scheduledAt || round.date,
-        homeTeamId: fixture.homeTeamId,
-        awayTeamId: fixture.awayTeamId,
-      }))),
-    );
-
     const existingFixtures = this.database.connection.prepare(
       `SELECT f.id AS fixtureId,
               s.competition_season_id AS competitionSeasonId,
@@ -99,6 +147,18 @@ export class CalendarGenerationService {
         WHERE f.scheduled_at IS NOT NULL`,
     ).all() as CalendarFixture[];
 
+    const intervalDays = Math.max(1, firstStage.schedule?.intervalDays ?? 7);
+    stages[0].rounds = this.coordinateRounds(stages[0].rounds, existingFixtures, intervalDays);
+    const proposedFixtures: CalendarFixture[] = stages.flatMap((stage) =>
+      stage.rounds.flatMap((round) => round.fixtures.map((fixture) => ({
+        competitionSeasonId: seasonId,
+        stageId: stage.stageId,
+        roundNumber: round.roundNumber,
+        scheduledAt: fixture.scheduledAt || round.date,
+        homeTeamId: fixture.homeTeamId,
+        awayTeamId: fixture.awayTeamId,
+      }))),
+    );
     const validation = this.scheduleValidator.validate(proposedFixtures, existingFixtures);
     if (!validation.valid) {
       const details = validation.conflicts
