@@ -74,6 +74,20 @@ export class CareerCalendarService {
     if (date < state.gameDate) {
       throw new Error(`Cannot move calendar backwards from ${state.gameDate} to ${date}.`);
     }
+    if (date === state.gameDate && state.dayPhase === "END_OF_DAY") {
+      const pending = this.save.connection.prepare(
+        "SELECT COUNT(*) AS count FROM fixture_state WHERE save_id = ? AND status = 'SCHEDULED'",
+      ).get(saveId) as { count: number };
+      return {
+        saveId,
+        previousDate: state.gameDate,
+        currentDate: state.gameDate,
+        fixturesPlayed: 0,
+        fixturesPending: Number(pending.count),
+        competitionsCompleted: 0,
+        elapsedMs: performance.now() - startedAt,
+      };
+    }
 
     let fixturesPlayed = 0;
     let competitionsCompleted = 0;
@@ -170,7 +184,10 @@ export class CareerCalendarService {
   /** Advance to the next meaningful calendar date, processing all competitions together. */
   advanceToNextDate(saveId: number): CalendarAdvanceResult {
     const state = this.getCalendarState(saveId);
-    return this.processDate(saveId, addDays(state.gameDate, 1));
+    return this.processDate(
+      saveId,
+      state.dayPhase === "END_OF_DAY" ? addDays(state.gameDate, 1) : state.gameDate,
+    );
   }
 
   /** Process a range in one call; useful for AI-only seasons and repeatable benchmarks. */
@@ -179,8 +196,9 @@ export class CareerCalendarService {
     const results: CalendarAdvanceResult[] = [];
     let state = this.getCalendarState(saveId);
     if (targetDate < state.gameDate) throw new Error("Target date cannot precede the current game date.");
-    while (state.gameDate < targetDate && results.length < maxDays) {
-      results.push(this.processDate(saveId, addDays(state.gameDate, 1)));
+    while ((state.gameDate < targetDate || state.dayPhase !== "END_OF_DAY") && results.length < maxDays) {
+      const nextDate = state.dayPhase === "END_OF_DAY" ? addDays(state.gameDate, 1) : state.gameDate;
+      results.push(this.processDate(saveId, nextDate));
       state = this.getCalendarState(saveId);
     }
     if (results.length >= maxDays && this.getCalendarState(saveId).gameDate < targetDate) {
@@ -255,10 +273,10 @@ export class CareerCalendarService {
     return created;
   }
 
-  private getCalendarState(saveId: number): { gameDate: string } {
+  private getCalendarState(saveId: number): { gameDate: string; dayPhase: string | null } {
     const state = this.save.connection.prepare(
-      "SELECT game_date AS gameDate FROM calendar_state WHERE save_id = ? LIMIT 1",
-    ).get(saveId) as { gameDate: string } | undefined;
+      "SELECT game_date AS gameDate, day_phase AS dayPhase FROM calendar_state WHERE save_id = ? LIMIT 1",
+    ).get(saveId) as { gameDate: string; dayPhase: string | null } | undefined;
     if (!state) throw new Error(`Calendar state not found for save ${saveId}.`);
     return state;
   }
