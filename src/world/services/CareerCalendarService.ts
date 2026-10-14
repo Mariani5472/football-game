@@ -546,10 +546,14 @@ export class CareerCalendarService {
       if (uniqueTeamIds.length < 2) {
         throw new Error(`Cannot activate stage ${stage.worldStageId}: resolved ${uniqueTeamIds.length} participant(s).`);
       }
-      const participants = this.world.connection.prepare(
+      const participantRows = this.world.connection.prepare(
         `SELECT id AS teamId, name, COALESCE(reputation, 50) AS reputation, nation_id AS nationId
            FROM team WHERE id IN (${uniqueTeamIds.map(() => "?").join(",")}) ORDER BY id`,
       ).all(...uniqueTeamIds) as Array<{ teamId: number; name: string; reputation: number; nationId: number | null }>;
+      const participants = participantRows.map((participant) => ({
+        ...participant,
+        nationId: participant.nationId ?? undefined,
+      }));
       if (participants.length !== uniqueTeamIds.length) {
         throw new Error(`Stage ${stage.worldStageId} references a team missing from the World.`);
       }
@@ -717,10 +721,14 @@ export class CareerCalendarService {
         ).run(saveId, currentDate, `Season ${nextYear} not scheduled`, `Competition ${previous.competitionId} has fewer than two valid participants.`);
         continue;
       }
-      const participants = this.world.connection.prepare(
+      const participantRows = this.world.connection.prepare(
         `SELECT id AS teamId, name, COALESCE(reputation, 50) AS reputation, nation_id AS nationId
            FROM team WHERE id IN (${uniqueIds.map(() => "?").join(",")}) ORDER BY id`,
       ).all(...uniqueIds) as Array<{ teamId: number; name: string; reputation: number; nationId: number | null }>;
+      const participants = participantRows.map((participant) => ({
+        ...participant,
+        nationId: participant.nationId ?? undefined,
+      }));
       this.insertStageSchedule(saveId, firstStageStateId, templateId, stages[0].id, participants, nextYear, currentDate);
       this.save.connection.prepare(
         "INSERT INTO calendar_event (save_id, event_type, event_date, priority, title, description) VALUES (?, 'SEASON_CREATED', ?, 60, ?, ?)",
