@@ -171,6 +171,9 @@ export function initializeWorldCompositionSchema(db: DatabaseConnection.Database
   if (!participantSourceColumns.some((column) => column.name === "source_season_id")) {
     db.exec("ALTER TABLE stage_participant_source ADD COLUMN source_season_id INTEGER REFERENCES competition_season(id)");
   }
+  if (!participantSourceColumns.some((column) => column.name === "qualification_type")) {
+    db.exec("ALTER TABLE stage_participant_source ADD COLUMN qualification_type TEXT");
+  }
 }
 
 export const WORLD_PACKAGE_STATUS = [
