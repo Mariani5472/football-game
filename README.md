@@ -13,3 +13,30 @@ npm test
 `game.mysql` é o seed MySQL autocontido e editável do primeiro cenário: Série A 2026, com 20 participantes, 38 rodadas e 380 partidas. `brasileirao.mysql` foi preservado sem alterações.
 
 O ponto de entrada público é `src/index.ts`. Monte `CompetitionEngine` com implementações dos contratos de repositório; os repositórios em memória atendem testes e os adaptadores em `src/infrastructure/mysql` atendem MySQL por meio de um executor SQL fornecido pela aplicação.
+
+
+## Global calendar and career simulation
+
+The World stores competition definitions and the entry-stage schedule. Runtime results, standings, current date, later knockout rounds, and subsequent season snapshots belong to the Save; calendar processing does not write match results back to the World.
+
+Create a career, then advance its global calendar one day at a time:
+
+```powershell
+npm run career:new
+npm run career:advance -- save/career.db next
+npm run career:advance -- save/career.db until 2027-01-01
+```
+
+The calendar processes all due competitions together, checks for club double-bookings, persists scores and standings, resolves knockout ties deterministically, activates configured next stages, and rolls completed competitions into the next Save season. Transfer-window boundaries and international call-up/release dates are calendar events; called-up squad members reduce their club's simulated strength while unavailable.
+
+The initial club AI is intentionally deterministic and lightweight: it selects a mentality from relative reputation and morale, respects a saved mentality where one exists, and applies available tempo/pressing choices. It is a baseline simulation policy, not yet a full tactical match engine with lineups, player attributes, fatigue, injuries, or human-controlled match decisions.
+
+Measure the in-memory competition engine separately:
+
+```powershell
+npm run competition:benchmark -- 100
+```
+
+The benchmark prints total fixtures simulated, elapsed time, and throughput. It is intended for repeatable before/after comparisons on the same machine, not as a universal performance guarantee.
+
+The root TypeScript check targets the backend/runtime and tests. The React editor remains a separate project under `src/apps/editor` and should be built with `npm run editor:build`.
