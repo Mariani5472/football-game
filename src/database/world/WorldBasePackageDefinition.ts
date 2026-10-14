@@ -1,5 +1,5 @@
 export const BASE_PACKAGE_KEY = "world.base";
-export const BASE_PACKAGE_VERSION = "1.5.0";
+export const BASE_PACKAGE_VERSION = "1.5.1";
 export const BASE_PACKAGE_PRIORITY = 0;
 
 export const BASE_PACKAGE_PROVIDES = [
