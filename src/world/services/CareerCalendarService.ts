@@ -1,6 +1,7 @@
 import type { SaveDatabase } from "../../database/save/SaveDatabase.js";
 import type { WorldDatabase } from "../../database/world/WorldDatabase.js";
 import { MatchEngine } from "../../modules/competition/engine/MatchEngine.js";
+import { CompetitionEngine } from "../../modules/competition/engine/CompetitionEngine.js";
 import { StandingEngine } from "../../modules/competition/engine/StandingEngine.js";
 import { CalendarScheduleValidator, type CalendarFixture } from "./CalendarScheduleValidator.js";
 
@@ -501,8 +502,6 @@ export class CareerCalendarService {
       const seasonTemplateId = stage.seasonTemplateId ?? Number(this.world.connection.prepare(
         "SELECT competition_season_id FROM competition_stage WHERE id = ?",
       ).pluck().get(stage.worldStageId));
-      const { CompetitionEngine } = awaitImportPlaceholder();
-      void CompetitionEngine;
       this.activateStageWithParticipants(saveId, stage.stageStateId, seasonTemplateId, stage.worldStageId, participants, currentDate);
     }
   }
@@ -583,8 +582,11 @@ export class CareerCalendarService {
     participants: Array<{ teamId: number; name: string; reputation: number; nationId: number | null }>,
     currentDate: string,
   ): void {
-    const { CompetitionEngine } = awaitImportPlaceholder();
-    void CompetitionEngine;
+    const generated = new CompetitionEngine(this.world).generateStageForParticipants(
+      seasonTemplateId, worldStageId, participants,
+    );
+    const interval = generated.stage.schedule?.intervalDays ?? 7;
+    this.persistGeneratedStage(saveId, stageStateId, generated, addDays(currentDate, interval), interval);
   }
 
   private createNextSeasonSnapshots(saveId: number, currentDate: string): void {
@@ -670,8 +672,56 @@ export class CareerCalendarService {
     targetYear: number,
     currentDate: string,
   ): void {
-    const { CompetitionEngine } = awaitImportPlaceholder();
-    void CompetitionEngine;
+    const generated = new CompetitionEngine(this.world).generateStageForParticipants(
+      seasonTemplateId, worldStageId, participants,
+    );
+    const interval = generated.stage.schedule?.intervalDays ?? 7;
+    const configuredStart = this.world.connection.prepare(
+      "SELECT start_date AS startDate FROM schedule_profile WHERE stage_id = ?",
+    ).get(worldStageId) as { startDate: string | null } | undefined;
+    let baseDate = this.shiftYear(configuredStart?.startDate, targetYear) ?? addDays(currentDate, 30);
+    if (baseDate <= currentDate) baseDate = addDays(currentDate, 30);
+    this.persistGeneratedStage(saveId, stageStateId, generated, baseDate, interval);
+  }
+
+  private persistGeneratedStage(
+    saveId: number,
+    stageStateId: number,
+    generated: ReturnType<CompetitionEngine["generateStageForParticipants"]>,
+    baseDate: string,
+    intervalDays: number,
+  ): void {
+    const participants = generated.participants;
+    const insertStanding = this.save.connection.prepare(
+      "INSERT OR IGNORE INTO standing (save_id, stage_state_id, team_id) VALUES (?, ?, ?)",
+    );
+    for (const participant of participants) insertStanding.run(saveId, stageStateId, participant.teamId);
+
+    const rounds = new Map<number, typeof generated.fixtures>();
+    for (const fixture of generated.fixtures) {
+      const fixtures = rounds.get(fixture.roundNumber) ?? [];
+      fixtures.push(fixture);
+      rounds.set(fixture.roundNumber, fixtures);
+    }
+    const insertRound = this.save.connection.prepare(
+      "INSERT INTO round_state (save_id, stage_state_id, round_number, status, scheduled_date) VALUES (?, ?, ?, 'SCHEDULED', ?)",
+    );
+    const insertFixture = this.save.connection.prepare(
+      "INSERT INTO fixture_state (save_id, round_state_id, home_team_id, away_team_id, scheduled_at, status) VALUES (?, ?, ?, ?, ?, 'SCHEDULED')",
+    );
+    for (const [roundNumber, fixtures] of rounds) {
+      const scheduledDate = addDays(baseDate, Math.max(0, roundNumber - 1) * intervalDays);
+      const roundStateId = Number(insertRound.run(saveId, stageStateId, roundNumber, scheduledDate).lastInsertRowid);
+      for (const fixture of fixtures) {
+        if (fixture.homeTeamId <= 0 || fixture.awayTeamId <= 0 || fixture.homeTeamId === fixture.awayTeamId) {
+          throw new Error(`Invalid generated fixture for stage ${generated.stage.id}.`);
+        }
+        insertFixture.run(saveId, roundStateId, fixture.homeTeamId, fixture.awayTeamId, `${scheduledDate}T16:00:00`);
+      }
+    }
+    this.save.connection.prepare(
+      "UPDATE stage_state SET status = 'SCHEDULED', current_round_number = 0 WHERE id = ?",
+    ).run(stageStateId);
   }
 
   private shiftYear(date: string | null | undefined, targetYear: number): string | null {
