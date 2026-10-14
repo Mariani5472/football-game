@@ -845,21 +845,60 @@ export class CareerCalendarService {
     const insertCalendarEvent = this.save.connection.prepare(
       "INSERT INTO calendar_event (save_id, event_type, event_date, priority, title, description) VALUES (?, 'FIXTURE', ?, 50, ?, ?)",
     );
-    for (const [roundNumber, fixtures] of rounds) {
-      const scheduledDate = addDays(baseDate, Math.max(0, roundNumber - 1) * intervalDays);
+    const occupied = this.save.connection.prepare(
+      `SELECT f.id AS fixtureId, r.stage_state_id AS stageId, r.round_number AS roundNumber,
+              f.scheduled_at AS scheduledAt, f.home_team_id AS homeTeamId, f.away_team_id AS awayTeamId
+         FROM fixture_state f JOIN round_state r ON r.id = f.round_state_id
+        WHERE f.save_id = ? AND f.scheduled_at IS NOT NULL`,
+    ).all(saveId) as CalendarFixture[];
+    let previousDate: string | null = null;
+    for (const [roundNumber, fixtures] of [...rounds.entries()].sort(([a], [b]) => a - b)) {
+      let scheduledDate = addDays(baseDate, Math.max(0, roundNumber - 1) * intervalDays);
+      if (previousDate && scheduledDate < addDays(previousDate, intervalDays)) {
+        scheduledDate = addDays(previousDate, intervalDays);
+      }
+      let scheduledFixtures: typeof fixtures | null = null;
+      for (let offset = 0; offset <= 365; offset++) {
+        const candidate = fixtures.map((fixture) => ({
+          ...fixture,
+          scheduledAt: `${scheduledDate}T16:00:00`,
+        }));
+        const validation = this.scheduleValidator.validate(candidate.map((fixture) => ({
+          roundNumber: fixture.roundNumber,
+          scheduledAt: fixture.scheduledAt,
+          homeTeamId: fixture.homeTeamId,
+          awayTeamId: fixture.awayTeamId,
+        })), occupied);
+        if (validation.valid) {
+          scheduledFixtures = candidate;
+          break;
+        }
+        scheduledDate = addDays(scheduledDate, 1);
+      }
+      if (!scheduledFixtures) {
+        throw new Error(`Could not schedule stage ${generated.stage.id} round ${roundNumber} without a club conflict.`);
+      }
       const roundStateId = Number(insertRound.run(saveId, stageStateId, roundNumber, scheduledDate).lastInsertRowid);
-      for (const fixture of fixtures) {
+      for (const fixture of scheduledFixtures) {
         if (fixture.homeTeamId <= 0 || fixture.awayTeamId <= 0 || fixture.homeTeamId === fixture.awayTeamId) {
           throw new Error(`Invalid generated fixture for stage ${generated.stage.id}.`);
         }
-        insertFixture.run(saveId, roundStateId, fixture.homeTeamId, fixture.awayTeamId, `${scheduledDate}T16:00:00`);
+        insertFixture.run(saveId, roundStateId, fixture.homeTeamId, fixture.awayTeamId, fixture.scheduledAt);
         insertCalendarEvent.run(
           saveId,
           scheduledDate,
           `${generated.competition.name} · Matchday`,
           `${fixture.homeTeamId} vs ${fixture.awayTeamId}`,
         );
+        occupied.push({
+          stageId: stageStateId,
+          roundNumber,
+          scheduledAt: fixture.scheduledAt,
+          homeTeamId: fixture.homeTeamId,
+          awayTeamId: fixture.awayTeamId,
+        });
       }
+      previousDate = scheduledDate;
     }
     this.save.connection.prepare(
       "UPDATE stage_state SET status = 'SCHEDULED', current_round_number = 0 WHERE id = ?",
