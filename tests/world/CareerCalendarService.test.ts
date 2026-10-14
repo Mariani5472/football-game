@@ -129,7 +129,7 @@ describe("CareerCalendarService", () => {
       INSERT INTO stage_points_rule (stage_id, win_points, draw_points, loss_points) VALUES (99, 3, 1, 0);
     `);
     save!.connection.prepare(
-      "UPDATE stage_state SET world_stage_id = 99 WHERE id = ?",
+      "UPDATE stage_state SET world_stage_id = 99, status = 'SCHEDULED' WHERE id = ?",
     ).run(stageStateId);
     const calendar = new CareerCalendarService(save!, world!);
     calendar.processDate(saveId, "2026-08-01");
