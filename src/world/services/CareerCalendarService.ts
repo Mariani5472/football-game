@@ -223,6 +223,8 @@ export class CareerCalendarService {
   }
 
   private nextEventDate(saveId: number, currentDate: string): string {
+    this.syncTransferWindowEvents(saveId, "9999-12-31");
+    this.syncInternationalEvents(saveId);
     const nextFixture = this.save.connection.prepare(
       `SELECT MIN(substr(scheduled_at, 1, 10)) AS date
          FROM fixture_state
