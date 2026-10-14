@@ -170,7 +170,7 @@ export class CareerCalendarService {
   /** Advance to the next meaningful calendar date, processing all competitions together. */
   advanceToNextDate(saveId: number): CalendarAdvanceResult {
     const state = this.getCalendarState(saveId);
-    return this.processDate(saveId, this.nextEventDate(saveId, state.gameDate));
+    return this.processDate(saveId, addDays(state.gameDate, 1));
   }
 
   /** Process a range in one call; useful for AI-only seasons and repeatable benchmarks. */
@@ -180,9 +180,7 @@ export class CareerCalendarService {
     let state = this.getCalendarState(saveId);
     if (targetDate < state.gameDate) throw new Error("Target date cannot precede the current game date.");
     while (state.gameDate < targetDate && results.length < maxDays) {
-      const nextDate = this.nextEventDate(saveId, state.gameDate);
-      const boundedDate = nextDate > targetDate ? targetDate : nextDate;
-      results.push(this.processDate(saveId, boundedDate));
+      results.push(this.processDate(saveId, addDays(state.gameDate, 1)));
       state = this.getCalendarState(saveId);
     }
     if (results.length >= maxDays && this.getCalendarState(saveId).gameDate < targetDate) {
@@ -221,22 +219,6 @@ export class CareerCalendarService {
       ).changes);
     }
     return created;
-  }
-
-  private nextEventDate(saveId: number, currentDate: string): string {
-    this.syncTransferWindowEvents(saveId, "9999-12-31");
-    this.syncInternationalEvents(saveId);
-    const nextFixture = this.save.connection.prepare(
-      `SELECT MIN(substr(scheduled_at, 1, 10)) AS date
-         FROM fixture_state
-        WHERE save_id = ? AND status = 'SCHEDULED' AND substr(scheduled_at, 1, 10) > ?`,
-    ).get(saveId, currentDate) as { date: string | null };
-    const nextEvent = this.save.connection.prepare(
-      `SELECT MIN(event_date) AS date FROM calendar_event
-        WHERE save_id = ? AND completed = 0 AND event_date > ?`,
-    ).get(saveId, currentDate) as { date: string | null };
-    const candidates = [nextFixture.date, nextEvent.date].filter((value): value is string => Boolean(value)).sort();
-    return candidates[0] ?? addDays(currentDate, 1);
   }
 
   /** Call-up and release boundaries participate in the same global date queue. */
