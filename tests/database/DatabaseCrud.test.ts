@@ -86,7 +86,7 @@ describe("World database CRUD", () => {
     const firstPage = database.list("climate", {
       page: 1,
       pageSize: 2,
-      search: "alp custom",
+      search: "alp",
       orderBy: "name",
       orderDirection: "ASC",
     });
