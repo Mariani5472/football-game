@@ -63,8 +63,11 @@ describe("CareerCalendarService", () => {
 
   it("advances the global clock one day at a time", () => {
     const { saveId } = setup([]);
-    const result = new CareerCalendarService(save!, world!).advanceToNextDate(saveId);
-    expect(result.currentDate).toBe("2026-08-02");
+    const calendar = new CareerCalendarService(save!, world!);
+    const firstDay = calendar.advanceToNextDate(saveId);
+    const secondDay = calendar.advanceToNextDate(saveId);
+    expect(firstDay.currentDate).toBe("2026-08-01");
+    expect(secondDay.currentDate).toBe("2026-08-02");
   });
 
   it("puts transfer windows and international call-ups on the shared calendar", () => {
