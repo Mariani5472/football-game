@@ -60,7 +60,10 @@ export class SaveDatabase extends Database {
         .map((column) => column.name);
       if (columns.join(",") === "save_id,world_stage_id") legacyUnique = true;
     }
-    if (!legacyUnique) return;
+    if (!legacyUnique) {
+      this.connection.pragma("foreign_keys = ON");
+      return;
+    }
 
     this.connection.pragma("foreign_keys = OFF");
     try {
