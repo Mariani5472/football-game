@@ -601,6 +601,26 @@ export class NewCareerService {
 
       const firstStage = stages[0];
       const generated = engine.generateStage(season.id, firstStage.id);
+      const persistedFixtures = this.world.connection.prepare(
+        `SELECT r.round_number AS roundNumber, f.home_team_id AS homeTeamId,
+                f.away_team_id AS awayTeamId, f.scheduled_at AS scheduledAt
+           FROM fixture f
+           JOIN competition_round r ON r.id = f.round_id
+          WHERE r.stage_id = ?
+          ORDER BY r.round_number, f.id`,
+      ).all(firstStage.id) as Array<{
+        roundNumber: number; homeTeamId: number; awayTeamId: number; scheduledAt: string;
+      }>;
+      if (persistedFixtures.length) {
+        generated.fixtures = persistedFixtures.map((fixture) => ({
+          roundNumber: fixture.roundNumber,
+          homeTeamId: fixture.homeTeamId,
+          awayTeamId: fixture.awayTeamId,
+          scheduledAt: fixture.scheduledAt,
+          status: "SCHEDULED" as const,
+        }));
+        generated.rounds = Math.max(...persistedFixtures.map((fixture) => fixture.roundNumber));
+      }
       const stageStateId = firstStageStateId!;
       this.snapshotStandings(save, saveId, stageStateId, generated.participants);
 
