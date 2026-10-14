@@ -1,5 +1,6 @@
 import type { WorldDatabase } from "../../database/world/WorldDatabase.js";
 import { CompetitionEngine } from "../../modules/competition/engine/CompetitionEngine.js";
+import { CompetitionRepository } from "../../modules/competition/repository/CompetitionRepository.js";
 import { CalendarScheduleValidator, type CalendarFixture } from "./CalendarScheduleValidator.js";
 
 export interface CalendarGenerationResult {
@@ -50,7 +51,29 @@ export class CalendarGenerationService {
       };
     }
 
-    const stages = this.competitionEngine.generateMultiStageSeason(seasonId);
+    const stageDefinitions = new CompetitionRepository(this.database).findStages(seasonId);
+    const firstStage = stageDefinitions[0];
+    if (!firstStage) {
+      throw new Error(`Competition season ${seasonId} has no configured stages.`);
+    }
+
+    // Only the entry stage is scheduled in the immutable World. Later stages
+    // depend on Save results and are generated when their participants resolve.
+    const generated = this.competitionEngine.generateStage(seasonId, firstStage.id);
+    const fixtureGroups = new Map<number, typeof generated.fixtures>();
+    for (const fixture of generated.fixtures) {
+      const group = fixtureGroups.get(fixture.roundNumber) ?? [];
+      group.push(fixture);
+      fixtureGroups.set(fixture.roundNumber, group);
+    }
+    const stages = [{
+      stageId: firstStage.id,
+      rounds: [...fixtureGroups.entries()].sort(([left], [right]) => left - right).map(([roundNumber, fixtures]) => ({
+        roundNumber,
+        date: fixtures[0]?.scheduledAt.slice(0, 10) ?? firstStage.schedule?.startDate ?? "",
+        fixtures,
+      })),
+    }];
     const proposedFixtures: CalendarFixture[] = stages.flatMap((stage) =>
       stage.rounds.flatMap((round) => round.fixtures.map((fixture) => ({
         competitionSeasonId: seasonId,
@@ -146,7 +169,7 @@ export class CalendarGenerationService {
 
     return {
       seasonId,
-      stages: stages.length,
+      stages: stageDefinitions.length,
       rounds,
       fixtures,
     };
