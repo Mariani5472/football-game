@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
+import DatabaseConnection from "better-sqlite3";
 import { SaveDatabase } from "../../src/database/save/SaveDatabase.js";
 import { WorldDatabase } from "../../src/database/world/WorldDatabase.js";
 import { CareerCalendarService } from "../../src/world/services/CareerCalendarService.js";
@@ -16,7 +17,28 @@ describe("CareerCalendarService", () => {
 
   function setup(fixtures: Array<{ home: number; away: number; date?: string }>) {
     save = SaveDatabase.create(":memory:");
-    world = WorldDatabase.create(":memory:");
+    const worldConnection = new DatabaseConnection(":memory:");
+    worldConnection.exec(`
+      CREATE TABLE competition (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL);
+      CREATE TABLE transfer_window (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, competition_id INTEGER, nation_id INTEGER,
+        name TEXT NOT NULL, start_date TEXT NOT NULL, end_date TEXT NOT NULL
+      );
+      CREATE TABLE stage_format (stage_id INTEGER PRIMARY KEY, format_type TEXT NOT NULL, legs INTEGER NOT NULL DEFAULT 1);
+      CREATE TABLE stage_points_rule (stage_id INTEGER PRIMARY KEY, win_points INTEGER NOT NULL DEFAULT 3, draw_points INTEGER NOT NULL DEFAULT 1, loss_points INTEGER NOT NULL DEFAULT 0);
+      CREATE TABLE standing_rule (id INTEGER PRIMARY KEY AUTOINCREMENT, stage_id INTEGER NOT NULL, rule_type TEXT NOT NULL, rule_order INTEGER NOT NULL DEFAULT 0);
+      CREATE TABLE schedule_profile (stage_id INTEGER PRIMARY KEY, interval_days INTEGER);
+      CREATE TABLE competition_season (id INTEGER PRIMARY KEY, competition_id INTEGER, year INTEGER, start_date TEXT, end_date TEXT);
+      CREATE TABLE competition_stage (id INTEGER PRIMARY KEY, competition_season_id INTEGER, stage_order INTEGER);
+      CREATE TABLE qualification_rule (id INTEGER PRIMARY KEY, stage_id INTEGER, position_from INTEGER, position_to INTEGER, qualification_type TEXT, destination_competition_id INTEGER, destination_stage_id INTEGER);
+      CREATE TABLE stage_participant_source (id INTEGER PRIMARY KEY, stage_id INTEGER, source_type TEXT, source_competition_id INTEGER, source_season_id INTEGER, source_stage_id INTEGER, position_from INTEGER, position_to INTEGER);
+      CREATE TABLE competition_team (competition_season_id INTEGER, team_id INTEGER);
+      CREATE TABLE team (id INTEGER PRIMARY KEY, name TEXT, reputation INTEGER, nation_id INTEGER);
+    `);
+    world = {
+      connection: worldConnection,
+      close: () => worldConnection.close(),
+    } as unknown as WorldDatabase;
     const db = save.connection;
     const saveId = Number(db.prepare(
       "INSERT INTO save (name, created_at, last_saved_at, game_date, status, version) VALUES (?, ?, ?, ?, ?, ?)",
