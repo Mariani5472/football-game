@@ -123,12 +123,18 @@ export class ScheduleEngine {
 
     const seeded = [...participants];
     const size = 2 ** Math.ceil(Math.log2(seeded.length));
-    while (seeded.length < size) {
-      seeded.push({ teamId: 0, name: "BYE", reputation: 0 });
+    const byeCount = size - seeded.length;
+    const arranged: CompetitionParticipant[] = [];
+    for (let index = 0; index < byeCount; index++) {
+      arranged.push(seeded[index], { teamId: 0, name: "BYE", reputation: 0 });
+    }
+    arranged.push(...seeded.slice(byeCount));
+    while (arranged.length < size) {
+      arranged.push({ teamId: 0, name: "BYE", reputation: 0 });
     }
 
     const rounds: GeneratedRound[] = [];
-    let current = seeded;
+    let current = arranged;
     let roundNumber = 1;
 
     while (current.length > 1) {
@@ -221,6 +227,18 @@ export class ScheduleEngine {
     }
 
     return this.scheduleRounds(rounds);
+  }
+
+  private nextKnockoutParticipants(
+    participants: CompetitionParticipant[],
+  ): CompetitionParticipant[] {
+    // Future winners are intentionally unresolved at generation time. The Save
+    // calendar creates the next round after the previous round is actually played.
+    return Array.from({ length: Math.floor(participants.length / 2) }, () => ({
+      teamId: 0,
+      name: "TBD",
+      reputation: 0,
+    }));
   }
 
   private scheduleRounds(rounds: GeneratedRound[]): GeneratedRound[] {
