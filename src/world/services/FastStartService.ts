@@ -102,8 +102,8 @@ export class FastStartService {
 
       steps.push(
         "CLUBS",
-        "PLAYERS",
         "PEOPLE",
+        "PLAYERS",
         "STADIUMS",
         "COMPETITIONS",
       );
